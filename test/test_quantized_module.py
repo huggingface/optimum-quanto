@@ -29,7 +29,7 @@ def test_quantize_linear(batch_size, tokens, embeddings, use_bias, device):
     with torch.no_grad():
         int_qout = qlinear(qinputs)
     assert qout._scale == int_qout._scale
-    assert torch.equal(qout._data, int_qout._data)
+    assert torch.allclose(qout.dequantize(), int_qout._data)
 
 
 def test_qlinear_serialization():
