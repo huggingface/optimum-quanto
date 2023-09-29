@@ -48,3 +48,37 @@ def test_quantized_tensor_serialization():
         qinputs_reloaded = torch.load(qinputs_file)
     assert torch.equal(qinputs._data, qinputs_reloaded._data)
     assert torch.equal(qinputs._scale, qinputs_reloaded._scale)
+
+
+def test_quantized_tensor_requires_grad():
+    weight = random_tensor((10,), dtype=torch.float32)
+    weight.requires_grad = True
+    qweight = QuantizedTensor.quantize(weight)
+    assert qweight.requires_grad == True
+
+
+def test_quantized_tensor_backward():
+    weight = random_tensor((10,), dtype=torch.float32)
+    weight.requires_grad = True
+    qweight = QuantizedTensor.quantize(weight)
+    gradient = torch.randn((10,))
+    # Backpropagate gradient to the inner float weights
+    qweight.dequantize().backward(gradient)
+    assert torch.equal(weight.grad, gradient)
+
+
+def test_quantized_tensor_chained_backward():
+    a = random_tensor((10,), dtype=torch.float32)
+    a.requires_grad = True
+    qa = QuantizedTensor.quantize(a)
+    b = random_tensor((10,), dtype=torch.float32)
+    b.requires_grad = True
+    qb = QuantizedTensor.quantize(b)
+    # Evaluate the product
+    prod = qa * qb
+    # Backpropagate
+    gradient = torch.randn((10,))
+    prod.backward(gradient)
+    # TODO: check if we can get more accurate gradients
+    assert torch.allclose(a.grad, b.dequantize() * gradient, rtol=1e-2)
+    assert torch.allclose(b.grad, a.dequantize() * gradient, rtol=1e-2)

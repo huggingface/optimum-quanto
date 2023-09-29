@@ -13,11 +13,24 @@ class LinearQuantizer(Function):
             scale = scale_max(base, int_dtype)
         iinfo = torch.iinfo(int_dtype)
         data = torch.clamp(torch.round(base / scale), min=iinfo.min, max=iinfo.max).to(int_dtype)
-        return data, scale
+        # The instantiation of the quantized tensor must happen within the context of the Function
+        # for the autograd magic to work.
+        return QuantizedTensor(data, scale)
 
     @staticmethod
     def backward(ctx, gO):
-        # Assume we always do gradient computation in full precision
+        # For autograd, quantization is a no-op
+        return gO, None, None
+
+
+class Dequantizer(Function):
+    @staticmethod
+    def forward(ctx, t):
+        return t._scale * t._data
+
+    @staticmethod
+    def backward(ctx, gO):
+        # For autograd, dequantization is a no-op
         return gO
 
 
@@ -72,6 +85,12 @@ def q_dot(func, input, other):
     return QuantizedTensor(out_data.to(torch.int32), out_scale)
 
 
+def q_is_same_size(func, input, other):
+    a = input._data if isinstance(input, QuantizedTensor) else input
+    b = other._data if isinstance(other, QuantizedTensor) else other
+    return func(a, b)
+
+
 def q_mm(func, input, other):
     # Cast int8 data to float32 and do the operation
     out_data = func(input._data.to(torch.float32), other._data.to(torch.float32))
@@ -80,6 +99,8 @@ def q_mm(func, input, other):
 
 
 def q_mul(func, input, other):
+    if not isinstance(input, QuantizedTensor) or not isinstance(other, QuantizedTensor):
+        return func(input.dequantize(), other.dequantize())
     # Cast int8 data to int32 and do the operation
     out_data = func(input._data.to(torch.int32), other._data.to(torch.int32))
     out_scale = input._scale * other._scale
@@ -105,11 +126,12 @@ quantized_dispatch = {
     torch.ops.aten.copy_.default: q_copy,
     torch.ops.aten.detach.default: q_detach,
     torch.ops.aten.dot.default: q_dot,
-    torch.ops.aten._to_copy.default: q_to_copy,
+    torch.ops.aten.is_same_size.default: q_is_same_size,
     torch.ops.aten.mm.default: q_mm,
     torch.ops.aten.mul.Tensor: q_mul,
     torch.ops.aten.t.default: q_transpose,
     torch.ops.aten.view.default: q_view,
+    torch.ops.aten._to_copy.default: q_to_copy,
     torch.ops.aten._unsafe_view.default: q_view,
 }
 
@@ -136,18 +158,16 @@ class QuantizedTensor(torch.Tensor):
     @classmethod
     def quantize(cls, base, int_dtype=torch.int8, scale=None):
         """Differentiable quantization function"""
-        data, scale = LinearQuantizer.apply(base, int_dtype, scale)
-        return QuantizedTensor(data, scale)
+        return LinearQuantizer.apply(base, int_dtype, scale)
 
     def dequantize(self):
         """Differentiable dequantization function"""
-        return self._data * self._scale
+        return Dequantizer.apply(self)
 
     def rescale(self, scale, int_dtype=torch.int8):
         # We need to take the existing scale into account
         rescaling_factor = scale / self._scale
-        data, _ = LinearQuantizer.apply(self._data, int_dtype, rescaling_factor)
-        return QuantizedTensor(data, scale)
+        return LinearQuantizer.apply(self._data, int_dtype, rescaling_factor)
 
     @classmethod
     def __torch_dispatch__(cls, func, types, args, kwargs=None):
