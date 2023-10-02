@@ -47,9 +47,9 @@ class QLinear(torch.nn.Linear):
         if isinstance(input, QuantizedTensor):
             if input._data.dtype == torch.int32:
                 # Reduce input bitwidth
-                input = input.rescale(self.in_scale)
+                input = input.rescale(torch.int8, self.in_scale)
             out_int32 = torch.nn.functional.linear(input, self.weight, self.bias)
-            return out_int32.rescale(self.out_scale)
+            return out_int32.rescale(torch.int8, self.out_scale)
         else:
             bias = None if self.bias is None else self.bias.dequantize()
             return torch.nn.functional.linear(input, self.weight.dequantize(), bias)

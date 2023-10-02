@@ -34,6 +34,31 @@ class Dequantizer(Function):
         return gO
 
 
+class ReQuantizer(Function):
+    @staticmethod
+    def forward(ctx, base, int_dtype=torch.int8, scale=None):
+        dst_iinfo = torch.iinfo(int_dtype)
+        if scale is None:
+            if int_dtype == base._data.dtype:
+                return base
+            # Assuming the base scale is correct, simply project to the target integer range
+            src_iinfo = torch.iinfo(base._data.dtype)
+            int_rescale = dst_iinfo.max / src_iinfo.max
+            scale = base._scale * src_iinfo.max / dst_iinfo.max
+        else:
+            # It is up to the caller to make sure the scale is consistent with the target int dtype
+            int_rescale = base._scale / scale
+        data = torch.clamp(torch.round(base._data * int_rescale), min=dst_iinfo.min, max=dst_iinfo.max).to(int_dtype)
+        # The instantiation of the quantized tensor must happen within the context of the Function
+        # for the autograd magic to work.
+        return QuantizedTensor(data, scale)
+
+    @staticmethod
+    def backward(ctx, gO):
+        # For autograd, requantization is a no-op
+        return gO, None, None
+
+
 def q_to_copy(func, t, dtype=None, **kwargs):
     # Ignore dtype and use the inner data tensors dtypes instead
     out_data = func(t._data, dtype=t._data.dtype, **kwargs)
@@ -164,10 +189,9 @@ class QuantizedTensor(torch.Tensor):
         """Differentiable dequantization function"""
         return Dequantizer.apply(self)
 
-    def rescale(self, scale, int_dtype=torch.int8):
-        # We need to take the existing scale into account
-        rescaling_factor = scale / self._scale
-        return LinearQuantizer.apply(self._data, int_dtype, rescaling_factor)
+    def rescale(self, int_dtype=torch.int8, scale=None):
+        """Differentiable requantization function"""
+        return ReQuantizer.apply(self, int_dtype, scale)
 
     @classmethod
     def __torch_dispatch__(cls, func, types, args, kwargs=None):

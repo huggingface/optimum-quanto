@@ -28,8 +28,8 @@ def calibrate_input(module: torch.nn.Module, input):
             module.in_scale = momentum * module.in_scale + input_scale * (1.0 - momentum)
             if module.bias is not None:
                 bias_scale = module.in_scale * module.weight._scale
-                # (Re)quantize bias
-                module.bias = module.bias.rescale(bias_scale, torch.int32)
+                # (Re)quantize bias with the updated scale
+                module.bias = module.bias.rescale(torch.int32, bias_scale)
         return input
 
 
