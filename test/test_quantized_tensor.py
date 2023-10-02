@@ -50,34 +50,34 @@ def test_quantized_tensor_serialization():
     assert torch.equal(qinputs._scale, qinputs_reloaded._scale)
 
 
-def test_quantized_tensor_requires_grad():
-    weight = random_tensor((10,), dtype=torch.float32)
+def test_quantized_tensor_requires_grad(device):
+    weight = random_tensor((10,), dtype=torch.float32).to(device)
     weight.requires_grad = True
     qweight = QuantizedTensor.quantize(weight)
-    assert qweight.requires_grad == True
+    assert qweight.requires_grad is True
 
 
-def test_quantized_tensor_backward():
-    weight = random_tensor((10,), dtype=torch.float32)
+def test_quantized_tensor_backward(device):
+    weight = random_tensor((10,), dtype=torch.float32).to(device)
     weight.requires_grad = True
     qweight = QuantizedTensor.quantize(weight)
-    gradient = torch.randn((10,))
+    gradient = torch.randn((10,)).to(device)
     # Backpropagate gradient to the inner float weights
     qweight.dequantize().backward(gradient)
     assert torch.equal(weight.grad, gradient)
 
 
-def test_quantized_tensor_chained_backward():
-    a = random_tensor((10,), dtype=torch.float32)
+def test_quantized_tensor_chained_backward(device):
+    a = random_tensor((10,), dtype=torch.float32).to(device)
     a.requires_grad = True
     qa = QuantizedTensor.quantize(a)
-    b = random_tensor((10,), dtype=torch.float32)
+    b = random_tensor((10,), dtype=torch.float32).to(device)
     b.requires_grad = True
     qb = QuantizedTensor.quantize(b)
     # Evaluate the product
     prod = qa * qb
     # Backpropagate
-    gradient = torch.randn((10,))
+    gradient = torch.randn((10,)).to(device)
     prod.backward(gradient)
     assert torch.allclose(a.grad, qb.dequantize() * gradient)
     assert torch.allclose(b.grad, qa.dequantize() * gradient)
