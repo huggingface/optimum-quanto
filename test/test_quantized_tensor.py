@@ -26,7 +26,17 @@ def test_instantiate(input_shape, int_dtype, device):
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
-def test_rescale(input_shape, device):
+def test_rescale_int16_int8(input_shape, device):
+    a = random_tensor((10,), dtype=torch.float32).to(device)
+    qa = QuantizedTensor.quantize(a, int_dtype=torch.int16)
+    # Rescale to int8
+    qa_rescaled = qa.rescale(torch.int8)
+    q_assert_close(a, qa_rescaled)
+
+
+@pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
+def test_rescale_int32_int8(input_shape, device):
+    # We need to generate a quantized tensor manually to avoid large int32 data
     int_max_value = 1000
     data = torch.randint(-int_max_value, int_max_value, input_shape, dtype=torch.int32)
     scale = torch.tensor(1.0 / int_max_value)
@@ -36,7 +46,9 @@ def test_rescale(input_shape, device):
     float_max_value = torch.max(torch.abs(a))
     assert float_max_value <= 1
     # Rescale to int8
-    qa_rescaled = qa.rescale(float_max_value / torch.iinfo(torch.int8).max, torch.int8)
+    qa_rescaled = qa.rescale(torch.int8, float_max_value / torch.iinfo(torch.int8).max)
+    # Since we chose the optimal scale, we must have used the whole integer range
+    assert torch.max(torch.abs(qa_rescaled._data)) == torch.iinfo(torch.int8).max
     q_assert_close(a, qa_rescaled)
 
 
@@ -81,3 +93,16 @@ def test_quantized_tensor_chained_backward(device):
     prod.backward(gradient)
     assert torch.allclose(a.grad, qb.dequantize() * gradient)
     assert torch.allclose(b.grad, qa.dequantize() * gradient)
+
+
+def test_rescale_backward(device):
+    a = random_tensor((10,), dtype=torch.float32).to(device)
+    a.requires_grad = True
+    qa = QuantizedTensor.quantize(a, int_dtype=torch.int16)
+    # Rescale to int8
+    qa_rescaled = qa.rescale(torch.int8)
+    assert qa_rescaled.requires_grad is True
+    # Backpropagate
+    gradient = torch.randn((10,)).to(device)
+    qa_rescaled.backward(gradient)
+    assert torch.allclose(a.grad, gradient)
