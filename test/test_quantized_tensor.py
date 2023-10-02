@@ -79,6 +79,5 @@ def test_quantized_tensor_chained_backward():
     # Backpropagate
     gradient = torch.randn((10,))
     prod.backward(gradient)
-    # TODO: check if we can get more accurate gradients
-    assert torch.allclose(a.grad, b.dequantize() * gradient, rtol=1e-2)
-    assert torch.allclose(b.grad, a.dequantize() * gradient, rtol=1e-2)
+    assert torch.allclose(a.grad, qb.dequantize() * gradient)
+    assert torch.allclose(b.grad, qa.dequantize() * gradient)
