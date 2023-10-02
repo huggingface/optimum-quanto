@@ -3,7 +3,7 @@ from torch.autograd import Function
 
 
 def scale_max(base, int_dtype):
-    return torch.max(torch.abs(base)) / torch.iinfo(torch.int8).max
+    return torch.max(torch.abs(base)) / torch.iinfo(int_dtype).max
 
 
 class LinearQuantizer(Function):
