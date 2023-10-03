@@ -42,6 +42,8 @@ def test_qlinear_serialization():
     # Calibrate and obtain quantized outputs
     with torch.no_grad(), calibration():
         qlinear(qinputs)
+    # Freeze linear to store quantized weights and biases
+    qlinear.freeze()
     with TemporaryDirectory() as tmpdir:
         qlinear_file = os.path.join(tmpdir, "qlinear.pt")
         torch.save(qlinear.state_dict(), qlinear_file)
@@ -84,5 +86,25 @@ def test_quantize_custom_module():
     assert model.linear2.out_scale != 1
     with torch.no_grad():
         int_qout = model(qinputs)
-    assert torch.equal(qout._data, int_qout._data)
     assert torch.equal(qout._scale, int_qout._scale)
+    # There may be a slight difference, but of at most one quantization interval
+    assert torch.max(torch.abs(qout._data - int_qout._data)) <= 1
+
+
+@pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
+def test_qlinear_gradient(tokens, embeddings, device):
+    # We use a batch size of 1 to simplify gradient manual calculations
+    batch_size = 1
+    linear = torch.nn.Linear(embeddings, embeddings).to(device)
+    qlinear = QLinear.from_module(linear)
+    assert qlinear.weight.requires_grad is True
+    assert qlinear.bias.requires_grad is True
+    qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
+    qout = qlinear(qinputs)
+    gradient = torch.randn(qout.size()).to(device)
+    qout.backward(gradient)
+    # Compute gradients manually and compare
+    bias_gradient = torch.sum(gradient, axis=[0, 1])
+    assert torch.allclose(qlinear.bias.grad, bias_gradient)
+    weight_gradient = torch.matmul(gradient.squeeze().t(), qinputs.dequantize().squeeze())
+    assert torch.allclose(qlinear.weight.grad, weight_gradient)

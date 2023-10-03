@@ -20,16 +20,8 @@ def calibrate_input(module: torch.nn.Module, input):
         input_scale = scale_max(input, torch.int8)
         if torch.all(module.in_scale == 1):
             module.in_scale = input_scale
-            if module.bias is not None:
-                bias_scale = module.in_scale * module.weight._scale
-                # Quantize bias
-                module.bias = torch.nn.Parameter(QuantizedTensor.quantize(module.bias, torch.int32, bias_scale))
         else:
             module.in_scale = momentum * module.in_scale + input_scale * (1.0 - momentum)
-            if module.bias is not None:
-                bias_scale = module.in_scale * module.weight._scale
-                # (Re)quantize bias with the updated scale
-                module.bias = module.bias.rescale(torch.int32, bias_scale)
         return input
 
 
