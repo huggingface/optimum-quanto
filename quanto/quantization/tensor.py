@@ -117,6 +117,8 @@ def q_is_same_size(func, input, other):
 
 
 def q_mm(func, input, other):
+    if not isinstance(input, QuantizedTensor) or not isinstance(other, QuantizedTensor):
+        return func(input.dequantize(), other.dequantize())
     # Cast int8 data to float32 and do the operation
     out_data = func(input._data.to(torch.float32), other._data.to(torch.float32))
     out_scale = input._scale * other._scale
