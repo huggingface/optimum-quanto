@@ -79,3 +79,22 @@ def test_linear(batch_size, tokens, embeddings, use_bias, device):
     out = torch.nn.functional.linear(qinputs.dequantize(), qweight.dequantize(), bias)
     qout = torch.nn.functional.linear(qinputs, qweight, qbias)
     q_assert_close(out, qout)
+
+
+@pytest.mark.parametrize("batch_size", [1, 10])
+@pytest.mark.parametrize("tokens, embeddings", [(5, 5), (32, 32), (10, 32)])
+def test_relu(batch_size, tokens, embeddings, device):
+    qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
+    qout = torch.nn.functional.relu(qinputs)
+    assert isinstance(qout, QuantizedTensor)
+    assert torch.equal(qout._data, torch.maximum(qinputs._data, torch.zeros((1,)).to(device)))
+
+
+@pytest.mark.parametrize("batch_size", [1, 10])
+@pytest.mark.parametrize("tokens, embeddings", [(5, 5), (32, 32), (10, 32)])
+def test_softmax(batch_size, tokens, embeddings, device):
+    qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
+    qout = torch.nn.functional.softmax(qinputs, dim=-1)
+    assert isinstance(qout, QuantizedTensor)
+    assert torch.min(qout.dequantize()) >= 0
+    assert torch.max(qout.dequantize()) <= 1

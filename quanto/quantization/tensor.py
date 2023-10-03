@@ -134,6 +134,19 @@ def q_mul(func, input, other):
     return QuantizedTensor(out_data, out_scale)
 
 
+def q_relu(func, input):
+    out_data = func(input._data)
+    return QuantizedTensor(out_data, input._scale)
+
+
+def q_softmax(func, input, dim, half_to_float):
+    # Softmax must be performed in float
+    out_data = func(input.dequantize(), dim, half_to_float)
+    # Since softmax is normalized, we know the optimal scale
+    out_scale = torch.tensor(1 / torch.iinfo(input._data.dtype).max, dtype=input._scale.dtype)
+    return QuantizedTensor.quantize(out_data, input._data.dtype, out_scale)
+
+
 def q_transpose(func, input):
     # Transpose is not supported if the tensor is per-axis
     assert len(input._scale.shape) == 0
@@ -156,6 +169,8 @@ quantized_dispatch = {
     torch.ops.aten.is_same_size.default: q_is_same_size,
     torch.ops.aten.mm.default: q_mm,
     torch.ops.aten.mul.Tensor: q_mul,
+    torch.ops.aten.relu.default: q_relu,
+    torch.ops.aten._softmax.default: q_softmax,
     torch.ops.aten.t.default: q_transpose,
     torch.ops.aten.view.default: q_view,
     torch.ops.aten._to_copy.default: q_to_copy,
