@@ -50,5 +50,6 @@ class QLinear(torch.nn.Linear):
     def freeze(self):
         # Replace float weights by quantized weights
         self.weight = torch.nn.Parameter(QuantizedTensor.quantize(self.weight).to(self.weight.device))
-        bias_scale = self.in_scale * self.weight._scale
-        self.bias = torch.nn.Parameter(QuantizedTensor.quantize(self.bias, torch.int32, bias_scale))
+        if self.bias is not None:
+            bias_scale = self.in_scale * self.weight._scale
+            self.bias = torch.nn.Parameter(QuantizedTensor.quantize(self.bias, torch.int32, bias_scale))

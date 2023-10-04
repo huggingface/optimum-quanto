@@ -33,10 +33,11 @@ def test_quantize_linear(batch_size, tokens, embeddings, use_bias, device):
     assert torch.max(torch.abs(qout._data - int_qout._data)) <= 1
 
 
-def test_qlinear_serialization():
+@pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
+def test_qlinear_serialization(use_bias):
     tokens = 10
     embeddings = 32
-    linear = torch.nn.Linear(embeddings, embeddings)
+    linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias)
     qlinear = QLinear.from_module(linear)
     qinputs = random_qtensor((1,) + (tokens, embeddings), dtype=torch.float32)
     # Calibrate and obtain quantized outputs
@@ -47,14 +48,15 @@ def test_qlinear_serialization():
     with TemporaryDirectory() as tmpdir:
         qlinear_file = os.path.join(tmpdir, "qlinear.pt")
         torch.save(qlinear.state_dict(), qlinear_file)
-        qlinear_reloaded = QLinear(embeddings, embeddings)
+        qlinear_reloaded = QLinear(embeddings, embeddings, bias=use_bias)
         # When reloading we must assign instead of copying to force quantized tensors assignment
         qlinear_reloaded.load_state_dict(torch.load(qlinear_file), assign=True)
     for attr in ["weight", "bias"]:
         t = getattr(qlinear, attr)
-        t_reloaded = getattr(qlinear_reloaded, attr)
-        assert torch.equal(t._data, t_reloaded._data)
-        assert torch.equal(t._scale, t_reloaded._scale)
+        if t is not None:
+            t_reloaded = getattr(qlinear_reloaded, attr)
+            assert torch.equal(t._data, t_reloaded._data)
+            assert torch.equal(t._scale, t_reloaded._scale)
     for attr in ["in_scale", "out_scale"]:
         v = getattr(qlinear, attr)
         v_reloaded = getattr(qlinear_reloaded, attr)
