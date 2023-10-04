@@ -1,6 +1,6 @@
 .PHONY: check test style
 
-check_dirs := quanto test bench
+check_dirs := quanto test bench examples
 
 check:
 	black --check ${check_dirs}
