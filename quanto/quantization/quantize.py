@@ -3,6 +3,9 @@ import torch
 from .nn import QLinear
 
 
+__all__ = ["quantize", "freeze"]
+
+
 def set_module_by_name(parent_module, name, child_module):
     module_names = name.split(".")
     if len(module_names) == 1:
@@ -24,3 +27,9 @@ def quantize(model):
         if isinstance(m, torch.nn.Linear):
             qlinear = QLinear.from_module(m)
             set_module_by_name(model, name, qlinear)
+
+
+def freeze(model):
+    for name, m in model.named_modules():
+        if isinstance(m, QLinear):
+            m.freeze()

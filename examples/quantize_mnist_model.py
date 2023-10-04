@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torchvision import datasets, transforms
 from transformers import AutoModel
 
-from quanto.quantization import QLinear, QuantizedTensor, quantize
+from quanto.quantization import QLinear, QuantizedTensor, freeze, quantize
 from quanto.quantization.calibrate import calibration
 
 
@@ -93,6 +93,9 @@ def main():
     print("Quantized calibrated model")
     with calibration():
         test(model, device, test_loader)
+    print("Quantized frozen model")
+    freeze(model)
+    test(model, device, test_loader)
     if args.stats:
         print_quantization_stats(model)
 
