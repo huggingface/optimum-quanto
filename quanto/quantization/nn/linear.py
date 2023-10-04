@@ -19,6 +19,10 @@ class QLinear(torch.nn.Linear):
     @classmethod
     def from_module(cls, module):
         qmodule = cls(module.in_features, module.out_features, module.bias is not None)
+        with torch.no_grad():
+            qmodule.weight.copy_(module.weight)
+            if module.bias is not None:
+                qmodule.bias.copy_(module.bias)
         return qmodule.to(module.weight.device)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
