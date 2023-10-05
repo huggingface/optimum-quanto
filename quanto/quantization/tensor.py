@@ -159,6 +159,14 @@ def q_view(func, input, *shape):
     return QuantizedTensor(out_data, input._scale)
 
 
+def q_softmax_backward_data(func, grad, output, dim, input_dtype):
+    return func(grad, output.dequantize(), dim, input_dtype)
+
+
+def q_threshold_backward(func, grad, output, threshold):
+    return func(grad, output.dequantize(), threshold)
+
+
 quantized_dispatch = {
     torch.ops.aten.add.Tensor: q_add,
     torch.ops.aten.addmm.default: q_addmm,
@@ -175,6 +183,8 @@ quantized_dispatch = {
     torch.ops.aten.view.default: q_view,
     torch.ops.aten._to_copy.default: q_to_copy,
     torch.ops.aten._unsafe_view.default: q_view,
+    torch.ops.aten._softmax_backward_data.default: q_softmax_backward_data,
+    torch.ops.aten.threshold_backward.default: q_threshold_backward,
 }
 
 
