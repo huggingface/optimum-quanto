@@ -198,12 +198,12 @@ def view(func, input, *shape):
     return QTensor(out_data, input._scale)
 
 
-@register_dispatch(torch.ops.aten._softmax_backward_data)
+@register_dispatch([torch.ops.aten._softmax_backward_data])
 def _softmax_backward_data(func, grad, output, dim, input_dtype):
     return func(grad, output.dequantize(), dim, input_dtype)
 
 
-@register_dispatch(torch.ops.aten.threshold_backward)
+@register_dispatch([torch.ops.aten.threshold_backward])
 def threshold_backward(func, grad, output, threshold):
     return func(grad, output.dequantize(), threshold)
 
