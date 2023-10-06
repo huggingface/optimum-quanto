@@ -1,4 +1,6 @@
 import argparse
+import os
+from tempfile import TemporaryDirectory
 
 import torch
 import torch.nn.functional as F
@@ -126,6 +128,17 @@ def main():
     test(model, device, test_loader)
     if args.stats:
         print_quantization_stats(model)
+    # Now save the model and reload it to verify quantized weights are restored
+    with TemporaryDirectory() as tmpdir:
+        mlp_file = os.path.join(tmpdir, "mlp.pt")
+        torch.save(model.state_dict(), mlp_file)
+        # Reinstantiate a model with float weights
+        model_reloaded = AutoModel.from_pretrained(args.model, trust_remote_code=True)
+        quantize(model_reloaded)
+        # When reloading we must assign instead of copying to force quantized tensors assignment
+        model_reloaded.load_state_dict(torch.load(mlp_file), assign=True)
+    print("Quantized model with serialized integer weights")
+    test(model_reloaded, device, test_loader)
 
 
 if __name__ == "__main__":
