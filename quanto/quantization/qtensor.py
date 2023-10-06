@@ -1,3 +1,5 @@
+from functools import partial
+
 import torch
 from torch.autograd import Function
 
@@ -61,21 +63,46 @@ class ReQuantizer(Function):
         return gO, None, None
 
 
-def q_to_copy(func, t, dtype=None, **kwargs):
+_QTENSOR_DISPATCH_TABLE = {}
+
+
+def register_dispatch(aten_ops):
+    """
+    Used for registering a new __torch_dispatch__ function to QTensor
+    Called via _QTENSOR_DISPATCH_TABLE[func](func, *args, **kwargs)
+
+    The code to register a new function looks like:
+
+    @register_dispatch(list_of_ops)
+    def foo(func, *args, **kwargs):
+        <implementation>
+    """
+
+    def wrapper(func):
+        for aten_op in aten_ops:
+            _QTENSOR_DISPATCH_TABLE[aten_op] = partial(func, aten_op)
+
+    return wrapper
+
+
+@register_dispatch([torch.ops.aten._to_copy])
+def _to_copy(func, t, dtype=None, **kwargs):
     # Ignore dtype and use the inner data tensors dtypes instead
     out_data = func(t._data, dtype=t._data.dtype, **kwargs)
     out_scale = func(t._scale, dtype=t._scale.dtype, **kwargs)
     return QTensor(out_data, out_scale)
 
 
-def q_detach(func, t):
+@register_dispatch([torch.ops.aten.detach])
+def detach(func, t):
     # Detach both data and scale
     out_data = func(t._data)
     out_scale = func(t._scale)
     return QTensor(out_data, out_scale)
 
 
-def q_add(func, input, other, alpha=1, out=None):
+@register_dispatch([torch.ops.aten.add])
+def add(func, input, other, alpha=1, out=None):
     if alpha != 1 or out is not None:
         raise ValueError("alpha and out parameters are not supported for quantized {func}.")
     if not torch.equal(input._scale, other._scale):
@@ -86,7 +113,8 @@ def q_add(func, input, other, alpha=1, out=None):
     return QTensor(out_data, out_scale)
 
 
-def q_addmm(func, input, mat1, mat2, beta=1, alpha=1):
+@register_dispatch([torch.ops.aten.addmm])
+def addmm(func, input, mat1, mat2, beta=1, alpha=1):
     # Do the operation with int8 cast to float32
     out_data = func(
         input._data.to(torch.float32),
@@ -99,26 +127,30 @@ def q_addmm(func, input, mat1, mat2, beta=1, alpha=1):
     return QTensor(out_data.to(torch.int32), out_scale)
 
 
-def q_copy(func, dest, src):
+@register_dispatch([torch.ops.aten.copy_])
+def copy_(func, dest, src):
     dest._data = func(dest._data, src._data)
     dest._scale = func(dest._scale, src._scale)
     return dest
 
 
-def q_dot(func, input, other):
+@register_dispatch([torch.ops.aten.dot])
+def dot(func, input, other):
     # Cast int8 data to float32 and do the operation
     out_data = func(input._data.to(torch.float32), other._data.to(torch.float32))
     out_scale = input._scale * other._scale
     return QTensor(out_data.to(torch.int32), out_scale)
 
 
-def q_is_same_size(func, input, other):
+@register_dispatch([torch.ops.aten.is_same_size])
+def is_same_size(func, input, other):
     a = input._data if isinstance(input, QTensor) else input
     b = other._data if isinstance(other, QTensor) else other
     return func(a, b)
 
 
-def q_mm(func, input, other):
+@register_dispatch([torch.ops.aten.bmm, torch.ops.aten.mm])
+def mm(func, input, other):
     if not isinstance(input, QTensor) or not isinstance(other, QTensor):
         return func(input.dequantize(), other.dequantize())
     # Cast int8 data to float32 and do the operation
@@ -127,7 +159,8 @@ def q_mm(func, input, other):
     return QTensor(out_data.to(torch.int32), out_scale)
 
 
-def q_mul(func, input, other):
+@register_dispatch([torch.ops.aten.mul])
+def mul(func, input, other):
     if not isinstance(input, QTensor) or not isinstance(other, QTensor):
         return func(input.dequantize(), other.dequantize())
     # Cast int8 data to int32 and do the operation
@@ -136,12 +169,14 @@ def q_mul(func, input, other):
     return QTensor(out_data, out_scale)
 
 
-def q_relu(func, input):
+@register_dispatch([torch.ops.aten.relu])
+def relu(func, input):
     out_data = func(input._data)
     return QTensor(out_data, input._scale)
 
 
-def q_softmax(func, input, dim, half_to_float):
+@register_dispatch([torch.ops.aten._softmax])
+def _softmax(func, input, dim, half_to_float):
     # Softmax must be performed in float
     out_data = func(input.dequantize(), dim, half_to_float)
     # Since softmax is normalized, we know the optimal scale
@@ -149,45 +184,28 @@ def q_softmax(func, input, dim, half_to_float):
     return QTensor.quantize(out_data, input._data.dtype, out_scale)
 
 
-def q_transpose(func, input):
+@register_dispatch([torch.ops.aten.transpose, torch.ops.aten.t])
+def transpose(func, input):
     # Transpose is not supported if the tensor is per-axis
     assert len(input._scale.shape) == 0
     out_data = func(input._data)
     return QTensor(out_data, input._scale)
 
 
-def q_view(func, input, *shape):
+@register_dispatch([torch.ops.aten.view, torch.ops.aten._unsafe_view])
+def view(func, input, *shape):
     out_data = func(input._data, *shape)
     return QTensor(out_data, input._scale)
 
 
-def q_softmax_backward_data(func, grad, output, dim, input_dtype):
+@register_dispatch(torch.ops.aten._softmax_backward_data)
+def _softmax_backward_data(func, grad, output, dim, input_dtype):
     return func(grad, output.dequantize(), dim, input_dtype)
 
 
-def q_threshold_backward(func, grad, output, threshold):
+@register_dispatch(torch.ops.aten.threshold_backward)
+def threshold_backward(func, grad, output, threshold):
     return func(grad, output.dequantize(), threshold)
-
-
-quantized_dispatch = {
-    torch.ops.aten.add: q_add,
-    torch.ops.aten.addmm: q_addmm,
-    torch.ops.aten.bmm: q_mm,
-    torch.ops.aten.copy_: q_copy,
-    torch.ops.aten.detach: q_detach,
-    torch.ops.aten.dot: q_dot,
-    torch.ops.aten.is_same_size: q_is_same_size,
-    torch.ops.aten.mm: q_mm,
-    torch.ops.aten.mul: q_mul,
-    torch.ops.aten.relu: q_relu,
-    torch.ops.aten._softmax: q_softmax,
-    torch.ops.aten.t: q_transpose,
-    torch.ops.aten.view: q_view,
-    torch.ops.aten._to_copy: q_to_copy,
-    torch.ops.aten._unsafe_view: q_view,
-    torch.ops.aten._softmax_backward_data: q_softmax_backward_data,
-    torch.ops.aten.threshold_backward: q_threshold_backward,
-}
 
 
 class QTensor(torch.Tensor):
@@ -224,11 +242,11 @@ class QTensor(torch.Tensor):
 
     @classmethod
     def __torch_dispatch__(cls, func, types, args, kwargs=None):
-        # Do not use diectly func, but rather its overload
+        # Do not use directly func, but rather its overload
         func = func.overloadpacket
-        if func in quantized_dispatch:
-            dispatch = quantized_dispatch[func]
-            return dispatch(func, *args, **kwargs)
+        if func in _QTENSOR_DISPATCH_TABLE:
+            dispatch = _QTENSOR_DISPATCH_TABLE[func]
+            return dispatch(*args, **kwargs)
         # Identify the types of the args
         types = [type(arg).__name__ for arg in args]
         raise ValueError(f"{func} {types} is no supported for QTensor.")
