@@ -2,7 +2,7 @@ import pytest
 import torch
 from helpers import q_assert_close, random_qtensor, random_tensor
 
-from quanto.quantization.tensor import QuantizedTensor
+from quanto.quantization import QTensor
 
 
 def test_to_device(device):
@@ -71,7 +71,7 @@ def test_linear(batch_size, tokens, embeddings, use_bias, device):
         bias = random_tensor((embeddings,), dtype=torch.float32).to(device)
         bias_scale = qinputs._scale * qweight._scale
         # Bias must be quantized with a higher bitwidth as they are added to the product of two int8
-        qbias = QuantizedTensor.quantize(bias, torch.int32, bias_scale)
+        qbias = QTensor.quantize(bias, torch.int32, bias_scale)
         q_assert_close(bias, qbias)
     else:
         bias = None
@@ -86,7 +86,7 @@ def test_linear(batch_size, tokens, embeddings, use_bias, device):
 def test_relu(batch_size, tokens, embeddings, device):
     qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
     qout = torch.nn.functional.relu(qinputs)
-    assert isinstance(qout, QuantizedTensor)
+    assert isinstance(qout, QTensor)
     assert torch.equal(qout._data, torch.maximum(qinputs._data, torch.zeros((1,)).to(device)))
 
 
@@ -95,6 +95,6 @@ def test_relu(batch_size, tokens, embeddings, device):
 def test_softmax(batch_size, tokens, embeddings, device):
     qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
     qout = torch.nn.functional.softmax(qinputs, dim=-1)
-    assert isinstance(qout, QuantizedTensor)
+    assert isinstance(qout, QTensor)
     assert torch.min(qout.dequantize()) >= 0
     assert torch.max(qout.dequantize()) <= 1

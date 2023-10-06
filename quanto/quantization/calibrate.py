@@ -7,7 +7,7 @@ from torch.nn.modules.module import (
 )
 
 from .nn import QLinear
-from .tensor import QuantizedTensor
+from .qtensor import QTensor
 
 
 momentum = 0.9
@@ -17,7 +17,7 @@ def calibrate_input(module: torch.nn.Module, input):
     if isinstance(module, QLinear):
         # We want to requantize with the most accurate scale
         input = input[0].dequantize()
-        input = QuantizedTensor.quantize(input, torch.int8)
+        input = QTensor.quantize(input, torch.int8)
         if torch.all(module.in_scale == 1):
             module.in_scale = input._scale
         else:
@@ -31,7 +31,7 @@ def calibrate_output(module: torch.nn.Module, input, output):
         input = input[0].dequantize()
         output = super(module.__class__, module).forward(input)
         # Requantize output with the most accurate scale
-        output = QuantizedTensor.quantize(output, torch.int8)
+        output = QTensor.quantize(output, torch.int8)
         if torch.all(module.out_scale == 1):
             module.out_scale = output._scale
         else:

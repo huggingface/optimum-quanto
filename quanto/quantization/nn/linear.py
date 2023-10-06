@@ -1,6 +1,6 @@
 import torch
 
-from ..tensor import QuantizedTensor
+from ..qtensor import QTensor
 
 
 class QLinear(torch.nn.Linear):
@@ -27,24 +27,24 @@ class QLinear(torch.nn.Linear):
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         # If needed, quantize inputs, weights and bias
-        if isinstance(input, QuantizedTensor):
+        if isinstance(input, QTensor):
             if input._data.dtype == torch.int32:
                 # Reduce input bitwidth
                 input = input.rescale(torch.int8, self.in_scale)
         else:
-            input = QuantizedTensor.quantize(input, torch.int8, self.in_scale)
+            input = QTensor.quantize(input, torch.int8, self.in_scale)
         weight = self.weight
-        if not isinstance(weight, QuantizedTensor):
-            weight = QuantizedTensor.quantize(weight)
+        if not isinstance(weight, QTensor):
+            weight = QTensor.quantize(weight)
         bias = self.bias
         if bias is not None:
             bias_scale = self.in_scale * weight._scale
-            if isinstance(bias, QuantizedTensor):
+            if isinstance(bias, QTensor):
                 if bias._scale != bias_scale:
                     # This should only happen if we calibrate again a frozen module
-                    bias = QuantizedTensor.rescale(torch.int32, bias_scale)
+                    bias = QTensor.rescale(torch.int32, bias_scale)
             else:
-                bias = QuantizedTensor.quantize(bias, torch.int32, bias_scale)
+                bias = QTensor.quantize(bias, torch.int32, bias_scale)
         # Operate on quantized tensors
         out_int32 = torch.nn.functional.linear(input, weight, bias)
         # Downscale
@@ -52,7 +52,7 @@ class QLinear(torch.nn.Linear):
 
     def freeze(self):
         # Replace float weights by quantized weights
-        self.weight = torch.nn.Parameter(QuantizedTensor.quantize(self.weight).to(self.weight.device))
+        self.weight = torch.nn.Parameter(QTensor.quantize(self.weight).to(self.weight.device))
         if self.bias is not None:
             bias_scale = self.in_scale * self.weight._scale
-            self.bias = torch.nn.Parameter(QuantizedTensor.quantize(self.bias, torch.int32, bias_scale))
+            self.bias = torch.nn.Parameter(QTensor.quantize(self.bias, torch.int32, bias_scale))

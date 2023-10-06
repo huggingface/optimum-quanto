@@ -5,7 +5,7 @@ import pytest
 import torch
 from helpers import random_qtensor
 
-from quanto.quantization import QLinear, QuantizedTensor, freeze, quantize
+from quanto.quantization import QLinear, QTensor, freeze, quantize
 
 
 class MLP(torch.nn.Module):
@@ -26,15 +26,15 @@ def check_mlp(model, frozen):
     assert isinstance(model.mid_layer, QLinear)
     assert isinstance(model.output_layer, QLinear)
     if frozen:
-        assert isinstance(model.input_layer.weight, QuantizedTensor)
-        assert isinstance(model.mid_layer.weight, QuantizedTensor)
-        assert isinstance(model.output_layer.weight, QuantizedTensor)
+        assert isinstance(model.input_layer.weight, QTensor)
+        assert isinstance(model.mid_layer.weight, QTensor)
+        assert isinstance(model.output_layer.weight, QTensor)
 
 
 def check_outputs(model, batch_size, input_features, device):
     qinputs = random_qtensor((batch_size, input_features), dtype=torch.float32).to(device)
     qout = model(qinputs)
-    assert isinstance(qout, QuantizedTensor)
+    assert isinstance(qout, QTensor)
 
 
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
