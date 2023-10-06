@@ -31,6 +31,27 @@ def test(model, device, test_loader):
     )
 
 
+def train(log_interval, model, device, train_loader, optimizer, epoch):
+    model.train()
+    for batch_idx, (data, target) in enumerate(train_loader):
+        data, target = data.to(device), target.to(device)
+        optimizer.zero_grad()
+        output = model(data).dequantize()
+        loss = F.nll_loss(output, target)
+        loss.backward()
+        optimizer.step()
+        if batch_idx % log_interval == 0:
+            print(
+                "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
+                    epoch,
+                    batch_idx * len(data),
+                    len(train_loader.dataset),
+                    100.0 * batch_idx / len(train_loader),
+                    loss.item(),
+                )
+            )
+
+
 def print_quantization_stats(model):
     for name, m in model.named_modules():
         if isinstance(m, QLinear):
@@ -77,6 +98,7 @@ def main():
             transforms.Lambda(lambda x: torch.flatten(x)),
         ]
     )
+    dataset1 = datasets.MNIST("./data", train=True, download=True, transform=transform)
     dataset2 = datasets.MNIST("./data", train=False, download=True, transform=transform)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
     model = AutoModel.from_pretrained(args.model, trust_remote_code=True)
@@ -93,6 +115,12 @@ def main():
     print("Quantized calibrated model")
     with calibration():
         test(model, device, test_loader)
+    print("Tuning quantized model for one epoch")
+    optimizer = torch.optim.Adadelta(model.parameters(), lr=0.5)
+    train_loader = torch.utils.data.DataLoader(dataset1, batch_size=250, **cuda_kwargs)
+    train(50, model, device, train_loader, optimizer, 1)
+    print("Quantized tuned model")
+    test(model, device, test_loader)
     print("Quantized frozen model")
     freeze(model)
     test(model, device, test_loader)
