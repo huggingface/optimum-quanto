@@ -1,7 +1,8 @@
+import pytest
 import torch
 from helpers import random_qtensor
 
-from quanto.quantization import QLinear, QuantizedTensor, quantize
+from quanto.quantization import QLinear, QuantizedTensor, freeze, quantize
 
 
 class MLP(torch.nn.Module):
@@ -17,12 +18,27 @@ class MLP(torch.nn.Module):
         return torch.nn.functional.softmax(self.output_layer(x))
 
 
-def test_quantize_mlp(device):
-    model = MLP(32, 10, 128).to(device)
-    quantize(model)
+def check_mlp(model, frozen):
     assert isinstance(model.input_layer, QLinear)
     assert isinstance(model.mid_layer, QLinear)
     assert isinstance(model.output_layer, QLinear)
-    qinputs = random_qtensor((1, 32), dtype=torch.float32).to(device)
+    if frozen:
+        assert isinstance(model.input_layer.weight, QuantizedTensor)
+        assert isinstance(model.mid_layer.weight, QuantizedTensor)
+        assert isinstance(model.output_layer.weight, QuantizedTensor)
+
+
+def check_outputs(model, batch_size, input_features, device):
+    qinputs = random_qtensor((batch_size, input_features), dtype=torch.float32).to(device)
     qout = model(qinputs)
     assert isinstance(qout, QuantizedTensor)
+
+
+@pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
+def test_quantize_mlp(frozen, device):
+    model = MLP(32, 10, 128).to(device)
+    quantize(model)
+    if frozen:
+        freeze(model)
+    check_mlp(model, frozen)
+    check_outputs(model, 1, 32, device)
