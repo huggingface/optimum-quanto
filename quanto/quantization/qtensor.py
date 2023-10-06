@@ -170,23 +170,23 @@ def q_threshold_backward(func, grad, output, threshold):
 
 
 quantized_dispatch = {
-    torch.ops.aten.add.Tensor: q_add,
-    torch.ops.aten.addmm.default: q_addmm,
-    torch.ops.aten.bmm.default: q_mm,
-    torch.ops.aten.copy_.default: q_copy,
-    torch.ops.aten.detach.default: q_detach,
-    torch.ops.aten.dot.default: q_dot,
-    torch.ops.aten.is_same_size.default: q_is_same_size,
-    torch.ops.aten.mm.default: q_mm,
-    torch.ops.aten.mul.Tensor: q_mul,
-    torch.ops.aten.relu.default: q_relu,
-    torch.ops.aten._softmax.default: q_softmax,
-    torch.ops.aten.t.default: q_transpose,
-    torch.ops.aten.view.default: q_view,
-    torch.ops.aten._to_copy.default: q_to_copy,
-    torch.ops.aten._unsafe_view.default: q_view,
-    torch.ops.aten._softmax_backward_data.default: q_softmax_backward_data,
-    torch.ops.aten.threshold_backward.default: q_threshold_backward,
+    torch.ops.aten.add: q_add,
+    torch.ops.aten.addmm: q_addmm,
+    torch.ops.aten.bmm: q_mm,
+    torch.ops.aten.copy_: q_copy,
+    torch.ops.aten.detach: q_detach,
+    torch.ops.aten.dot: q_dot,
+    torch.ops.aten.is_same_size: q_is_same_size,
+    torch.ops.aten.mm: q_mm,
+    torch.ops.aten.mul: q_mul,
+    torch.ops.aten.relu: q_relu,
+    torch.ops.aten._softmax: q_softmax,
+    torch.ops.aten.t: q_transpose,
+    torch.ops.aten.view: q_view,
+    torch.ops.aten._to_copy: q_to_copy,
+    torch.ops.aten._unsafe_view: q_view,
+    torch.ops.aten._softmax_backward_data: q_softmax_backward_data,
+    torch.ops.aten.threshold_backward: q_threshold_backward,
 }
 
 
@@ -224,10 +224,14 @@ class QTensor(torch.Tensor):
 
     @classmethod
     def __torch_dispatch__(cls, func, types, args, kwargs=None):
+        # Do not use diectly func, but rather its overload
+        func = func.overloadpacket
         if func in quantized_dispatch:
             dispatch = quantized_dispatch[func]
             return dispatch(func, *args, **kwargs)
-        raise ValueError(f"{func} is no supported for {args}")
+        # Identify the types of the args
+        types = [type(arg).__name__ for arg in args]
+        raise ValueError(f"{func} {types} is no supported for QTensor.")
 
     @property
     def device(self):
