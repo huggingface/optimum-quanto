@@ -1,3 +1,6 @@
+import os
+from tempfile import TemporaryDirectory
+
 import pytest
 import torch
 from helpers import random_qtensor
@@ -42,3 +45,21 @@ def test_quantize_mlp(frozen, device):
         freeze(model)
     check_mlp(model, frozen)
     check_outputs(model, 1, 32, device)
+
+
+def test_serialize_quantized_mlp(device):
+    input_features = 32
+    hidden_features = 10
+    output_features = 128
+    model = MLP(input_features, hidden_features, output_features).to(device)
+    quantize(model)
+    freeze(model)
+    with TemporaryDirectory() as tmpdir:
+        mlp_file = os.path.join(tmpdir, "mlp.pt")
+        torch.save(model.state_dict(), mlp_file)
+        model_reloaded = MLP(input_features, hidden_features, output_features).to(device)
+        quantize(model_reloaded)
+        # When reloading we must assign instead of copying to force quantized tensors assignment
+        model_reloaded.load_state_dict(torch.load(mlp_file), assign=True)
+    check_mlp(model_reloaded, frozen=True)
+    check_outputs(model_reloaded, 1, input_features, device)
