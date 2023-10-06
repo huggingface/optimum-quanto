@@ -5,14 +5,14 @@ import pytest
 import torch
 from helpers import q_assert_close, random_qtensor, random_tensor
 
-from quanto.quantization.tensor import QuantizedTensor
+from quanto.quantization import QTensor
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 @pytest.mark.parametrize("int_dtype", [torch.int8, torch.int16], ids=["int8", "int16"])
 def test_quantize_dequantize(input_shape, int_dtype, device):
     a = random_tensor(input_shape, dtype=torch.float32).to(device)
-    qa = QuantizedTensor.quantize(a, int_dtype)
+    qa = QTensor.quantize(a, int_dtype)
     q_assert_close(a, qa)
 
 
@@ -21,14 +21,14 @@ def test_quantize_dequantize(input_shape, int_dtype, device):
 def test_instantiate(input_shape, int_dtype, device):
     max_value = min(1024, torch.iinfo(int_dtype).max)
     data = torch.randint(-max_value, max_value, input_shape, dtype=int_dtype)
-    qa = QuantizedTensor(data, scale=torch.tensor(1.0 / max_value)).to(device)
+    qa = QTensor(data, scale=torch.tensor(1.0 / max_value)).to(device)
     assert torch.max(torch.abs(qa.dequantize())) <= 1
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 def test_rescale_int16_int8(input_shape, device):
     a = random_tensor((10,), dtype=torch.float32).to(device)
-    qa = QuantizedTensor.quantize(a, int_dtype=torch.int16)
+    qa = QTensor.quantize(a, int_dtype=torch.int16)
     # Rescale to int8
     qa_rescaled = qa.rescale(torch.int8)
     q_assert_close(a, qa_rescaled)
@@ -40,7 +40,7 @@ def test_rescale_int32_int8(input_shape, device):
     int_max_value = 1000
     data = torch.randint(-int_max_value, int_max_value, input_shape, dtype=torch.int32)
     scale = torch.tensor(1.0 / int_max_value)
-    qa = QuantizedTensor(data, scale).to(device)
+    qa = QTensor(data, scale).to(device)
     # Get the actual maximum
     a = qa.dequantize()
     float_max_value = torch.max(torch.abs(a))
@@ -65,14 +65,14 @@ def test_quantized_tensor_serialization():
 def test_quantized_tensor_requires_grad(device):
     weight = random_tensor((10,), dtype=torch.float32).to(device)
     weight.requires_grad = True
-    qweight = QuantizedTensor.quantize(weight)
+    qweight = QTensor.quantize(weight)
     assert qweight.requires_grad is True
 
 
 def test_quantized_tensor_backward(device):
     weight = random_tensor((10,), dtype=torch.float32).to(device)
     weight.requires_grad = True
-    qweight = QuantizedTensor.quantize(weight)
+    qweight = QTensor.quantize(weight)
     gradient = torch.randn((10,)).to(device)
     # Backpropagate gradient to the inner float weights
     qweight.dequantize().backward(gradient)
@@ -82,10 +82,10 @@ def test_quantized_tensor_backward(device):
 def test_quantized_tensor_chained_backward(device):
     a = random_tensor((10,), dtype=torch.float32).to(device)
     a.requires_grad = True
-    qa = QuantizedTensor.quantize(a)
+    qa = QTensor.quantize(a)
     b = random_tensor((10,), dtype=torch.float32).to(device)
     b.requires_grad = True
-    qb = QuantizedTensor.quantize(b)
+    qb = QTensor.quantize(b)
     # Evaluate the product
     prod = qa * qb
     # Backpropagate
@@ -98,7 +98,7 @@ def test_quantized_tensor_chained_backward(device):
 def test_rescale_backward(device):
     a = random_tensor((10,), dtype=torch.float32).to(device)
     a.requires_grad = True
-    qa = QuantizedTensor.quantize(a, int_dtype=torch.int16)
+    qa = QTensor.quantize(a, int_dtype=torch.int16)
     # Rescale to int8
     qa_rescaled = qa.rescale(torch.int8)
     assert qa_rescaled.requires_grad is True

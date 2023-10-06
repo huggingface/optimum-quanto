@@ -102,16 +102,16 @@ Please refer to the [examples](https://github.com/huggingface/quanto/tree/main/e
 
 ## Implementation details
 
-Under the hood, Quanto uses a `torch.Tensor` subclass (`QuantizedTensor`) to dispatch `aten` base operations to integer operations.
+Under the hood, Quanto uses a `torch.Tensor` subclass (`QTensor`) to dispatch `aten` base operations to integer operations.
 
-All integer operations accept `QuantizedTensor` with `int8` data.
+All integer operations accept `QTensor` with `int8` data.
 
-Most arithmetic operations return a `QuantizedTensor` with `int32` data.
+Most arithmetic operations return a `QTensor` with `int32` data.
 
 In addition to the quantized tensors, Quanto uses quantized modules as substitutes to some base torch modules to:
 
 - store quantized weights,
-- gather input and output scales to rescale QuantizedTensor `int32` data to `int8`.
+- gather input and output scales to rescale QTensor `int32` data to `int8`.
 
 Eventually, the produced quantized graph should be passed to a specific inductor backend to fuse rescale into the previous operation.
 

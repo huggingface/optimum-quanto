@@ -2,20 +2,22 @@ import torch
 from torch.autograd import Function
 
 
-def scale_max(base, int_dtype):
-    return torch.max(torch.abs(base)) / torch.iinfo(int_dtype).max
+class Quantizer(Function):
+    """A standard affine quantizer.
 
+    If the quantization scale is not specified, then it uses the optimal scale
+    for the base tensor value range.
+    """
 
-class LinearQuantizer(Function):
     @staticmethod
     def forward(ctx, base, int_dtype=torch.int8, scale=None):
-        if scale is None:
-            scale = scale_max(base, int_dtype)
         iinfo = torch.iinfo(int_dtype)
+        if scale is None:
+            scale = torch.max(torch.abs(base)) / torch.iinfo(int_dtype).max
         data = torch.clamp(torch.round(base / scale), min=iinfo.min, max=iinfo.max).to(int_dtype)
         # The instantiation of the quantized tensor must happen within the context of the Function
         # for the autograd magic to work.
-        return QuantizedTensor(data, scale)
+        return QTensor(data, scale)
 
     @staticmethod
     def backward(ctx, gO):
@@ -51,7 +53,7 @@ class ReQuantizer(Function):
         data = torch.clamp(torch.round(base._data * int_rescale), min=dst_iinfo.min, max=dst_iinfo.max).to(int_dtype)
         # The instantiation of the quantized tensor must happen within the context of the Function
         # for the autograd magic to work.
-        return QuantizedTensor(data, scale)
+        return QTensor(data, scale)
 
     @staticmethod
     def backward(ctx, gO):
@@ -63,14 +65,14 @@ def q_to_copy(func, t, dtype=None, **kwargs):
     # Ignore dtype and use the inner data tensors dtypes instead
     out_data = func(t._data, dtype=t._data.dtype, **kwargs)
     out_scale = func(t._scale, dtype=t._scale.dtype, **kwargs)
-    return QuantizedTensor(out_data, out_scale)
+    return QTensor(out_data, out_scale)
 
 
 def q_detach(func, t):
     # Detach both data and scale
     out_data = func(t._data)
     out_scale = func(t._scale)
-    return QuantizedTensor(out_data, out_scale)
+    return QTensor(out_data, out_scale)
 
 
 def q_add(func, input, other, alpha=1, out=None):
@@ -81,7 +83,7 @@ def q_add(func, input, other, alpha=1, out=None):
     # We need to perform the operation in int16 because it might overflow
     out_data = func(input._data.to(torch.int16), other._data.to(torch.int16))
     out_scale = input._scale
-    return QuantizedTensor(out_data, out_scale)
+    return QTensor(out_data, out_scale)
 
 
 def q_addmm(func, input, mat1, mat2, beta=1, alpha=1):
@@ -94,7 +96,7 @@ def q_addmm(func, input, mat1, mat2, beta=1, alpha=1):
         alpha=alpha,
     )
     out_scale = mat1._scale * mat2._scale
-    return QuantizedTensor(out_data.to(torch.int32), out_scale)
+    return QTensor(out_data.to(torch.int32), out_scale)
 
 
 def q_copy(func, dest, src):
@@ -107,36 +109,36 @@ def q_dot(func, input, other):
     # Cast int8 data to float32 and do the operation
     out_data = func(input._data.to(torch.float32), other._data.to(torch.float32))
     out_scale = input._scale * other._scale
-    return QuantizedTensor(out_data.to(torch.int32), out_scale)
+    return QTensor(out_data.to(torch.int32), out_scale)
 
 
 def q_is_same_size(func, input, other):
-    a = input._data if isinstance(input, QuantizedTensor) else input
-    b = other._data if isinstance(other, QuantizedTensor) else other
+    a = input._data if isinstance(input, QTensor) else input
+    b = other._data if isinstance(other, QTensor) else other
     return func(a, b)
 
 
 def q_mm(func, input, other):
-    if not isinstance(input, QuantizedTensor) or not isinstance(other, QuantizedTensor):
+    if not isinstance(input, QTensor) or not isinstance(other, QTensor):
         return func(input.dequantize(), other.dequantize())
     # Cast int8 data to float32 and do the operation
     out_data = func(input._data.to(torch.float32), other._data.to(torch.float32))
     out_scale = input._scale * other._scale
-    return QuantizedTensor(out_data.to(torch.int32), out_scale)
+    return QTensor(out_data.to(torch.int32), out_scale)
 
 
 def q_mul(func, input, other):
-    if not isinstance(input, QuantizedTensor) or not isinstance(other, QuantizedTensor):
+    if not isinstance(input, QTensor) or not isinstance(other, QTensor):
         return func(input.dequantize(), other.dequantize())
     # Cast int8 data to int32 and do the operation
     out_data = func(input._data.to(torch.int32), other._data.to(torch.int32))
     out_scale = input._scale * other._scale
-    return QuantizedTensor(out_data, out_scale)
+    return QTensor(out_data, out_scale)
 
 
 def q_relu(func, input):
     out_data = func(input._data)
-    return QuantizedTensor(out_data, input._scale)
+    return QTensor(out_data, input._scale)
 
 
 def q_softmax(func, input, dim, half_to_float):
@@ -144,19 +146,19 @@ def q_softmax(func, input, dim, half_to_float):
     out_data = func(input.dequantize(), dim, half_to_float)
     # Since softmax is normalized, we know the optimal scale
     out_scale = torch.tensor(1 / torch.iinfo(input._data.dtype).max, dtype=input._scale.dtype)
-    return QuantizedTensor.quantize(out_data, input._data.dtype, out_scale)
+    return QTensor.quantize(out_data, input._data.dtype, out_scale)
 
 
 def q_transpose(func, input):
     # Transpose is not supported if the tensor is per-axis
     assert len(input._scale.shape) == 0
     out_data = func(input._data)
-    return QuantizedTensor(out_data, input._scale)
+    return QTensor(out_data, input._scale)
 
 
 def q_view(func, input, *shape):
     out_data = func(input._data, *shape)
-    return QuantizedTensor(out_data, input._scale)
+    return QTensor(out_data, input._scale)
 
 
 def q_softmax_backward_data(func, grad, output, dim, input_dtype):
@@ -188,11 +190,11 @@ quantized_dispatch = {
 }
 
 
-class QuantizedTensor(torch.Tensor):
+class QTensor(torch.Tensor):
     @staticmethod
     def __new__(cls, data, scale, requires_grad=False):
         # This constructor can ONLY create leaf Tensors wrt autograd.
-        # Use QuantizedTensor.from_tensor(t) to get a non-leaf Tensor wrt autograd.
+        # Use QTensor.from_tensor(t) to get a non-leaf Tensor wrt autograd.
         return torch.Tensor._make_wrapper_subclass(cls, data.size(), dtype=scale.dtype, requires_grad=requires_grad)
 
     def __init__(self, data, scale, requires_grad=False):
@@ -205,12 +207,12 @@ class QuantizedTensor(torch.Tensor):
         autograd_info = (
             f", grad_fn={self.grad_fn}" if self.grad_fn else ", requires_grad=True" if self.requires_grad else ""
         )
-        return f"QuantizedTensor({self._data}, scale={self._scale}, public_dtype={self.dtype}{autograd_info})"
+        return f"QTensor({self._data}, scale={self._scale}, public_dtype={self.dtype}{autograd_info})"
 
     @classmethod
     def quantize(cls, base, int_dtype=torch.int8, scale=None):
         """Differentiable quantization function"""
-        return LinearQuantizer.apply(base, int_dtype, scale)
+        return Quantizer.apply(base, int_dtype, scale)
 
     def dequantize(self):
         """Differentiable dequantization function"""

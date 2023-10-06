@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torchvision import datasets, transforms
 from transformers import AutoModel
 
-from quanto.quantization import QLinear, QuantizedTensor, freeze, quantize
+from quanto.quantization import QLinear, QTensor, freeze, quantize
 from quanto.quantization.calibrate import calibration
 
 
@@ -58,12 +58,12 @@ def print_quantization_stats(model):
     for name, m in model.named_modules():
         if isinstance(m, QLinear):
             print(f"{name} quantization stats:")
-            qweight = QuantizedTensor.quantize(m.weight)
+            qweight = QTensor.quantize(m.weight)
             weight_mae = torch.nn.L1Loss()(qweight.dequantize(), m.weight)
             weight_stats = f"  weight mae = {weight_mae}"
             if m.bias is not None:
                 bias_scale = m.in_scale * qweight._scale
-                qbias = QuantizedTensor.quantize(m.bias, torch.int32, bias_scale)
+                qbias = QTensor.quantize(m.bias, torch.int32, bias_scale)
                 bias_mae = torch.nn.L1Loss()(qbias.dequantize(), m.bias)
                 weight_stats += f", bias mae = {bias_mae}"
             print(weight_stats)
