@@ -1,17 +1,117 @@
-# pytorch quantization toolkit
+# Quanto
 
-Uses a torch.Tensor subclass QuantizedTensor to dispatch aten base operations to operations using integer ops.
+**DISCLAIMER**: this package is still an early prototype (pre-beta version), and not (yet) an HuggingFace product. Expect breaking changes and drastic modifications in scope and features.
 
-All operations accept QuantizedTensor with int8 data.
+🤗 Quanto is a python quantization toolkit that provides several features that are either not supported or limited by the base [pytorch quantization tools](https://pytorch.org/docs/stable/quantization.html):
 
-Most arithmetic operations return a QuantizedTensor with int32 data.
+- all features are available in eager mode (works with non-traceable models),
+- quantized models can be placed on any device (including CUDA),
+- automatically inserts quantization and dequantization stubs,
+- automatically inserts quantized functional operations,
+- automatically inserts quantized modules (see below the list of supported modules),
+- provides a seamless workflow from float model to dynamic to static quantized model,
+- supports quantized model serialization as a `state_dict`.
 
-Uses quantized modules to:
+Features yet to be implemented:
+
+- quantize clone (quantization happens in-place for now),
+- optimized integer kernels,
+- quantized operators fusion,
+- support `int4` weights,
+- compatibility with [torch compiler](https://pytorch.org/docs/stable/torch.compiler.html) (aka dynamo).
+
+## Supported modules
+
+The following modules can be quantized:
+
+- [Linear]() (QLinear). Weights are quantized to `int8`, adn biases to `int32`. Outputs are quantized to `int8`.
+
+The next modules to be implemented are normalization layers, to allow the quantization of attention blocks:
+
+- [LayerNorm](https://pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html),
+- LLamaRMSNorm.
+
+## Limitations and design choices
+
+Quanto uses a strict affine quantization scheme (no zero-point).
+
+Quanto does not support mixed-precision quantization.
+
+Although Quanto uses integer activations and weights, the current implementation falls back to `float32` operations for integer inputs, which means that no benefits are expected in terms of latency (weight storage and on-device memory usage should be lower).
+
+## Installation
+
+Quanto is available as a pip package.
+
+```
+pip install quanto
+```
+
+## Quantization workflow
+
+Quanto does not make a clear distinction between dynamic and static quantization: models are always dynamically quantized, but their weights can later be "frozen" to
+integer values.
+
+A typical quantization workflow would consist in the following steps:
+
+1. Quantize
+
+The first step converts a standard float model into a dynamically quantized model.
+
+```
+quantize(model)
+```
+
+2. Calibrate (optional)
+
+Activations are quantized using a default `[-1, 1]` range which can lead to severe clipping and/or inaccurate values.
+
+Quanto supports a calibration mode that allows to adjust the activation ranges while passing representative samples through the quantized model.
+
+```
+with calibration():
+    model(samples)
+```
+
+Note that during calibration, all activations and weights are dequantized and inference happens with float precision.
+
+3. Tune, aka Quantization-Aware-Training (optional)
+
+If the performances of the model are too degraded, one can tune it for a few epochs to recover the float model performances.
+
+```
+model.train()
+for batch_idx, (data, target) in enumerate(train_loader):
+    data, target = data.to(device), target.to(device)
+    optimizer.zero_grad()
+    output = model(data).dequantize()
+    loss = torch.nn.functional.nll_loss(output, target)
+    loss.backward()
+    optimizer.step()
+```
+
+4. Freeze integer weights
+
+When freezing a model, its float weights are replaced by quantized integer weights.
+
+```
+freeze(model)
+```
+
+Please refer to the [examples](https://github.com/huggingface/quanto/tree/main/examples) for instantiations of that worklow.
+
+## Implementation details
+
+Under the hood, Quanto uses a `torch.Tensor` subclass (`QuantizedTensor`) to dispatch `aten` base operations to integer operations.
+
+All integer operations accept `QuantizedTensor` with `int8` data.
+
+Most arithmetic operations return a `QuantizedTensor` with `int32` data.
+
+In addition to the quantized tensors, Quanto uses quantized modules as substitutes to some base torch modules to:
 
 - store quantized weights,
-- gather input and output scales to rescale QuantizedTensor int32 data to int8.
-
-For now only Linear is quantizable.
+- gather input and output scales to rescale QuantizedTensor `int32` data to `int8`.
 
 Eventually, the produced quantized graph should be passed to a specific inductor backend to fuse rescale into the previous operation.
 
