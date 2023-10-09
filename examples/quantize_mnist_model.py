@@ -19,7 +19,9 @@ def test(model, device, test_loader):
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
-            output = model(data).dequantize()
+            output = model(data)
+            if isinstance(output, QTensor):
+                output = output.dequantize()
             test_loss += F.nll_loss(output, target, reduction="sum").item()  # sum up batch loss
             pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
@@ -38,7 +40,9 @@ def train(log_interval, model, device, train_loader, optimizer, epoch):
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
-        output = model(data).dequantize()
+        output = model(data)
+        if isinstance(output, QTensor):
+            output = output.dequantize()
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
@@ -74,7 +78,7 @@ def main():
     # Training settings
     parser = argparse.ArgumentParser(description="PyTorch MNIST Example")
     parser.add_argument(
-        "--batch-size", type=int, default=1000, metavar="N", help="input batch size for testing (default: 1000)"
+        "--batch-size", type=int, default=250, metavar="N", help="input batch size for testing (default: 250)"
     )
     parser.add_argument("--seed", type=int, default=1, metavar="S", help="random seed (default: 1)")
     parser.add_argument("--model", type=str, default="dacorvo/mnist-mlp", help="The name of the trained Model.")
@@ -85,13 +89,15 @@ def main():
 
     if torch.cuda.is_available():
         device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
     else:
         device = torch.device("cpu")
 
-    test_kwargs = {"batch_size": args.batch_size}
+    dataset_kwargs = {"batch_size": args.batch_size}
     if torch.cuda.is_available():
         cuda_kwargs = {"num_workers": 1, "pin_memory": True, "shuffle": True}
-        test_kwargs.update(cuda_kwargs)
+        dataset_kwargs.update(cuda_kwargs)
 
     transform = transforms.Compose(
         [
@@ -101,8 +107,9 @@ def main():
         ]
     )
     dataset1 = datasets.MNIST("./data", train=True, download=True, transform=transform)
+    train_loader = torch.utils.data.DataLoader(dataset1, **dataset_kwargs)
     dataset2 = datasets.MNIST("./data", train=False, download=True, transform=transform)
-    test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
+    test_loader = torch.utils.data.DataLoader(dataset2, **dataset_kwargs)
     model = AutoModel.from_pretrained(args.model, trust_remote_code=True)
     model.eval()
     # Test inference for reference
@@ -119,7 +126,6 @@ def main():
         test(model, device, test_loader)
     print("Tuning quantized model for one epoch")
     optimizer = torch.optim.Adadelta(model.parameters(), lr=0.5)
-    train_loader = torch.utils.data.DataLoader(dataset1, batch_size=250, **cuda_kwargs)
     train(50, model, device, train_loader, optimizer, 1)
     print("Quantized tuned model")
     test(model, device, test_loader)
