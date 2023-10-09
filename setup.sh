@@ -11,4 +11,4 @@ if [ "$NIGHTLY" -eq "0" ]; then
 else
     pip install --upgrade --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu118
 fi
-pip install black ruff pytest
+pip install black ruff pytest build
