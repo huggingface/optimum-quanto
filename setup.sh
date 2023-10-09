@@ -1,9 +1,14 @@
 #!/bin/bash
 
-VENV=${1:-.venv}
+NIGHTLY=${1:-0}
+VENV=".venv"
 if [ ! -d "${VENV}" ]; then
-    python3 -m venv .venv
+    python3 -m venv ${VENV}
 fi
 . ${VENV}/bin/activate
-pip install --upgrade --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu118
-pip install black ruff
+if [ "$NIGHTLY" -eq "0" ]; then
+    pip install --upgrade torch torchvision torchaudio
+else
+    pip install --upgrade --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu118
+fi
+pip install black ruff pytest
