@@ -85,6 +85,10 @@ def register_dispatch(aten_ops):
     return wrapper
 
 
+def dequantize(*args):
+    return [arg.dequantize() if isinstance(arg, QTensor) else arg for arg in args]
+
+
 @register_dispatch([torch.ops.aten._to_copy])
 def _to_copy(func, t, dtype=None, **kwargs):
     # Ignore dtype and use the inner data tensors dtypes instead
@@ -152,7 +156,7 @@ def is_same_size(func, input, other):
 @register_dispatch([torch.ops.aten.bmm, torch.ops.aten.mm])
 def mm(func, input, other):
     if not isinstance(input, QTensor) or not isinstance(other, QTensor):
-        return func(input.dequantize(), other.dequantize())
+        return func(*dequantize(input, other))
     # Cast int8 data to float32 and do the operation
     out_data = func(input._data.to(torch.float32), other._data.to(torch.float32))
     out_scale = input._scale * other._scale
@@ -162,7 +166,7 @@ def mm(func, input, other):
 @register_dispatch([torch.ops.aten.mul])
 def mul(func, input, other):
     if not isinstance(input, QTensor) or not isinstance(other, QTensor):
-        return func(input.dequantize(), other.dequantize())
+        return func(*dequantize(input, other))
     # Cast int8 data to int32 and do the operation
     out_data = func(input._data.to(torch.int32), other._data.to(torch.int32))
     out_scale = input._scale * other._scale
