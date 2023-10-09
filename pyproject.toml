@@ -20,11 +20,14 @@ dependencies = ['torch>=2.1.0']
 license = { text = 'Apache-2.0' }
 dynamic = ['readme', 'version']
 
+[project.urls]
+homepage = 'https://github.com/huggingface/quanto'
+
 [tool.setuptools.dynamic]
 version = {attr = "quanto.__version__"}
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.black]
