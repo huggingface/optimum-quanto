@@ -98,3 +98,10 @@ def test_softmax(batch_size, tokens, embeddings, device):
     assert isinstance(qout, QTensor)
     assert torch.min(qout.dequantize()) >= 0
     assert torch.max(qout.dequantize()) <= 1
+
+
+@pytest.mark.parametrize("input_shape", [(10,), (10, 32)])
+def test_view(input_shape, device):
+    qinputs = random_qtensor(input_shape, dtype=torch.float32).to(device)
+    qview = qinputs.view((1,) + input_shape)
+    assert isinstance(qview, QTensor)
