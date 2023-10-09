@@ -5,7 +5,7 @@ import pytest
 import torch
 from helpers import q_assert_close, random_qtensor
 
-from quanto.quantization.calibrate import calibration
+from quanto.quantization import calibration, freeze
 from quanto.quantization.nn import QLinear
 
 
@@ -19,6 +19,8 @@ def test_quantize_linear(batch_size, tokens, embeddings, use_bias, device):
     # Calibrate and obtain quantized outputs
     with torch.no_grad(), calibration():
         qout = qlinear(qinputs)
+    # Freeze to set quantized weights
+    freeze(qlinear)
     # Align linear weights with quantized linear weights for comparison
     linear.weight = torch.nn.Parameter(qlinear.weight.dequantize())
     if use_bias:
