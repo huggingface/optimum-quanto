@@ -19,7 +19,9 @@ momentum = 0.9
 def calibrate_input(module: torch.nn.Module, input):
     if isinstance(module, QLinear):
         # We want to requantize with the most accurate scale
-        input = input[0].dequantize()
+        input = input[0]
+        if isinstance(input, QTensor):
+            input = input.dequantize()
         input = QTensor.quantize(input, torch.int8)
         if torch.all(module.in_scale == 1):
             module.in_scale = input._scale
