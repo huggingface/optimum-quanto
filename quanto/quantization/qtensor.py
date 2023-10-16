@@ -97,6 +97,12 @@ def _to_copy(func, t, dtype=None, **kwargs):
     return QTensor(out_data, out_scale)
 
 
+@register_dispatch([torch.ops.aten.argmax])
+def argmax(func, input, *args, **kwargs):
+    # We just return the argmax for the data
+    return func(input._data, *args, **kwargs)
+
+
 @register_dispatch([torch.ops.aten.detach])
 def detach(func, t):
     # Detach both data and scale
