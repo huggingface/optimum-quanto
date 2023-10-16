@@ -266,3 +266,6 @@ class QTensor(torch.Tensor):
     @property
     def device(self):
         return self._data.device
+
+    def numpy(self):
+        return self.dequantize().cpu().numpy()
