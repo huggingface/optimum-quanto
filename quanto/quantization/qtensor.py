@@ -189,10 +189,10 @@ def _softmax(func, input, dim, half_to_float):
 
 
 @register_dispatch([torch.ops.aten.transpose, torch.ops.aten.t])
-def transpose(func, input):
+def transpose(func, input, *args):
     # Transpose is not supported if the tensor is per-axis
     assert len(input._scale.shape) == 0
-    out_data = func(input._data)
+    out_data = func(input._data, *args)
     return QTensor(out_data, input._scale)
 
 
