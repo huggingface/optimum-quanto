@@ -138,6 +138,14 @@ def copy_(func, dest, src):
     return dest
 
 
+@register_dispatch([torch.ops.aten.div])
+def div(func, input, other):
+    if not isinstance(other, float):
+        raise NotImplementedError()
+    # We just divide the scale
+    return QTensor(input._data, func(input._scale, other))
+
+
 @register_dispatch([torch.ops.aten.dot])
 def dot(func, input, other):
     # Cast int8 data to float32 and do the operation
