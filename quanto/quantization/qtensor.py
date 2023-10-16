@@ -155,11 +155,23 @@ def dot(func, input, other):
     return QTensor(out_data.to(torch.int32), out_scale)
 
 
+@register_dispatch([torch.ops.aten.expand, torch.ops.aten.select, torch.ops.aten.slice])
+def unary_type_agnostic_op(func, input, *args, **kwargs):
+    out_data = func(input._data, *args, **kwargs)
+    return QTensor(out_data, input._scale)
+
+
 @register_dispatch([torch.ops.aten.is_same_size])
 def is_same_size(func, input, other):
     a = input._data if isinstance(input, QTensor) else input
     b = other._data if isinstance(other, QTensor) else other
     return func(a, b)
+
+
+@register_dispatch([torch.ops.aten.gelu, torch.ops.aten.masked_fill])
+def unary_unsupported_op(func, input, *args, **kwargs):
+    # Not supported: dequantize
+    return func(input.dequantize(), *args, **kwargs)
 
 
 @register_dispatch([torch.ops.aten.bmm, torch.ops.aten.mm])
