@@ -1,6 +1,6 @@
 import torch
 
-from .nn import QLinear
+from .nn import QLayerNorm, QLinear
 
 
 __all__ = ["quantize", "freeze"]
@@ -27,6 +27,9 @@ def quantize(model):
         if isinstance(m, torch.nn.Linear):
             qlinear = QLinear.from_module(m)
             set_module_by_name(model, name, qlinear)
+        elif isinstance(m, torch.nn.LayerNorm):
+            qnorm = QLayerNorm.from_module(m)
+            set_module_by_name(model, name, qnorm)
 
 
 def freeze(model):
