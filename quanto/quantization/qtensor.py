@@ -110,7 +110,8 @@ def add(func, input, other, alpha=1, out=None):
     if alpha != 1 or out is not None:
         raise ValueError("alpha and out parameters are not supported for quantized {func}.")
     if not torch.equal(input._scale, other._scale):
-        raise ValueError("Quantized tensors with different scales cannot be added.")
+        # Quantized tensors with different scales cannot be added
+        return func(input.dequantize(), other.dequantize())
     # We need to perform the operation in int16 because it might overflow
     out_data = func(input._data.to(torch.int16), other._data.to(torch.int16))
     out_scale = input._scale
