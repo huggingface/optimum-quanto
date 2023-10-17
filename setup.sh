@@ -11,4 +11,7 @@ if [ "$NIGHTLY" -eq "0" ]; then
 else
     pip install --upgrade --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu118
 fi
+# Build tools
 pip install black ruff pytest build
+# For examples
+pip install transformers datasets evaluate
