@@ -15,6 +15,7 @@
 Features yet to be implemented:
 
 - quantize clone (quantization happens in-place for now),
+- quantize weights per-axis,
 - optimized integer kernels,
 - quantized operators fusion,
 - support `int4` weights,
@@ -24,11 +25,13 @@ Features yet to be implemented:
 
 The following modules can be quantized:
 
-- [Linear]() (QLinear). Weights are quantized to `int8`, adn biases to `int32`. Outputs are quantized to `int8`.
-
-The next modules to be implemented are normalization layers, to allow the quantization of attention blocks:
-
+- [Linear](https://pytorch.org/docs/stable/generated/torch.nn.Linear.html) (QLinear).
+Weights are quantized to `int8`, and biases to `int32`. Outputs are quantized to `int8`.
 - [LayerNorm](https://pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html),
+Weights and biases are __not__ quantized. Outputs are quantized to `int8`.
+
+The next modules to be implemented are:
+
 - LLamaRMSNorm.
 
 ## Limitations and design choices
@@ -37,7 +40,13 @@ Quanto uses a strict affine quantization scheme (no zero-point).
 
 Quanto does not support mixed-precision quantization.
 
-Although Quanto uses integer activations and weights, the current implementation falls back to `float32` operations for integer inputs, which means that no benefits are expected in terms of latency (weight storage and on-device memory usage should be lower).
+Quanto dynamically quantizes weights until a model is frozen: this slows
+down inference a lot, but is required if the model needs to be tuned.
+
+Although `Quanto` uses integer activations and weights, the current implementation falls
+back to `float32` operations for integer inputs, and some quantization operations are
+redundant, which means that inference is slower, even for frozen models.
+The weight storage and on-device memory usage should however be lower.
 
 ## Installation
 
@@ -49,8 +58,8 @@ pip install quanto
 
 ## Quantization workflow
 
-Quanto does not make a clear distinction between dynamic and static quantization: models are always dynamically quantized, but their weights can later be "frozen" to
-integer values.
+Quanto does not make a clear distinction between dynamic and static quantization: models are always dynamically quantized,
+but their weights can later be "frozen" to integer values.
 
 A typical quantization workflow would consist in the following steps:
 
