@@ -15,7 +15,6 @@ from quanto.quantization.calibrate import calibration
 
 def evaluate_model(model, tokenizer, dataset, device):
     p = pipeline("sentiment-analysis", model, tokenizer=tokenizer, device=device)
-
     results = p(KeyDataset(dataset, "sentence"))
     start = time.time()
     pred_labels = [0 if result["label"] == "NEGATIVE" else 1 for result in results]
@@ -26,7 +25,7 @@ def evaluate_model(model, tokenizer, dataset, device):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="PyTorch Bert Example")
+    parser = argparse.ArgumentParser(description="Transformers SST2 Example")
     parser.add_argument("--seed", type=int, default=1, metavar="S", help="random seed (default: 1)")
     parser.add_argument(
         "--model",
