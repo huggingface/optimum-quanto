@@ -3,7 +3,7 @@ import os
 import time
 from tempfile import TemporaryDirectory
 
-import evaluate
+import numpy as np
 import torch
 from datasets import load_dataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
@@ -19,8 +19,7 @@ def evaluate_model(model, tokenizer, dataset, device):
     start = time.time()
     pred_labels = [0 if result["label"] == "NEGATIVE" else 1 for result in results]
     end = time.time()
-    accuracy_metric = evaluate.load("accuracy")
-    accuracy = accuracy_metric.compute(predictions=pred_labels, references=dataset["label"])["accuracy"]
+    accuracy = np.sum(np.equal(pred_labels, dataset["label"])) / len(pred_labels)
     print(f"{len(pred_labels)} sentences evaluated in {end - start:.2f} s. accuracy = {accuracy}")
 
 
