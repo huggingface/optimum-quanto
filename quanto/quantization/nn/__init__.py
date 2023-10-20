@@ -1,2 +1,3 @@
-from .layernorm import *
-from .linear import *
+from .qlayernorm import *
+from .qlinear import *
+from .qmodule import *
