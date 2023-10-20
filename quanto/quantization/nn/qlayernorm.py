@@ -1,12 +1,13 @@
 import torch
 
 from ..qtensor import QTensor
-from .qmodule import QModuleMixin
+from .qmodule import QModuleMixin, register_qmodule
 
 
 __all__ = ["QLayerNorm"]
 
 
+@register_qmodule(torch.nn.LayerNorm)
 class QLayerNorm(QModuleMixin, torch.nn.LayerNorm):
     @classmethod
     def from_module(cls, module):

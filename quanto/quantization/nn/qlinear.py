@@ -1,12 +1,13 @@
 import torch
 
 from ..qtensor import QTensor
-from .qmodule import QModuleMixin
+from .qmodule import QModuleMixin, register_qmodule
 
 
 __all__ = ["QLinear"]
 
 
+@register_qmodule(torch.nn.Linear)
 class QLinear(QModuleMixin, torch.nn.Linear):
     @classmethod
     def from_module(cls, module):
