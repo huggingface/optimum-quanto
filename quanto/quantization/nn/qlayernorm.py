@@ -1,24 +1,13 @@
-from typing import Union
-
 import torch
 
 from ..qtensor import QTensor
+from .qmodule import QModuleMixin
 
 
-class QLayerNorm(torch.nn.LayerNorm):
-    def __init__(
-        self,
-        normalized_shape: Union[int, list, torch.Size],
-        eps: float = 1e-5,
-        elementwise_affine: bool = True,
-        bias: bool = True,
-        device=None,
-        dtype=None,
-    ) -> None:
-        super().__init__(normalized_shape, eps, elementwise_affine, bias, device, dtype)
-        self.register_buffer("in_scale", torch.ones((), dtype=torch.float32))
-        self.register_buffer("out_scale", torch.ones((), dtype=torch.float32))
+__all__ = ["QLayerNorm"]
 
+
+class QLayerNorm(QModuleMixin, torch.nn.LayerNorm):
     @classmethod
     def from_module(cls, module):
         qmodule = cls(module.normalized_shape, module.eps, module.elementwise_affine, module.bias is not None)
@@ -35,7 +24,3 @@ class QLayerNorm(torch.nn.LayerNorm):
         out = torch.nn.functional.layer_norm(input, self.normalized_shape, self.weight, self.bias, self.eps)
         # Quantize output
         return QTensor.quantize(out, torch.int8, self.out_scale)
-
-    def freeze(self):
-        # The weights of the LayerNorm are not quantized
-        pass

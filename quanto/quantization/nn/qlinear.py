@@ -1,21 +1,13 @@
 import torch
 
 from ..qtensor import QTensor
+from .qmodule import QModuleMixin
 
 
-class QLinear(torch.nn.Linear):
-    def __init__(
-        self,
-        in_features: int,
-        out_features: int,
-        bias: bool = True,
-        dtype=None,
-        device=None,
-    ) -> None:
-        super().__init__(in_features, out_features, bias, dtype, device)
-        self.register_buffer("in_scale", torch.ones((), dtype=torch.float32))
-        self.register_buffer("out_scale", torch.ones((), dtype=torch.float32))
+__all__ = ["QLinear"]
 
+
+class QLinear(QModuleMixin, torch.nn.Linear):
     @classmethod
     def from_module(cls, module):
         qmodule = cls(module.in_features, module.out_features, module.bias is not None)
