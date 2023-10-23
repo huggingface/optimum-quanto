@@ -75,8 +75,6 @@ class QTensor(torch.Tensor):
         self._data = data
         self._scale = scale
 
-    __torch_function__ = torch._C._disabled_torch_function_impl
-
     def __repr__(self):  # Zero out missing values for printing
         autograd_info = (
             f", grad_fn={self.grad_fn}" if self.grad_fn else ", requires_grad=True" if self.requires_grad else ""
@@ -95,6 +93,20 @@ class QTensor(torch.Tensor):
     def rescale(self, int_dtype=torch.int8, scale=None):
         """Differentiable requantization function"""
         return ReQuantizer.apply(self, int_dtype, scale)
+
+    @classmethod
+    def __torch_function__(cls, func, types, args=(), kwargs=None):
+        from .func import get_qtensor_func
+
+        kwargs = kwargs or {}
+
+        # Look for a func accepting QTensor inputs
+        qfunc = get_qtensor_func(func)
+        if qfunc is not None:
+            return qfunc(*args, **kwargs)
+        # Defer to dispatcher to look instead for QTensor operations
+        with torch._C.DisableTorchFunctionSubclass():
+            return func(*args, **kwargs)
 
     @classmethod
     def __torch_dispatch__(cls, op, types, args, kwargs=None):
