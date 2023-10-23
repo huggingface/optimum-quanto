@@ -22,7 +22,6 @@ class Conv1D(torch.nn.Module):
     def __init__(self, nf, nx):
         super().__init__()
         self.nf = nf
-        self.nx = nx
         self.weight = torch.nn.Parameter(torch.empty(nx, nf))
         self.bias = torch.nn.Parameter(torch.zeros(nf))
         torch.nn.init.normal_(self.weight, std=0.02)
@@ -38,7 +37,8 @@ class Conv1D(torch.nn.Module):
 class QConv1D(QModuleMixin, Conv1D):
     @classmethod
     def from_module(cls, module):
-        qmodule = cls(module.nf, module.nx)
+        nx, nf = module.weight.size()
+        qmodule = cls(nf, nx)
         with torch.no_grad():
             qmodule.weight.copy_(module.weight)
             qmodule.bias.copy_(module.bias)
