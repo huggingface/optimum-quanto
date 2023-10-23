@@ -68,13 +68,13 @@ def main():
     evaluate_model(model, tokenizer, dataset, device)
     # Now save the model and reload it to verify quantized weights are restored
     with TemporaryDirectory() as tmpdir:
-        gpt2_file = os.path.join(tmpdir, "gpt2.pt")
-        torch.save(model.state_dict(), gpt2_file)
+        bert_file = os.path.join(tmpdir, "bert.pt")
+        torch.save(model.state_dict(), bert_file)
         # Reinstantiate a model with float weights
         model_reloaded = AutoModelForSequenceClassification.from_pretrained(args.model).to(device)
         quantize(model_reloaded)
         # When reloading we must assign instead of copying to force quantized tensors assignment
-        model_reloaded.load_state_dict(torch.load(gpt2_file), assign=True)
+        model_reloaded.load_state_dict(torch.load(bert_file), assign=True)
     print("Quantized model with serialized integer weights")
     evaluate_model(model_reloaded, tokenizer, dataset, device)
 
