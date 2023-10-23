@@ -245,6 +245,15 @@ def threshold_backward(func, grad, output, threshold):
     return func(grad, output.dequantize(), threshold)
 
 
+@register_dispatch([torch.ops.aten.where])
+def where(func, condition, input, other):
+    if isinstance(condition, QTensor) or isinstance(other, QTensor):
+        raise NotImplementedError
+    float_data = func(condition, input.dequantize(), other)
+    # We requantize with the input scale
+    return QTensor.quantize(float_data, input._data.dtype, input._scale)
+
+
 class QTensor(torch.Tensor):
     @staticmethod
     def __new__(cls, data, scale, requires_grad=False):
