@@ -112,16 +112,14 @@ def detach(func, t):
 
 
 @register_dispatch([torch.ops.aten.add])
-def add(func, input, other, alpha=1, out=None):
-    if alpha != 1 or out is not None:
-        raise ValueError("alpha and out parameters are not supported for quantized {func}.")
-    if not torch.equal(input._scale, other._scale):
-        # Quantized tensors with different scales cannot be added
-        return func(input.dequantize(), other.dequantize())
-    # We need to perform the operation in int16 because it might overflow
-    out_data = func(input._data.to(torch.int16), other._data.to(torch.int16))
-    out_scale = input._scale
-    return QTensor(out_data, out_scale)
+def add(func, input, other):
+    # Only quantized tensors with identical scales cannot be added
+    if isinstance(input, QTensor) and isinstance(other, QTensor) and torch.equal(input._scale, other._scale):
+        # We need to perform the operation in int16 because it might overflow
+        out_data = func(input._data.to(torch.int16), other._data.to(torch.int16))
+        out_scale = input._scale
+        return QTensor(out_data, out_scale)
+    return func(*dequantize(input, other))
 
 
 @register_dispatch([torch.ops.aten.addmm])
