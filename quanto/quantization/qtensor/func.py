@@ -37,9 +37,9 @@ def dequantize(*args):
     return [arg.dequantize() if isinstance(arg, QTensor) else arg for arg in args]
 
 
-@register_qtensor_func([torch.nn.functional.log_softmax])
-def unary_unsupported_op(func, t, **kwargs):
-    return func(t.dequantize(), **kwargs)
+@register_qtensor_func([torch.nn.functional.log_softmax, torch.topk])
+def unary_unsupported_op(func, t, *args, **kwargs):
+    return func(t.dequantize(), *args, **kwargs)
 
 
 @register_qtensor_func([torch.nn.functional.cross_entropy])
