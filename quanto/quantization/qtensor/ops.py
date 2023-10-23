@@ -70,6 +70,25 @@ def add(op, input, other):
     return op(*dequantize(input, other))
 
 
+@register_qtensor_op([torch.ops.aten.cat])
+def cat(op, inputs, dim):
+    if len(inputs) == 2:
+        t1, t2 = inputs
+        if isinstance(t1, QTensor) and isinstance(t2, QTensor) and torch.equal(t1._scale, t2._scale):
+            # Only quantized tensors with identical scales can be concatenated
+            out_data = op([t1._data, t2._data], dim)
+            return QTensor(out_data, t1._scale)
+    return op(*dequantize(inputs), dim)
+
+
+@register_qtensor_op([torch.ops.aten.lt])
+def lt(op, input, other):
+    # Only quantized tensors with identical scales can be compared
+    if isinstance(input, QTensor) and isinstance(other, QTensor) and torch.equal(input._scale, other._scale):
+        return op(input._data, other._data)
+    return op(*dequantize(input, other))
+
+
 @register_qtensor_op([torch.ops.aten.addmm])
 def addmm(op, input, mat1, mat2, beta=1, alpha=1):
     # Do the operation with int8 cast to float32
