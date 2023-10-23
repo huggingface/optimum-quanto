@@ -28,7 +28,6 @@ def register_qmodule(module_cls):
 
 
 def quantize_module(module):
-    breakpoint()
     for cls in _QMODULE_TABLE:
         if isinstance(module, cls):
             return _QMODULE_TABLE[cls].from_module(module)
