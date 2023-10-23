@@ -215,6 +215,12 @@ def _softmax(func, input, dim, half_to_float):
     return QTensor.quantize(out_data, input._data.dtype, out_scale)
 
 
+@register_dispatch([torch.ops.aten.split])
+def split(func, input, *args, **kwargs):
+    out_datas = func(input._data, *args, **kwargs)
+    return [QTensor(out_data, input._scale) for out_data in out_datas]
+
+
 @register_dispatch([torch.ops.aten.transpose, torch.ops.aten.t])
 def transpose(func, input, *args):
     # Transpose is not supported if the tensor is per-axis
