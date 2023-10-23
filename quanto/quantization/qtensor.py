@@ -147,7 +147,7 @@ def copy_(func, dest, src):
 
 @register_dispatch([torch.ops.aten.div])
 def div(func, input, other):
-    if not isinstance(other, float):
+    if isinstance(other, QTensor) or isinstance(other, torch.Tensor) and len(other.shape) > 0:
         raise NotImplementedError()
     # We just divide the scale
     return QTensor(input._data, func(input._scale, other))
