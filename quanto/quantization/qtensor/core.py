@@ -128,3 +128,9 @@ class QTensor(torch.Tensor):
 
     def numpy(self):
         return self.dequantize().cpu().numpy()
+
+    def is_contiguous(self, memory_format=torch.contiguous_format):
+        return self._data.is_contiguous(memory_format=memory_format)
+
+    def contiguous(self, memory_format=torch.contiguous_format):
+        return QTensor(self._data.contiguous(memory_format=memory_format), self._scale)
