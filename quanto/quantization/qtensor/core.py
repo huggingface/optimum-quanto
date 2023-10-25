@@ -2,21 +2,38 @@ import torch
 from torch.autograd import Function
 
 
-__all__ = ["QTensor"]
+__all__ = ["absmax_scale", "QTensor"]
+
+
+def absmax_scale(base: torch.Tensor, int_dtype: torch.Tensor.dtype = torch.int8) -> torch.Tensor:
+    """Evaluate the quantization scale using the absmax algorithm.
+
+    The Absolute Maximum quantization algorithm is a symmetrical quantization
+    algorithm where the scale corresponds to the maximum absolute value of the
+    base divided by the highest positive integer value for the target integer
+    representation.
+
+    Args:
+        base (`torch.Tensor`): the base tensor on which the scale will be applied.
+        int_dtype (`torch.Tensor.dtype`): the target integer dtype for quantization.
+
+    Returns:
+        `torch.Tensor`: a scale tensor of the same dtype as the base.
+    """
+    return torch.max(torch.abs(base)) / torch.iinfo(int_dtype).max
 
 
 class Quantizer(Function):
-    """A standard affine quantizer.
+    """A standard symmetric quantizer.
 
-    If the quantization scale is not specified, then it uses the optimal scale
-    for the base tensor value range.
+    If the quantization scale is not specified, it uses the absmax scale for the base tensor.
     """
 
     @staticmethod
-    def forward(ctx, base, int_dtype=torch.int8, scale=None):
+    def forward(ctx, base, int_dtype: torch.Tensor.dtype = torch.int8, scale=None):
         iinfo = torch.iinfo(int_dtype)
         if scale is None:
-            scale = torch.max(torch.abs(base)) / torch.iinfo(int_dtype).max
+            scale = absmax_scale(base, int_dtype)
         data = torch.clamp(torch.round(base / scale), min=iinfo.min, max=iinfo.max).to(int_dtype)
         # The instantiation of the quantized tensor must happen within the context of the Function
         # for the autograd magic to work.
