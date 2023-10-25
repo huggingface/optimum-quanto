@@ -31,6 +31,22 @@ def test_mul(input_shape, device):
     q_assert_close(prod, qprod)
 
 
+@pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
+@pytest.mark.parametrize("scalar", [1, 0.5, torch.tensor(0.12)], ids=["int", "float", "tensor"])
+def test_mul_scalar(input_shape, scalar, device):
+    qa = random_qtensor(input_shape, dtype=torch.float32).to(device)
+    if isinstance(scalar, torch.Tensor):
+        scalar = scalar.to(device)
+    qprod = qa * scalar
+    assert isinstance(qprod, QTensor)
+    prod = qa.dequantize() * scalar
+    q_assert_close(prod, qprod)
+    qprod = scalar * qa
+    assert isinstance(qprod, QTensor)
+    prod = scalar * qa.dequantize()
+    q_assert_close(prod, qprod)
+
+
 @pytest.mark.parametrize("input_shape", [(10, 10), (32, 32)])
 def test_matmul(input_shape, device):
     qa = random_qtensor(input_shape, dtype=torch.float32).to(device)
