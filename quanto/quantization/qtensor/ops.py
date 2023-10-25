@@ -131,7 +131,15 @@ def dot(op, input, other):
     return QTensor(out_data.to(torch.int32), out_scale)
 
 
-@register_qtensor_op([torch.ops.aten.expand, torch.ops.aten.permute, torch.ops.aten.select, torch.ops.aten.slice])
+@register_qtensor_op(
+    [
+        torch.ops.aten.expand,
+        torch.ops.aten.permute,
+        torch.ops.aten.select,
+        torch.ops.aten.slice,
+        torch.ops.aten.unsqueeze,
+    ]
+)
 def unary_type_agnostic_op(op, input, *args, **kwargs):
     out_data = op(input._data, *args, **kwargs)
     return QTensor(out_data, input._scale)
