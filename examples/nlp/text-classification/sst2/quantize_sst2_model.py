@@ -13,9 +13,9 @@ from quanto.quantization import freeze, quantize
 from quanto.quantization.calibrate import calibration
 
 
-def evaluate_model(model, tokenizer, dataset, device):
+def evaluate_model(model, tokenizer, dataset, device, batch_size):
     p = pipeline("sentiment-analysis", model, tokenizer=tokenizer, device=device)
-    results = p(KeyDataset(dataset, "sentence"))
+    results = p(KeyDataset(dataset, "sentence"), batch_size=batch_size)
     start = time.time()
     pred_labels = [0 if result["label"] == "NEGATIVE" else 1 for result in results]
     end = time.time()
@@ -32,6 +32,8 @@ def main():
         default="distilbert-base-uncased-finetuned-sst-2-english",
         help="The name of the trained Model.",
     )
+    parser.add_argument("--samples", type=int, default=872, help="The number of sst2 samples to use for evaluation.")
+    parser.add_argument("--batch_size", type=int, default=100, help="The batch size to use for evaluation.")
     parser.add_argument("--device", type=str, default=None, help="The device to use for evaluation.")
     args = parser.parse_args()
 
@@ -49,23 +51,23 @@ def main():
 
     model = AutoModelForSequenceClassification.from_pretrained(args.model).to(device)
     tokenizer = AutoTokenizer.from_pretrained(args.model)
-    dataset = load_dataset("sst2", split="validation")
+    dataset = load_dataset("sst2", split=f"validation[:{args.samples}]")
 
     print("Float model")
-    evaluate_model(model, tokenizer, dataset, device)
+    evaluate_model(model, tokenizer, dataset, device, args.batch_size)
     # Quantize model
     quantize(model)
     # Test inference
     print("Quantized model")
-    evaluate_model(model, tokenizer, dataset, device)
+    evaluate_model(model, tokenizer, dataset, device, args.batch_size)
     # Test inference with calibration
     print("Quantized calibrated model")
     with calibration():
-        evaluate_model(model, tokenizer, dataset, device)
+        evaluate_model(model, tokenizer, dataset, device, args.batch_size)
     # Freeze model
     freeze(model)
     print("Quantized frozen model")
-    evaluate_model(model, tokenizer, dataset, device)
+    evaluate_model(model, tokenizer, dataset, device, args.batch_size)
     # Now save the model and reload it to verify quantized weights are restored
     with TemporaryDirectory() as tmpdir:
         bert_file = os.path.join(tmpdir, "bert.pt")
@@ -76,7 +78,7 @@ def main():
         # When reloading we must assign instead of copying to force quantized tensors assignment
         model_reloaded.load_state_dict(torch.load(bert_file), assign=True)
     print("Quantized model with serialized integer weights")
-    evaluate_model(model_reloaded, tokenizer, dataset, device)
+    evaluate_model(model, tokenizer, dataset, device, args.batch_size)
 
 
 if __name__ == "__main__":
