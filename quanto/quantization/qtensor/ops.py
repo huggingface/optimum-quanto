@@ -1,3 +1,4 @@
+import numbers
 from functools import partial
 
 import torch
@@ -35,6 +36,10 @@ def get_qtensor_op(aten_op):
 
 def dequantize(*args):
     return [arg.dequantize() if isinstance(arg, QTensor) else arg for arg in args]
+
+
+def is_scalar(t):
+    return isinstance(t, numbers.Number) or isinstance(t, torch.Tensor) and len(t.shape) == 0
 
 
 @register_qtensor_op([torch.ops.aten._to_copy])
@@ -112,7 +117,7 @@ def copy_(op, dest, src):
 
 @register_qtensor_op([torch.ops.aten.div])
 def div(op, input, other):
-    if isinstance(other, QTensor) or isinstance(other, torch.Tensor) and len(other.shape) > 0:
+    if not is_scalar(other):
         raise NotImplementedError()
     # We just divide the scale
     return QTensor(input._data, op(input._scale, other))
