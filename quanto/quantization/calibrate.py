@@ -6,7 +6,7 @@ from torch.nn.modules.module import (
     register_module_forward_pre_hook,
 )
 
-from .nn import QLayerNorm, QLinear
+from .nn import QModuleMixin
 from .qtensor import QTensor
 
 
@@ -17,7 +17,7 @@ momentum = 0.9
 
 
 def calibrate_input(module: torch.nn.Module, input):
-    if isinstance(module, QLinear):
+    if isinstance(module, QModuleMixin):
         # We want to requantize with the most accurate scale
         input = input[0]
         if isinstance(input, QTensor):
@@ -31,7 +31,7 @@ def calibrate_input(module: torch.nn.Module, input):
 
 
 def calibrate_output(module: torch.nn.Module, input, output):
-    if isinstance(module, (QLinear, QLayerNorm)):
+    if isinstance(module, (QModuleMixin)):
         # Reevaluate output using float path
         input = input[0]
         if isinstance(input, QTensor):
