@@ -39,7 +39,7 @@ def dequantize(*args):
 
 
 def is_scalar(t):
-    return isinstance(t, numbers.Number) or isinstance(t, torch.Tensor) and len(t.shape) == 0
+    return isinstance(t, numbers.Number) or type(t) == torch.Tensor and len(t.shape) == 0
 
 
 @register_qtensor_op([torch.ops.aten._to_copy])
@@ -162,6 +162,11 @@ def mm(op, input, other):
 
 @register_qtensor_op([torch.ops.aten.mul])
 def mul(op, input, other):
+    # If one of the multiplicands is a scalar, just multiply the scale
+    if is_scalar(input):
+        return QTensor(other._data, input * other._scale)
+    if is_scalar(other):
+        return QTensor(input._data, other * input._scale)
     if not isinstance(input, QTensor) or not isinstance(other, QTensor):
         return op(*dequantize(input, other))
     # Cast int8 data to int32 and do the operation
