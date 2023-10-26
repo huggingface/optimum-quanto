@@ -106,3 +106,13 @@ def test_rescale_backward(device):
     gradient = torch.randn((10,)).to(device)
     qa_rescaled.backward(gradient)
     assert torch.allclose(a.grad, gradient)
+
+
+def test_qtensor_stride(device):
+    input_shape = (2, 4, 8)
+    a = random_tensor(input_shape, dtype=torch.float32).to(device)
+    qa = QTensor.quantize(a)
+    assert qa.stride() == a.stride()
+    ta = a.transpose(2, 1)
+    tqa = qa.transpose(2, 1)
+    assert tqa.stride() == ta.stride()
