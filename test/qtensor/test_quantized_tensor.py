@@ -116,3 +116,13 @@ def test_qtensor_stride(device):
     ta = a.transpose(2, 1)
     tqa = qa.transpose(2, 1)
     assert tqa.stride() == ta.stride()
+
+
+def test_qtensor_contiguous(device):
+    input_shape = (2, 4, 8)
+    qa = random_qtensor(input_shape, dtype=torch.float32).to(device)
+    assert qa.is_contiguous()
+    tqa = qa.transpose(2, 1)
+    assert not tqa.is_contiguous()
+    tqa = tqa.contiguous()
+    assert tqa.is_contiguous()
