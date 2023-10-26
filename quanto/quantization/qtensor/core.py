@@ -86,7 +86,9 @@ class QTensor(torch.Tensor):
     def __new__(cls, data, scale, requires_grad=False):
         # This constructor can ONLY create leaf Tensors wrt autograd.
         # Use QTensor.from_tensor(t) to get a non-leaf Tensor wrt autograd.
-        return torch.Tensor._make_wrapper_subclass(cls, data.size(), dtype=scale.dtype, requires_grad=requires_grad)
+        return torch.Tensor._make_wrapper_subclass(
+            cls, data.size(), strides=data.stride(), dtype=scale.dtype, requires_grad=requires_grad
+        )
 
     def __init__(self, data, scale, requires_grad=False):
         self._data = data
