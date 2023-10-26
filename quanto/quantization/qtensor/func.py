@@ -45,16 +45,3 @@ def unary_unsupported_op(func, t, *args, **kwargs):
 @register_qtensor_func([torch.nn.functional.cross_entropy])
 def plurary_unsupported_op(func, *args, **kwargs):
     return func(*dequantize(*args), **kwargs)
-
-
-@register_qtensor_func([torch.matmul])
-def matmul(func, input, other, out=None):
-    if not isinstance(input, QTensor) or not isinstance(other, QTensor) or out is not None:
-        return func(*dequantize(input, other), out=out)
-    # For some reason the dispatched default chain of operations will lead to errors if
-    # inputs are not contiguous. It is anyway better to overload directly the matmul
-    # function, as we will likely have optimized implementations for integer inputs.
-    # For now though, we cast int8 values to float32 to use float implementation.
-    out_data = func(input._data.to(torch.float32), other._data.to(torch.float32))
-    out_scale = input._scale * other._scale
-    return QTensor(out_data.to(torch.int32), out_scale)
