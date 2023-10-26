@@ -83,7 +83,7 @@ def cat(op, inputs, dim):
             # Only quantized tensors with identical scales can be concatenated
             out_data = op([t1._data, t2._data], dim)
             return QTensor(out_data, t1._scale)
-    return op(*dequantize(inputs), dim)
+    return op(dequantize(*inputs), dim)
 
 
 @register_qtensor_op([torch.ops.aten.lt])
