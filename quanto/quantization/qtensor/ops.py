@@ -134,6 +134,7 @@ def dot(op, input, other):
 @register_qtensor_op(
     [
         torch.ops.aten.expand,
+        torch.ops.aten.neg,
         torch.ops.aten.permute,
         torch.ops.aten.select,
         torch.ops.aten.slice,
@@ -141,6 +142,8 @@ def dot(op, input, other):
     ]
 )
 def unary_type_agnostic_op(op, input, *args, **kwargs):
+    # These operations can be transparently applied on the underlying integer tensor,
+    # without modifying the scale.
     out_data = op(input._data, *args, **kwargs)
     return QTensor(out_data, input._scale)
 
