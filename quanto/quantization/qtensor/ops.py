@@ -108,6 +108,13 @@ def addmm(op, input, mat1, mat2, beta=1, alpha=1):
     return QTensor(out_data.to(torch.int32), out_scale)
 
 
+@register_qtensor_op([torch.ops.aten.clone])
+def clone(op, t, memory_format=torch.preserve_format):
+    out_data = op(t._data, memory_format=memory_format)
+    out_scale = op(t._scale, memory_format=memory_format)
+    return QTensor(out_data, out_scale)
+
+
 @register_qtensor_op([torch.ops.aten.copy_])
 def copy_(op, dest, src):
     dest._data = op(dest._data, src._data)
