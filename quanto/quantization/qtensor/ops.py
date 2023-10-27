@@ -76,7 +76,7 @@ def add(op, input, other):
 
 
 @register_qtensor_op([torch.ops.aten.cat])
-def cat(op, inputs, dim):
+def cat(op, inputs, dim=0):
     if len(inputs) == 2:
         t1, t2 = inputs
         if isinstance(t1, QTensor) and isinstance(t2, QTensor) and torch.equal(t1._scale, t2._scale):
@@ -206,6 +206,17 @@ def _softmax(op, input, dim, half_to_float):
     # Since softmax is normalized, we know the optimal scale
     out_scale = torch.tensor(1 / torch.iinfo(input._data.dtype).max, dtype=input._scale.dtype)
     return QTensor.quantize(out_data, input._data.dtype, out_scale)
+
+
+@register_qtensor_op([torch.ops.aten.stack])
+def stack(op, inputs, dim=0):
+    if len(inputs) == 2:
+        t1, t2 = inputs
+        if isinstance(t1, QTensor) and isinstance(t2, QTensor) and torch.equal(t1._scale, t2._scale):
+            # Only quantized tensors with identical scales can be stacked
+            out_data = op([t1._data, t2._data], dim)
+            return QTensor(out_data, t1._scale)
+    return op(dequantize(*inputs), dim)
 
 
 @register_qtensor_op([torch.ops.aten.split])
