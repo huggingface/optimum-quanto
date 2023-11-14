@@ -25,6 +25,7 @@ def quantize(model):
         qmodule = quantize_module(m)
         if qmodule is not None:
             set_module_by_name(model, name, qmodule)
+            qmodule.name = name
 
 
 def freeze(model):
