@@ -34,6 +34,17 @@ def get_qtensor_op(aten_op):
     return _QTENSOR_OP_TABLE.get(aten_op, None)
 
 
+def dequantized_op(func, *args, **kwargs):
+    def dequantize(x):
+        return x.dequantize() if isinstance(x, QTensor) else x
+
+    dq_args = [dequantize(arg) for arg in args]
+    dq_kwargs = {}
+    for name, kwarg in kwargs.items():
+        dq_kwargs[name] = dequantize(kwarg)
+    return func(*dq_args, **dq_kwargs)
+
+
 def dequantize(*args):
     return [arg.dequantize() if isinstance(arg, QTensor) else arg for arg in args]
 
@@ -166,6 +177,21 @@ def is_same_size(op, input, other):
 def unary_unsupported_op(op, input, *args, **kwargs):
     # Not supported: dequantize
     return op(input.dequantize(), *args, **kwargs)
+
+
+@register_qtensor_op([torch.ops.aten.linear])
+def linear(op, input, weight, bias=None):
+    if (
+        not isinstance(input, QTensor)
+        or not isinstance(weight, QTensor)
+        or (bias is not None and isinstance(bias, QTensor))
+    ):
+        return dequantized_op(op, input, weight, bias=bias)
+    # Cast int8 data to float32 and do the operation
+    bias_data = bias._data.to(torch.float32) if bias is not None else None
+    out_data = op(input._data.to(torch.float32), weight._data.to(torch.float32), bias_data)
+    out_scale = input._scale * weight._scale
+    return QTensor(out_data.to(torch.int32), out_scale)
 
 
 @register_qtensor_op([torch.ops.aten.bmm, torch.ops.aten.mm])
