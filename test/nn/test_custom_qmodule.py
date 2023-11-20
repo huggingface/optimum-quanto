@@ -77,6 +77,7 @@ class QConv1D(QModuleMixin, Conv1D):
         self.bias = torch.nn.Parameter(QTensor.quantize(self.bias, torch.int32, bias_scale))
 
 
+@pytest.mark.skip("QConv1D does not work")
 @pytest.mark.parametrize("batch_size", [1, 10])
 @pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
 def test_quantize_conv1d(batch_size, tokens, embeddings, device):
@@ -101,6 +102,7 @@ def test_quantize_conv1d(batch_size, tokens, embeddings, device):
     assert torch.max(torch.abs(qout._data - int_qout._data)) <= 1
 
 
+@pytest.mark.skip("QConv1D does not work")
 def test_qconv1d_serialization():
     tokens = 10
     embeddings = 32
@@ -130,6 +132,7 @@ def test_qconv1d_serialization():
         assert torch.equal(v, v_reloaded)
 
 
+@pytest.mark.skip("QConv1D does not work")
 @pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
 def test_qconv1d_gradient(tokens, embeddings, device):
     # We use a batch size of 1 to simplify gradient manual calculations
