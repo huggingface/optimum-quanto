@@ -40,15 +40,15 @@ def calibrate_input(module: torch.nn.Module, input, momentum: float = 0.9):
 def calibrate_output(module: torch.nn.Module, input, output, momentum=0.9):
     if isinstance(module, (QModuleMixin)):
         # Reevaluate output using float path and get its actual scale
-        input = input[0]
-        if isinstance(input, QTensor):
-            input = input.dequantize()
-        output = super(module.__class__, module).forward(input)
+        float_input = input[0]
+        if isinstance(float_input, QTensor):
+            float_input = float_input.dequantize()
+        output = super(module.__class__, module).forward(float_input)
         output_scale = absmax_scale(output, torch.int8)
         # Update the module output scale accordingly
         module.out_scale = update_scale(module.out_scale, output_scale, momentum)
-        # Requantize output with the updated output scale
-        return QTensor.quantize(output, torch.int8, module.out_scale)
+        # Reevaluate output with the correct output scale
+        return module.forward(input[0])
 
 
 @contextmanager
