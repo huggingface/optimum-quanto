@@ -14,6 +14,13 @@ from .qtensor import QTensor, absmax_scale
 __all__ = ["calibration"]
 
 
+def update_scale(scale, new_scale, momentum):
+    if torch.all(scale == 1):
+        # The original scale has never been set
+        return new_scale
+    return momentum * scale + new_scale * (1.0 - momentum)
+
+
 def calibrate_input(module: torch.nn.Module, input, momentum: float = 0.9):
     if isinstance(module, QModuleMixin):
         # Evaluate the actual scale of the input
@@ -23,10 +30,7 @@ def calibrate_input(module: torch.nn.Module, input, momentum: float = 0.9):
             input = input.dequantize()
         input_scale = absmax_scale(input, torch.int8)
         # Update the module input scale accordingly
-        if torch.all(module.in_scale == 1):
-            module.in_scale = input_scale
-        else:
-            module.in_scale = momentum * module.in_scale + input_scale * (1.0 - momentum)
+        module.in_scale = update_scale(module.in_scale, input_scale, momentum)
         if input_qtensor:
             # Requantize input with the updated input scale
             return QTensor.quantize(input, torch.int8, module.in_scale)
@@ -35,7 +39,6 @@ def calibrate_input(module: torch.nn.Module, input, momentum: float = 0.9):
 
 def calibrate_output(module: torch.nn.Module, input, output, momentum=0.9):
     if isinstance(module, (QModuleMixin)):
-        print(momentum)
         # Reevaluate output using float path and get its actual scale
         input = input[0]
         if isinstance(input, QTensor):
@@ -43,10 +46,7 @@ def calibrate_output(module: torch.nn.Module, input, output, momentum=0.9):
         output = super(module.__class__, module).forward(input)
         output_scale = absmax_scale(output, torch.int8)
         # Update the module output scale accordingly
-        if torch.all(module.out_scale == 1):
-            module.out_scale = output_scale
-        else:
-            module.out_scale = momentum * module.out_scale + output_scale * (1.0 - momentum)
+        module.out_scale = update_scale(module.out_scale, output_scale, momentum)
         # Requantize output with the updated output scale
         return QTensor.quantize(output, torch.int8, module.out_scale)
 
