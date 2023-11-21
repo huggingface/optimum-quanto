@@ -85,14 +85,14 @@ def test_linear(batch_size, tokens, embeddings, use_bias, device):
     qweight = random_qtensor((embeddings, embeddings), dtype=torch.float32).to(device)
     if use_bias:
         bias = random_tensor((embeddings,), dtype=torch.float32).to(device)
-        bias_scale = qinputs._scale * qweight._scale
-        # Bias must be quantized with a higher bitwidth as they are added to the product of two int8
-        qbias = QTensor.quantize(bias, torch.int32, bias_scale)
-        q_assert_close(bias, qbias)
+        # Bias must be quantized to int32 with the same scale as the product of the two int8
+        prod_scale = qinputs._scale * qweight._scale
+        qbias = QTensor.quantize(bias, torch.int32, prod_scale)
     else:
-        bias = None
         qbias = None
-    out = torch.nn.functional.linear(qinputs.dequantize(), qweight.dequantize(), bias)
+    out = torch.nn.functional.linear(
+        qinputs.dequantize(), qweight.dequantize(), qbias.dequantize() if use_bias else None
+    )
     qout = torch.nn.functional.linear(qinputs, qweight, qbias)
     q_assert_close(out, qout)
 
