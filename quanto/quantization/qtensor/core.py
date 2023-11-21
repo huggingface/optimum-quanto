@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 from torch.autograd import Function
 
@@ -5,7 +7,9 @@ from torch.autograd import Function
 __all__ = ["absmax_scale", "QTensor"]
 
 
-def absmax_scale(base: torch.Tensor, int_dtype: torch.Tensor.dtype = torch.int8) -> torch.Tensor:
+def absmax_scale(
+    base: torch.Tensor, int_dtype: torch.Tensor.dtype = torch.int8, axis: Optional[int] = None
+) -> torch.Tensor:
     """Evaluate the quantization scale using the absmax algorithm.
 
     The Absolute Maximum quantization algorithm is a symmetrical quantization
@@ -16,11 +20,23 @@ def absmax_scale(base: torch.Tensor, int_dtype: torch.Tensor.dtype = torch.int8)
     Args:
         base (`torch.Tensor`): the base tensor on which the scale will be applied.
         int_dtype (`torch.Tensor.dtype`): the target integer dtype for quantization.
+        axis (`int`): the index of the axis to preserve, or -1 for the last one.
+            Defaults to None to reduce all axis.
 
     Returns:
         `torch.Tensor`: a scale tensor of the same dtype as the base.
     """
-    return torch.max(torch.abs(base)) / torch.iinfo(int_dtype).max
+    abs_base = torch.abs(base)
+    if axis is None:
+        qranges = torch.max(abs_base)
+    else:
+        dim = list(range(base.ndim))
+        if axis == -1:
+            dim = dim[:-1]
+        else:
+            dim.remove(axis)
+        qranges = torch.amax(torch.abs(base), dim=dim, keepdim=True)
+    return qranges / torch.iinfo(int_dtype).max
 
 
 class Quantizer(Function):
@@ -34,6 +50,13 @@ class Quantizer(Function):
         iinfo = torch.iinfo(int_dtype)
         if scale is None:
             scale = absmax_scale(base, int_dtype)
+        elif scale.ndim > 0:
+            if torch.squeeze(scale).ndim > 1:
+                raise ValueError("Quantizing along multiple axis is not supported")
+            if scale.ndim != base.ndim:
+                raise ValueError(
+                    "When quantizing per-axis, the scale must be broadcastable to the base (Tip: try to add missing dims of length zero)."
+                )
         data = torch.clamp(torch.round(base / scale), min=iinfo.min, max=iinfo.max).to(int_dtype)
         # The instantiation of the quantized tensor must happen within the context of the Function
         # for the autograd magic to work.
@@ -91,6 +114,21 @@ class QTensor(torch.Tensor):
         )
 
     def __init__(self, data, scale, requires_grad=False):
+        self._axis = None
+        if scale.ndim > 0:
+            if torch.squeeze(scale).ndim > 1:
+                raise ValueError("QTensor cannot be quantized along multiple axis.")
+            if scale.ndim != data.ndim:
+                raise ValueError(
+                    "The QTensor scale must be broadcastable to the base (Tip: try to add missing dims of length zero)."
+                )
+            dims = scale.shape
+            for i in range(scale.ndim):
+                if dims[i] != 1:
+                    self._axis = i
+            if self._axis is None:
+                # All dims are 1: the scale is actually a scalar
+                scale = torch.squeeze(scale)
         self._data = data
         self._scale = scale
 
@@ -112,6 +150,10 @@ class QTensor(torch.Tensor):
     def rescale(self, int_dtype=torch.int8, scale=None):
         """Differentiable requantization function"""
         return ReQuantizer.apply(self, int_dtype, scale)
+
+    @property
+    def axis(self):
+        return self._axis
 
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):

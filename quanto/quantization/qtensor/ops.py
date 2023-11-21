@@ -107,6 +107,8 @@ def lt(op, input, other):
 
 @register_qtensor_op([torch.ops.aten.addmm])
 def addmm(op, input, mat1, mat2, beta=1, alpha=1):
+    if mat1.axis is not None:
+        raise ValueError("addmm is not supported if the first matrix is quantized per-axis.")
     # Do the operation with int8 cast to float32
     out_data = op(
         input._data.to(torch.float32),
@@ -253,16 +255,27 @@ def split(op, input, *args, **kwargs):
 
 @register_qtensor_op([torch.ops.aten.transpose, torch.ops.aten.t])
 def transpose(op, input, *args):
-    # Transpose is not supported if the tensor is per-axis
-    assert len(input._scale.shape) == 0
     out_data = op(input._data, *args)
-    return QTensor(out_data, input._scale)
+    out_scale = input._scale
+    if input.axis is not None:
+        # We need to transpose also the scale
+        out_scale = op(out_scale, *args)
+    return QTensor(out_data, out_scale)
 
 
 @register_qtensor_op([torch.ops.aten.view, torch.ops.aten._unsafe_view])
 def view(op, input, *shape):
     out_data = op(input._data, *shape)
-    return QTensor(out_data, input._scale)
+    out_scale = input._scale
+    if input.axis is not None:
+        # We only support the simple case where the tensor is quantized along the
+        # last axis that is not modified by the view
+        if input.axis == input._scale.ndim - 1 and input._scale.shape[-1] == out_data.shape[-1]:
+            out_scale_shape = (1,) * (out_data.ndim - 1) + (input._scale.shape[-1],)
+            out_scale = out_scale.view(out_scale_shape)
+        else:
+            raise ValueError("View is not supported on QTensor per-axis.")
+    return QTensor(out_data, out_scale)
 
 
 @register_qtensor_op([torch.ops.aten._softmax_backward_data])
