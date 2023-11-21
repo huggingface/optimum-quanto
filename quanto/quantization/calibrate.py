@@ -32,17 +32,15 @@ def update_scale(scale, new_scale, momentum):
 
 def calibrate_input(module: torch.nn.Module, input, momentum: float = 0.9):
     if isinstance(module, QModuleMixin):
-        # Evaluate the actual scale of the input
         input = input[0]
-        input_qtensor = isinstance(input, QTensor)
-        if input_qtensor:
-            input = input.dequantize()
-        input_scale = absmax_scale(input, torch.int8)
-        # Update the module input scale accordingly
-        module.in_scale = update_scale(module.in_scale, input_scale, momentum)
-        if input_qtensor:
-            # Requantize input with the updated input scale
-            return QTensor.quantize(input, torch.int8, module.in_scale)
+        if isinstance(input, QTensor):
+            # Just adopt the scale of the input
+            module.in_scale = input._scale
+        else:
+            # Evaluate the best scale
+            input_scale = absmax_scale(input, torch.int8)
+            # Update the module input scale accordingly
+            module.in_scale = update_scale(module.in_scale, input_scale, momentum)
         return input
 
 
