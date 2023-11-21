@@ -5,14 +5,33 @@ import pytest
 import torch
 from helpers import q_assert_close, random_qtensor, random_tensor
 
-from quanto.quantization import QTensor
+from quanto.quantization import QTensor, absmax_scale
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 @pytest.mark.parametrize("int_dtype", [torch.int8, torch.int16], ids=["int8", "int16"])
-def test_quantize_dequantize(input_shape, int_dtype, device):
+def test_quantize_default(input_shape, int_dtype, device):
     a = random_tensor(input_shape, dtype=torch.float32).to(device)
     qa = QTensor.quantize(a, int_dtype)
+    q_assert_close(a, qa)
+
+
+@pytest.mark.parametrize("input_shape", [(10,), (1, 10), (2, 10), (10, 32, 32)])
+@pytest.mark.parametrize("int_dtype", [torch.int8, torch.int16], ids=["int8", "int16"])
+@pytest.mark.parametrize("axis", [None, 0, -1], ids=["per-tensor", "first-axis", "last-axis"])
+def test_quantize_scale(input_shape, axis, int_dtype, device):
+    a = random_tensor(input_shape, dtype=torch.float32).to(device)
+    scale = absmax_scale(a, int_dtype, axis)
+    qa = QTensor.quantize(a, int_dtype, scale)
+    if axis is not None:
+        if a.ndim == 1:
+            # Quantization is actually per-tensor since the input tensor is a vector
+            assert qa.axis is None
+        elif a.shape[axis] == 1:
+            # Quantization is actually per-tensor as the axis dim is 1
+            assert qa.axis is None
+        else:
+            assert qa.axis is not None
     q_assert_close(a, qa)
 
 
@@ -27,7 +46,7 @@ def test_instantiate(input_shape, int_dtype, device):
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 def test_rescale_int16_int8(input_shape, device):
-    a = random_tensor((10,), dtype=torch.float32).to(device)
+    a = random_tensor(input_shape, dtype=torch.float32).to(device)
     qa = QTensor.quantize(a, int_dtype=torch.int16)
     # Rescale to int8
     qa_rescaled = qa.rescale(torch.int8)
@@ -50,6 +69,18 @@ def test_rescale_int32_int8(input_shape, device):
     # Since we chose the optimal scale, we must have used the whole integer range
     assert torch.max(torch.abs(qa_rescaled._data)) == torch.iinfo(torch.int8).max
     q_assert_close(a, qa_rescaled)
+
+
+@pytest.mark.parametrize("input_shape", [(2, 10), (10, 32, 32)])
+@pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
+def test_rescale_per_axis(input_shape, axis, device):
+    qa = random_qtensor(input_shape, dtype=torch.float32, axis=axis).to(device)
+    assert qa.axis is not None
+    max_scale = torch.max(qa._scale)
+    # Rescale per tensor
+    qa_rescaled = qa.rescale(scale=max_scale)
+    assert qa_rescaled.axis is None
+    q_assert_close(qa.dequantize(), qa_rescaled)
 
 
 def test_quantized_tensor_serialization():
