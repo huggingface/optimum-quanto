@@ -1,33 +1,33 @@
+from torch.nn import ModuleList
+
 from .nn import QModuleMixin, quantize_module
 
 
 __all__ = ["quantize", "freeze"]
 
 
-def set_module_by_name(parent_module, name, child_module):
-    module_names = name.split(".")
-    if len(module_names) == 1:
-        setattr(parent_module, name, child_module)
-    else:
-        next_module = parent_module
-        for idx in range(len(module_names) - 1):
-            next_module_name = module_names[idx]
-            if next_module_name.isnumeric():
-                next_module = next_module[int(next_module_name)]
-            else:
-                next_module = getattr(next_module, next_module_name)
-        setattr(next_module, module_names[-1], child_module)
+def _quantize_recursive(module):
+    if isinstance(module, ModuleList):
+        for i, m in enumerate(module):
+            module[i] = _quantize_recursive(m)
+        return module
+    qmodule = quantize_module(module)
+    if qmodule is None:
+        for name, m in module.named_children():
+            qmodule = _quantize_recursive(m)
+            setattr(module, name, qmodule)
+        return module
+    return qmodule
 
 
-def quantize(model, modules=None):
+def quantize(model, names=None):
     # Quantization happens in-place
-    for name, m in model.named_modules():
-        if modules is not None and m not in modules:
+    for name, m in model.named_children():
+        if names is not None and name not in names:
             continue
-        qmodule = quantize_module(m)
-        if qmodule is not None:
-            set_module_by_name(model, name, qmodule)
-            qmodule.name = name
+        qmodule = _quantize_recursive(m)
+        setattr(model, name, qmodule)
+        qmodule.name = name
 
 
 def freeze(model):
