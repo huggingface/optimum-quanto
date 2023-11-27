@@ -121,3 +121,18 @@ def test_view(input_shape, device):
     qinputs = random_qtensor(input_shape, dtype=torch.float32).to(device)
     qview = qinputs.view((1,) + input_shape)
     assert isinstance(qview, QTensor)
+
+
+@pytest.mark.parametrize("input_shape", [(10,), (10, 32)])
+def test_cat(input_shape, device):
+    qinputs = random_qtensor(input_shape, dtype=torch.float32).to(device)
+    other = random_tensor(input_shape, dtype=torch.float32).to(device)
+    # First, quantize other with the same scale
+    qother = QTensor.quantize(other, qinputs._data.dtype, qinputs._scale)
+    qcat = torch.cat([qinputs, qother])
+    assert isinstance(qcat, QTensor)
+    q_assert_close(torch.cat([qinputs.dequantize(), qother.dequantize()]), qcat)
+    # Now, verify that with different scales, the output is dequantized
+    qother = QTensor.quantize(other, qinputs._data.dtype)
+    qcat = torch.cat([qinputs, qother])
+    assert not isinstance(qcat, QTensor)
