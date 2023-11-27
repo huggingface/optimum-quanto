@@ -36,6 +36,10 @@ def get_qtensor_op(aten_op):
 
 def dequantized_op(func, *args, **kwargs):
     def dequantize(x):
+        if isinstance(x, list):
+            return [y.dequantize() for y in x]
+        if isinstance(x, tuple):
+            return (y.dequantize() for y in x)
         return x.dequantize() if isinstance(x, QTensor) else x
 
     dq_args = [dequantize(arg) for arg in args]
@@ -43,10 +47,6 @@ def dequantized_op(func, *args, **kwargs):
     for name, kwarg in kwargs.items():
         dq_kwargs[name] = dequantize(kwarg)
     return func(*dq_args, **dq_kwargs)
-
-
-def dequantize(*args):
-    return [arg.dequantize() if isinstance(arg, QTensor) else arg for arg in args]
 
 
 def is_scalar(t):
@@ -83,7 +83,7 @@ def add(op, input, other):
         out_data = op(input._data.to(torch.int16), other._data.to(torch.int16))
         out_scale = input._scale
         return QTensor(out_data, out_scale)
-    return op(*dequantize(input, other))
+    return dequantized_op(op, input, other)
 
 
 @register_qtensor_op([torch.ops.aten.cat])
@@ -94,7 +94,7 @@ def cat(op, inputs, dim=0):
             # Only quantized tensors with identical scales can be concatenated
             out_data = op([t1._data, t2._data], dim)
             return QTensor(out_data, t1._scale)
-    return op(dequantize(*inputs), dim)
+    return dequantized_op(op, inputs, dim)
 
 
 @register_qtensor_op([torch.ops.aten.lt])
@@ -102,7 +102,7 @@ def lt(op, input, other):
     # Only quantized tensors with identical scales can be compared
     if isinstance(input, QTensor) and isinstance(other, QTensor) and torch.equal(input._scale, other._scale):
         return op(input._data, other._data)
-    return op(*dequantize(input, other))
+    return dequantized_op(op, input, other)
 
 
 @register_qtensor_op([torch.ops.aten.addmm])
@@ -197,7 +197,7 @@ def linear(op, input, weight, bias=None):
 @register_qtensor_op([torch.ops.aten.bmm, torch.ops.aten.mm])
 def mm(op, input, other):
     if not isinstance(input, QTensor) or not isinstance(other, QTensor):
-        return op(*dequantize(input, other))
+        return dequantized_op(op, input, other)
     # Cast int8 data to float32 and do the operation
     out_data = op(input._data.to(torch.float32), other._data.to(torch.float32))
     out_scale = input._scale * other._scale
@@ -212,7 +212,7 @@ def mul(op, input, other):
     if is_scalar(other):
         return QTensor(input._data, other * input._scale)
     if not isinstance(input, QTensor) or not isinstance(other, QTensor):
-        return op(*dequantize(input, other))
+        return dequantized_op(op, input, other)
     # Cast int8 data to int32 and do the operation
     out_data = op(input._data.to(torch.int32), other._data.to(torch.int32))
     out_scale = input._scale * other._scale
@@ -242,7 +242,7 @@ def stack(op, inputs, dim=0):
             # Only quantized tensors with identical scales can be stacked
             out_data = op([t1._data, t2._data], dim)
             return QTensor(out_data, t1._scale)
-    return op(dequantize(*inputs), dim)
+    return dequantized_op(inputs, dim)
 
 
 @register_qtensor_op([torch.ops.aten.split])
