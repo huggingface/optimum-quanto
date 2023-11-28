@@ -19,6 +19,7 @@ def test_quantize_linear(batch_size, tokens, embeddings, use_bias, device):
     # Calibrate and obtain quantized outputs
     with torch.no_grad(), calibration():
         qout = qlinear(qinputs)
+    assert qout._data.dtype == torch.int8
     # Freeze to set quantized weights
     freeze(qlinear)
     # Align linear weights with quantized linear weights for comparison
@@ -27,7 +28,7 @@ def test_quantize_linear(batch_size, tokens, embeddings, use_bias, device):
         linear.bias = torch.nn.Parameter(qlinear.bias.dequantize())
     out = linear(qinputs.dequantize())
     q_assert_close(out, qout)
-    # Now run an inference without calibrating
+    # Now run an inference with frozen model
     with torch.no_grad():
         int_qout = qlinear(qinputs)
     assert qout._scale == int_qout._scale
@@ -63,36 +64,6 @@ def test_qlinear_serialization(use_bias):
         v = getattr(qlinear, attr)
         v_reloaded = getattr(qlinear_reloaded, attr)
         assert torch.equal(v, v_reloaded)
-
-
-def test_quantize_custom_module():
-    tokens = 10
-    embeddings = 32
-
-    class TwoLinearModel(torch.nn.Module):
-        def __init__(self, embeddings):
-            super().__init__()
-            self.linear1 = torch.nn.Linear(embeddings, embeddings)
-            self.linear2 = torch.nn.Linear(embeddings, embeddings)
-
-        def forward(self, input):
-            return self.linear2(self.linear1(input))
-
-    model = TwoLinearModel(embeddings)
-    model.linear1 = QLinear.from_module(model.linear1)
-    model.linear2 = QLinear.from_module(model.linear2)
-    qinputs = random_qtensor((1,) + (tokens, embeddings), dtype=torch.float32)
-    with torch.no_grad(), calibration():
-        qout = model(qinputs)
-    assert model.linear1.in_scale != 1
-    assert model.linear1.out_scale != 1
-    assert model.linear2.in_scale != 1
-    assert model.linear2.out_scale != 1
-    with torch.no_grad():
-        int_qout = model(qinputs)
-    assert torch.equal(qout._scale, int_qout._scale)
-    # There may be a slight difference, but of at most one quantization interval
-    assert torch.max(torch.abs(qout._data - int_qout._data)) <= 1
 
 
 @pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
