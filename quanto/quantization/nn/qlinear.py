@@ -21,8 +21,8 @@ class QLinear(QModuleMixin, torch.nn.Linear):
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         # If needed, quantize inputs, weights and bias
         if isinstance(input, QTensor):
-            if input._data.dtype == torch.int32:
-                # Reduce input bitwidth
+            if input._data.dtype == torch.int32 or input.axis is not None:
+                # Requantize input to per-tensor int8
                 input = input.rescale(torch.int8, self.in_scale)
         else:
             input = QTensor.quantize(input, torch.int8, self.in_scale)
