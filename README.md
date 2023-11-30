@@ -15,7 +15,7 @@
 Features yet to be implemented:
 
 - quantize clone (quantization happens in-place for now),
-- quantize weights per-axis,
+- smart calibration to decide if activations must be per-tensor or per-axis,
 - optimized integer kernels,
 - quantized operators fusion,
 - support `int4` weights,
@@ -27,6 +27,7 @@ The following modules can be quantized:
 
 - [Linear](https://pytorch.org/docs/stable/generated/torch.nn.Linear.html) (QLinear).
 Weights are quantized to `int8`, and biases to `int32`. Outputs are quantized to `int8`.
+If the activations are quantized per-axis, the weights are also quantized per-axis.
 - [LayerNorm](https://pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html),
 Weights and biases are __not__ quantized. Outputs are quantized to `int8`.
 
@@ -81,8 +82,7 @@ Quanto supports a calibration mode that allows to adjust the activation ranges w
 with calibration():
     model(samples)
 ```
-
-Note that during calibration, all activations and weights are dequantized and inference happens with float precision.
+Note that during calibration, all activations and weights are dequantized and inference is evaluated with float precision.
 
 3. Tune, aka Quantization-Aware-Training (optional)
 
@@ -108,6 +108,27 @@ freeze(model)
 ```
 
 Please refer to the [examples](https://github.com/huggingface/quanto/tree/main/examples) for instantiations of that workflow.
+
+## Per-axis versus per-tensor
+
+By default, all weights and activations are quantized per-tensor, as it is the quantization scheme that is compatible with the
+highest number of operations with minimal changes.
+
+This can however lead to serious quantization errors if the corresponding tensors contain large outlier values: typically, this will
+lead to quantized tensors with most values set to zero (except the outliers).
+
+To work around that issue, activations can also be quantized per-axis:
+
+```
+with calibration(per_axis=True):
+    model(samples)
+```
+
+Setting a global policy is far from optimal, since a lot of operations such as `torch.nn.functional.linear` require per-tensor inputs,
+leading to a per-tensor rescaling down the line.
+
+It is however always a good option if the consuming operation is compatible with per-axis inputs or always dequantizes its inputs (softmax is a
+good example).
 
 ## Implementation details
 
