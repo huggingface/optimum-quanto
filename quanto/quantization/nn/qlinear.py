@@ -1,6 +1,6 @@
 import torch
 
-from ..qtensor import QTensor
+from ..qtensor import QTensor, absmax_scale
 from .qmodule import QModuleMixin, register_qmodule
 
 
@@ -18,34 +18,46 @@ class QLinear(QModuleMixin, torch.nn.Linear):
                 qmodule.bias.copy_(module.bias)
         return qmodule.to(module.weight.device)
 
+    def qparams(self):
+        qweight = self.weight
+        if not isinstance(qweight, QTensor):
+            # Quantize the weights per-axis if the outputs are per-axis
+            axis = None if self.out_scale.ndim == 0 else 0
+            wscale = absmax_scale(self.weight, axis=axis)
+            qweight = QTensor.quantize(self.weight, scale=wscale)
+        qbias = self.bias
+        if qbias is not None:
+            bias_scale = torch.squeeze(self.in_scale * qweight._scale)
+            if isinstance(qbias, QTensor):
+                if torch.any(qbias._scale != bias_scale):
+                    # This should only happen if we calibrate again a frozen module
+                    qbias = qbias.rescale(torch.int32, bias_scale)
+            else:
+                qbias = QTensor.quantize(qbias, torch.int32, bias_scale)
+        return qweight, qbias
+
+    def qweight(self):
+        if isinstance(self.weight, QTensor):
+            return self.weight
+        return QTensor.quantize(self.weight)
+
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        # If needed, quantize inputs, weights and bias
+        # If needed, quantize inputs
         if isinstance(input, QTensor):
             if input._data.dtype == torch.int32 or input.axis is not None:
                 # Requantize input to per-tensor int8
                 input = input.rescale(torch.int8, self.in_scale)
         else:
             input = QTensor.quantize(input, torch.int8, self.in_scale)
-        weight = self.weight
-        if not isinstance(weight, QTensor):
-            weight = QTensor.quantize(weight)
-        bias = self.bias
-        if bias is not None:
-            bias_scale = self.in_scale * weight._scale
-            if isinstance(bias, QTensor):
-                if bias._scale != bias_scale:
-                    # This should only happen if we calibrate again a frozen module
-                    bias = QTensor.rescale(torch.int32, bias_scale)
-            else:
-                bias = QTensor.quantize(bias, torch.int32, bias_scale)
         # Operate on quantized tensors
-        out_int32 = torch.nn.functional.linear(input, weight, bias)
+        qweight, qbias = self.qparams()
+        out_int32 = torch.nn.functional.linear(input, qweight, qbias)
         # Downscale
         return out_int32.rescale(torch.int8, self.out_scale)
 
     def freeze(self):
         # Replace float weights by quantized weights
-        self.weight = torch.nn.Parameter(QTensor.quantize(self.weight).to(self.weight.device))
+        qweight, qbias = self.qparams()
+        self.weight = torch.nn.Parameter(qweight)
         if self.bias is not None:
-            bias_scale = self.in_scale * self.weight._scale
-            self.bias = torch.nn.Parameter(QTensor.quantize(self.bias, torch.int32, bias_scale))
+            self.bias = torch.nn.Parameter(qbias)
