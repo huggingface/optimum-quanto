@@ -1,6 +1,5 @@
 from contextlib import contextmanager
 from functools import partial
-from typing import Callable, Optional, Union
 
 import torch
 from torch.nn.modules.module import (
@@ -13,14 +12,6 @@ from .qtensor import QTensor, absmax_scale
 
 
 __all__ = ["calibration"]
-
-
-# Calibration callback with the following arguments:
-# - quantized module,
-# - inputs (can be quantized or not)
-# - outputs resulting from a float inference,
-# - quantized outputs from a quantized inference.
-CalibrationHook = Callable[[QModuleMixin, Union[torch.Tensor, QTensor], torch.Tensor, QTensor], None]
 
 
 def update_scale(scale, new_scale, momentum):
@@ -49,7 +40,6 @@ def calibrate_output(
     input,
     output,
     momentum: float = 0.9,
-    hook: Optional[CalibrationHook] = None,
 ):
     if isinstance(module, (QModuleMixin)):
         # Reevaluate output using float path and get its actual scale
@@ -62,17 +52,15 @@ def calibrate_output(
         module.out_scale = update_scale(module.out_scale, output_scale, momentum)
         # Reevaluate output with the correct output scale
         qoutput = module.forward(input[0])
-        if hook is not None:
-            hook(module, input[0], float_output, qoutput)
         return qoutput
 
 
 @contextmanager
-def calibration(momentum: float = 0.9, hook: Optional[CalibrationHook] = None):
+def calibration(momentum: float = 0.9):
     """A context to calibrate quantized modules."""
     try:
         pre_handle = register_module_forward_pre_hook(partial(calibrate_input, momentum=momentum))
-        post_handle = register_module_forward_hook(partial(calibrate_output, momentum=momentum, hook=hook))
+        post_handle = register_module_forward_hook(partial(calibrate_output, momentum=momentum))
         yield
     finally:
         pre_handle.remove()
