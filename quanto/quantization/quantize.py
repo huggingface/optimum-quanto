@@ -1,6 +1,6 @@
 from torch.nn import ModuleList
 
-from .nn import QModuleMixin, quantize_module
+from .nn import QActivationWrapper, QModuleMixin, quantize_module
 
 
 __all__ = ["quantize", "freeze"]
@@ -26,7 +26,7 @@ def quantize(model, names=None):
         if names is not None and name not in names:
             continue
         qmodule = _quantize_recursive(m)
-        setattr(model, name, qmodule)
+        setattr(model, name, QActivationWrapper(qmodule))
         qmodule.name = name
 
 

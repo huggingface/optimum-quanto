@@ -5,7 +5,7 @@ import pytest
 import torch
 from helpers import random_qtensor
 
-from quanto.quantization import QLinear, QTensor, freeze, quantize
+from quanto.quantization import QActivationWrapper, QTensor, freeze, quantize
 
 
 class MLP(torch.nn.Module):
@@ -22,9 +22,9 @@ class MLP(torch.nn.Module):
 
 
 def check_mlp(model, frozen):
-    assert isinstance(model.input_layer, QLinear)
-    assert isinstance(model.mid_layer, QLinear)
-    assert isinstance(model.output_layer, QLinear)
+    assert isinstance(model.input_layer, QActivationWrapper)
+    assert isinstance(model.mid_layer, QActivationWrapper)
+    assert isinstance(model.output_layer, QActivationWrapper)
     if frozen:
         assert isinstance(model.input_layer.weight, QTensor)
         assert isinstance(model.mid_layer.weight, QTensor)
