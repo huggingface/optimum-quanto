@@ -39,7 +39,10 @@ class QLinear(QModuleMixin, torch.nn.Linear):
     def qweight(self):
         if isinstance(self.weight, QTensor):
             return self.weight
-        return QTensor.quantize(self.weight)
+        # Quantize the weights per-axis if the outputs are per-axis
+        axis = None if self.out_scale.ndim == 0 else 0
+        wscale = absmax_scale(self.weight, axis=axis)
+        return QTensor.quantize(self.weight, scale=wscale)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         # If needed, quantize inputs
