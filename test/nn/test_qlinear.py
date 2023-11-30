@@ -12,12 +12,13 @@ from quanto.quantization.nn import QLinear
 @pytest.mark.parametrize("batch_size", [1, 10])
 @pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
-def test_quantize_linear(batch_size, tokens, embeddings, use_bias, device):
+@pytest.mark.parametrize("per_axis", [True, False], ids=["per-axis", "per-tensor"])
+def test_quantize_linear(batch_size, tokens, embeddings, use_bias, per_axis, device):
     linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(device)
     qlinear = QLinear.from_module(linear)
     qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
     # Calibrate and obtain quantized outputs
-    with torch.no_grad(), calibration():
+    with torch.no_grad(), calibration(per_axis=per_axis):
         qout = qlinear(qinputs)
     assert qout._data.dtype == torch.int8
     # Freeze to set quantized weights
@@ -31,20 +32,21 @@ def test_quantize_linear(batch_size, tokens, embeddings, use_bias, device):
     # Now run an inference with frozen model
     with torch.no_grad():
         int_qout = qlinear(qinputs)
-    assert qout._scale == int_qout._scale
+    assert torch.equal(qout._scale, int_qout._scale)
     # There may be a slight difference, but of at most one quantization interval
     assert torch.max(torch.abs(qout._data - int_qout._data)) <= 1
 
 
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
-def test_qlinear_serialization(use_bias):
+@pytest.mark.parametrize("per_axis", [True, False], ids=["per-axis", "per-tensor"])
+def test_qlinear_serialization(use_bias, per_axis):
     tokens = 10
     embeddings = 32
     linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias)
     qlinear = QLinear.from_module(linear)
     qinputs = random_qtensor((1,) + (tokens, embeddings), dtype=torch.float32)
     # Calibrate and obtain quantized outputs
-    with torch.no_grad(), calibration():
+    with torch.no_grad(), calibration(per_axis=per_axis):
         qlinear(qinputs)
     # Freeze linear to store quantized weights and biases
     qlinear.freeze()

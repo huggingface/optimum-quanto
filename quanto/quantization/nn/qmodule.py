@@ -1,4 +1,5 @@
 from abc import ABC
+from typing import Any, Mapping
 
 import torch
 
@@ -49,6 +50,12 @@ class QModuleMixin(ABC):
         # We can now add our Module attributes
         self.register_buffer("in_scale", torch.ones((), dtype=torch.float32))
         self.register_buffer("out_scale", torch.ones((), dtype=torch.float32))
+        self._register_load_state_dict_pre_hook(self._load_state_dict_pre_hook)
+
+    def _load_state_dict_pre_hook(self, state_dict: Mapping[str, Any], prefix: str, *args, **kwargs):
+        # We need to update the shapes of the scale as they are not known at initialization
+        self.in_scale.resize_(state_dict[f"{prefix}in_scale"].size())
+        self.out_scale.resize_(state_dict[f"{prefix}out_scale"].size())
 
     @classmethod
     def from_module(cls, module: torch.nn.Module):
