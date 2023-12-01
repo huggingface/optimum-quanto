@@ -85,6 +85,7 @@ def main():
     )
     parser.add_argument("--seed", type=int, default=1, metavar="S", help="random seed (default: 1)")
     parser.add_argument("--model", type=str, default="dacorvo/mnist-mlp", help="The name of the trained Model.")
+    parser.add_argument("--per_axis", action="store_true", help="Quantize activations per-axis.")
     parser.add_argument("--device", type=str, default=None, help="The device to use for evaluation.")
     parser.add_argument("--stats", action="store_true", default=False, help="Display quantization statistics")
     args = parser.parse_args()
@@ -129,7 +130,7 @@ def main():
     test(model, device, test_loader)
     # Test inference with calibration (should be equivalent to float)
     print("Quantized calibrated model")
-    with calibration():
+    with calibration(per_axis=args.per_axis):
         test(model, device, test_loader)
     print("Tuning quantized model for one epoch")
     optimizer = torch.optim.Adadelta(model.parameters(), lr=0.5)
