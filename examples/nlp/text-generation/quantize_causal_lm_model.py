@@ -50,7 +50,7 @@ def evaluate_model(model, tokenizer, dataset, device, batch_size):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Transformers OPT Example")
+    parser = argparse.ArgumentParser(description="Transformers Causal LM Example")
     parser.add_argument("--seed", type=int, default=1, metavar="S", help="random seed (default: 1)")
     parser.add_argument(
         "--model",
@@ -60,6 +60,7 @@ def main():
     )
     parser.add_argument("--samples", type=int, default=100, help="The number of samples to use for evaluation.")
     parser.add_argument("--batch_size", type=int, default=32, help="The batch_size for evaluation (and calibration).")
+    parser.add_argument("--per_axis", action="store_true", help="Quantize activations per-axis.")
     parser.add_argument("--device", type=str, default=None, help="The device to use for generation.")
     args = parser.parse_args()
 
@@ -93,7 +94,7 @@ def main():
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
     # Test inference with calibration
     print("Quantized calibrated model")
-    with calibration():
+    with calibration(per_axis=args.per_axis):
         evaluate_model(model, tokenizer, dataset, device, args.batch_size)
     # Freeze model
     freeze(model)

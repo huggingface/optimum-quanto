@@ -34,6 +34,7 @@ def main():
     )
     parser.add_argument("--samples", type=int, default=872, help="The number of sst2 samples to use for evaluation.")
     parser.add_argument("--batch_size", type=int, default=100, help="The batch size to use for evaluation.")
+    parser.add_argument("--per_axis", action="store_true", help="Quantize activations per-axis.")
     parser.add_argument("--device", type=str, default=None, help="The device to use for evaluation.")
     args = parser.parse_args()
 
@@ -62,7 +63,7 @@ def main():
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
     # Test inference with calibration
     print("Quantized calibrated model")
-    with calibration():
+    with calibration(per_axis=args.per_axis):
         evaluate_model(model, tokenizer, dataset, device, args.batch_size)
     # Freeze model
     freeze(model)
