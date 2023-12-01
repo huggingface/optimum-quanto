@@ -55,7 +55,7 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="EleutherAI/pythia-160m",
+        default="facebook/opt-350m",
         help="The name of the trained Model.",
     )
     parser.add_argument("--samples", type=int, default=100, help="The number of samples to use for evaluation.")
