@@ -193,7 +193,7 @@ def is_same_size(op, input, other):
     return op(a, b)
 
 
-@register_qtensor_op([torch.ops.aten.gelu, torch.ops.aten.masked_fill, torch.ops.aten.pow])
+@register_qtensor_op([torch.ops.aten.gelu, torch.ops.aten.masked_fill, torch.ops.aten.pow, torch.ops.aten.silu])
 def unary_unsupported_op(op, input, *args, **kwargs):
     # Not supported: dequantize
     return op(input.dequantize(), *args, **kwargs)
