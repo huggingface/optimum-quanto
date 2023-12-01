@@ -123,11 +123,11 @@ def addmm(op, input, mat1, mat2, beta=1, alpha=1):
         or mat1.axis is not None
     ):
         return dequantized_op(op, input, mat1, mat2, beta=beta, alpha=alpha)
-    # Do the operation with int8 cast to float32
+    # Do the operation with int8 cast to float
     out_data = op(
-        input._data.to(torch.float32),
-        mat1._data.to(torch.float32),
-        mat2._data.to(torch.float32),
+        input._data.to(input._scale.dtype),
+        mat1._data.to(mat1._scale.dtype),
+        mat2._data.to(mat2._scale.dtype),
         beta=beta,
         alpha=alpha,
     )
@@ -161,8 +161,8 @@ def div(op, input, other):
 def dot(op, input, other):
     if not ensure_qtensor_inputs(input, other):
         return dequantized_op(op, input, other)
-    # Cast int8 data to float32 and do the operation
-    out_data = op(input._data.to(torch.float32), other._data.to(torch.float32))
+    # Cast int8 data to float and do the operation
+    out_data = op(input._data.to(input._scale.dtype), other._data.to(other._scale.dtype))
     out_scale = input._scale * other._scale
     return QTensor(out_data.to(torch.int32), out_scale)
 
@@ -207,9 +207,9 @@ def linear(op, input, weight, bias=None):
         or (bias is not None and isinstance(bias, QTensor))
     ):
         return dequantized_op(op, input, weight, bias=bias)
-    # Cast int8 data to float32 and do the operation
-    bias_data = bias._data.to(torch.float32) if bias is not None else None
-    out_data = op(input._data.to(torch.float32), weight._data.to(torch.float32), bias_data)
+    # Cast int8 data to float and do the operation
+    bias_data = bias._data.to(bias._scale.dtype) if bias is not None else None
+    out_data = op(input._data.to(input._scale.dtype), weight._data.to(weight._scale.dtype), bias_data)
     out_scale = input._scale * weight._scale
     return QTensor(out_data.to(torch.int32), out_scale)
 
@@ -219,8 +219,8 @@ def mm(op, input, other):
     if not ensure_qtensor_inputs(input, other, per_tensor=False) or input.axis is not None:
         # Matric multiplication is only supported between a per-tensor QTensor and a QTensor
         return dequantized_op(op, input, other)
-    # Cast int8 data to float32 and do the operation
-    out_data = op(input._data.to(torch.float32), other._data.to(torch.float32))
+    # Cast int8 data to float and do the operation
+    out_data = op(input._data.to(input._scale.dtype), other._data.to(other._scale.dtype))
     out_scale = input._scale * other._scale
     return QTensor(out_data.to(torch.int32), out_scale)
 
