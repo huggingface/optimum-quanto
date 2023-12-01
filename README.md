@@ -124,11 +124,13 @@ with calibration(per_axis=True):
     model(samples)
 ```
 
-Setting a global policy is far from optimal, since a lot of operations such as `torch.nn.functional.linear` require per-tensor inputs,
-leading to a per-tensor rescaling down the line.
+This is unlikely to produce a fully quantized graph however, since a lot of operations require per-tensor inputs, leading to a dequantization
+down the line.
 
-It is however always a good option if the consuming operation is compatible with per-axis inputs or always dequantizes its inputs (softmax is a
-good example).
+Typically, in a transformer model, per-axis activations of Q, K, V linear projections will be dequantized when they are split by heads, and the
+downstream matmul will be performed on float tensors.
+
+**In other words, quantizing activations per-axis will most of the time be equivalent to a weight-only quantization.**
 
 ## Implementation details
 
