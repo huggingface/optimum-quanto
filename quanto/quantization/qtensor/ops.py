@@ -49,6 +49,15 @@ def dequantized_op(func, *args, **kwargs):
     return func(*dq_args, **dq_kwargs)
 
 
+def ensure_qtensor_inputs(*args, per_tensor=True):
+    for arg in args:
+        if not isinstance(arg, QTensor):
+            return False
+        if per_tensor and arg.axis is not None:
+            return False
+    return True
+
+
 def is_scalar(t):
     return isinstance(t, numbers.Number) or type(t) == torch.Tensor and len(t.shape) == 0
 
@@ -107,8 +116,13 @@ def lt(op, input, other):
 
 @register_qtensor_op([torch.ops.aten.addmm])
 def addmm(op, input, mat1, mat2, beta=1, alpha=1):
-    if mat1.axis is not None:
-        raise ValueError("addmm is not supported if the first matrix is quantized per-axis.")
+    if (
+        alpha != 1
+        or beta != 1
+        or not ensure_qtensor_inputs(input, mat1, mat2, per_tensor=False)
+        or mat1.axis is not None
+    ):
+        return dequantized_op(op, input, mat1, mat2, beta=beta, alpha=alpha)
     # Do the operation with int8 cast to float32
     out_data = op(
         input._data.to(torch.float32),
@@ -138,13 +152,15 @@ def copy_(op, dest, src):
 @register_qtensor_op([torch.ops.aten.div])
 def div(op, input, other):
     if not is_scalar(other):
-        raise NotImplementedError()
+        return op(input.dequantize(), other)
     # We just divide the scale
     return QTensor(input._data, op(input._scale, other))
 
 
 @register_qtensor_op([torch.ops.aten.dot])
 def dot(op, input, other):
+    if not ensure_qtensor_inputs(input, other):
+        return dequantized_op(op, input, other)
     # Cast int8 data to float32 and do the operation
     out_data = op(input._data.to(torch.float32), other._data.to(torch.float32))
     out_scale = input._scale * other._scale
@@ -162,6 +178,8 @@ def dot(op, input, other):
     ]
 )
 def unary_type_agnostic_op(op, input, *args, **kwargs):
+    if not ensure_qtensor_inputs(input):
+        return op(input.dequantize(), *args, **kwargs)
     # These operations can be transparently applied on the underlying integer tensor,
     # without modifying the scale.
     out_data = op(input._data, *args, **kwargs)
@@ -198,7 +216,8 @@ def linear(op, input, weight, bias=None):
 
 @register_qtensor_op([torch.ops.aten.bmm, torch.ops.aten.mm])
 def mm(op, input, other):
-    if not isinstance(input, QTensor) or not isinstance(other, QTensor):
+    if not ensure_qtensor_inputs(input, other, per_tensor=False) or input.axis is not None:
+        # Matric multiplication is only supported between a per-tensor QTensor and a QTensor
         return dequantized_op(op, input, other)
     # Cast int8 data to float32 and do the operation
     out_data = op(input._data.to(torch.float32), other._data.to(torch.float32))
@@ -266,16 +285,15 @@ def transpose(op, input, *args):
 @register_qtensor_op([torch.ops.aten.view, torch.ops.aten._unsafe_view])
 def view(op, input, *shape):
     out_data = op(input._data, *shape)
-    out_scale = input._scale
-    if input.axis is not None:
-        # We only support the simple case where the tensor is quantized along the
-        # last axis that is not modified by the view
-        if input.axis == input._scale.ndim - 1 and input._scale.shape[-1] == out_data.shape[-1]:
-            out_scale_shape = (1,) * (out_data.ndim - 1) + (input._scale.shape[-1],)
-            out_scale = out_scale.view(out_scale_shape)
-        else:
-            raise ValueError("View is not supported on QTensor per-axis.")
-    return QTensor(out_data, out_scale)
+    if ensure_qtensor_inputs(input):
+        return QTensor(out_data, input._scale)
+    # We only support the simple case where the tensor is quantized along the
+    # last axis that is not modified by the view
+    if input.axis == input._scale.ndim - 1 and input._scale.shape[-1] == out_data.shape[-1]:
+        out_scale_shape = (1,) * (out_data.ndim - 1) + (input._scale.shape[-1],)
+        out_scale = input._scale.view(out_scale_shape)
+        return QTensor(out_data, out_scale)
+    return dequantized_op(op, input, *shape)
 
 
 @register_qtensor_op([torch.ops.aten._softmax_backward_data])
