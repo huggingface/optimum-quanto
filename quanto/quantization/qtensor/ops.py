@@ -203,6 +203,7 @@ def unary_unsupported_op(op, input, *args, **kwargs):
 def linear(op, input, weight, bias=None):
     if (
         not isinstance(input, QTensor)
+        or input.axis is not None
         or not isinstance(weight, QTensor)
         or (bias is not None and not isinstance(bias, QTensor))
     ):
@@ -210,7 +211,11 @@ def linear(op, input, weight, bias=None):
     # Cast int8 data to float and do the operation
     bias_data = bias._data.to(bias._scale.dtype) if bias is not None else None
     out_data = op(input._data.to(input._scale.dtype), weight._data.to(weight._scale.dtype), bias_data)
-    out_scale = input._scale * weight._scale
+    # The scalar input scale is broadcasted along all input dimensions
+    input_scale = input._scale.view((1,) * input.ndim)
+    # Weights are actually transposed inside the operation
+    weight_scale = weight._scale.t()
+    out_scale = input_scale * weight_scale
     return QTensor(out_data.to(torch.int32), out_scale)
 
 
