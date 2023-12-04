@@ -107,10 +107,11 @@ class ReQuantizer(Function):
 class QTensor(torch.Tensor):
     @staticmethod
     def __new__(cls, data, scale, requires_grad=False):
+        assert data.device == scale.device
         # This constructor can ONLY create leaf Tensors wrt autograd.
         # Use QTensor.from_tensor(t) to get a non-leaf Tensor wrt autograd.
         return torch.Tensor._make_wrapper_subclass(
-            cls, data.size(), strides=data.stride(), dtype=scale.dtype, requires_grad=requires_grad
+            cls, data.size(), strides=data.stride(), dtype=scale.dtype, device=data.device, requires_grad=requires_grad
         )
 
     def __init__(self, data, scale, requires_grad=False):
@@ -182,10 +183,6 @@ class QTensor(torch.Tensor):
         # Identify the types of the args
         types = [type(arg).__name__ for arg in args]
         raise ValueError(f"{op} {types} is no supported for QTensor.")
-
-    @property
-    def device(self):
-        return self._data.device
 
     def numpy(self):
         return self.dequantize().cpu().numpy()
