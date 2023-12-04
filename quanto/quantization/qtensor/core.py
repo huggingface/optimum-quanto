@@ -164,6 +164,16 @@ class QTensor(torch.Tensor):
     def axis(self):
         return self._axis
 
+    def __tensor_flatten__(self):
+        return ["_data", "_scale"], None
+
+    @staticmethod
+    def __tensor_unflatten__(inner_tensors, meta, outer_size, outer_stride):
+        assert len(inner_tensors) == 2
+        assert meta is None
+        data, scale = inner_tensors["_data"], inner_tensors["_scale"]
+        return QTensor(data, scale)
+
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
         from .func import get_qtensor_func
