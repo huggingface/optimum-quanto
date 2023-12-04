@@ -204,7 +204,7 @@ def linear(op, input, weight, bias=None):
     if (
         not isinstance(input, QTensor)
         or not isinstance(weight, QTensor)
-        or (bias is not None and isinstance(bias, QTensor))
+        or (bias is not None and not isinstance(bias, QTensor))
     ):
         return dequantized_op(op, input, weight, bias=bias)
     # Cast int8 data to float and do the operation
