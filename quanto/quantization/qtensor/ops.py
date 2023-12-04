@@ -251,7 +251,7 @@ def _softmax(op, input, dim, half_to_float):
     # Softmax must be performed in float
     out_data = op(input.dequantize(), dim, half_to_float)
     # Since softmax is normalized, we know the optimal scale
-    out_scale = torch.tensor(1 / torch.iinfo(input._data.dtype).max, dtype=input._scale.dtype)
+    out_scale = torch.tensor(1 / torch.iinfo(input._data.dtype).max, dtype=input._scale.dtype).to(input.device)
     return QTensor.quantize(out_data, input._data.dtype, out_scale)
 
 
