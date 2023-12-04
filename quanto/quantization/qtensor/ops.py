@@ -311,6 +311,11 @@ def threshold_backward(op, grad, output, threshold):
     return op(grad, output.dequantize(), threshold)
 
 
+@register_qtensor_op([torch.ops.aten.linear_backward])
+def linear_backward(op, *args, **kwargs):
+    return dequantized_op(op, *args, **kwargs)
+
+
 @register_qtensor_op([torch.ops.aten.where])
 def where(op, condition, input, other):
     if isinstance(condition, QTensor) or isinstance(other, QTensor):
