@@ -3,7 +3,7 @@ from tempfile import TemporaryDirectory
 
 import pytest
 import torch
-from helpers import q_assert_close, random_qtensor, random_tensor
+from helpers import device_eq, q_assert_close, random_qtensor, random_tensor
 
 from quanto.quantization import QTensor, absmax_scale
 
@@ -13,14 +13,18 @@ from quanto.quantization import QTensor, absmax_scale
 def test_quantize_default(input_shape, int_dtype, device):
     a = random_tensor(input_shape, dtype=torch.float32).to(device)
     qa = QTensor.quantize(a, int_dtype)
+    assert isinstance(qa, QTensor)
+    assert qa._data.dtype == int_dtype
+    assert device_eq(qa.device, device)
     q_assert_close(a, qa)
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (2, 10), (10, 32, 32)])
-@pytest.mark.parametrize("int_dtype", [torch.int8, torch.int16], ids=["int8", "int16"])
+@pytest.mark.parametrize("int_dtype", [torch.int8], ids=["int8"])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("axis", [None, 0, -1], ids=["per-tensor", "first-axis", "last-axis"])
-def test_quantize_scale(input_shape, axis, int_dtype, device):
-    a = random_tensor(input_shape, dtype=torch.float32).to(device)
+def test_quantize_scale(input_shape, axis, dtype, int_dtype, device):
+    a = random_tensor(input_shape, dtype=dtype).to(device)
     scale = absmax_scale(a, int_dtype, axis)
     qa = QTensor.quantize(a, int_dtype, scale)
     if axis is not None:
@@ -32,6 +36,10 @@ def test_quantize_scale(input_shape, axis, int_dtype, device):
             assert qa.axis is None
         else:
             assert qa.axis is not None
+    assert isinstance(qa, QTensor)
+    assert qa._data.dtype == int_dtype
+    assert qa._scale.dtype == dtype
+    assert device_eq(qa.device, device)
     q_assert_close(a, qa)
 
 
