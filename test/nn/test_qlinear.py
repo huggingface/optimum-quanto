@@ -9,11 +9,12 @@ from quanto.quantization.nn import QLinear
 @pytest.mark.parametrize("batch_size", [1, 10])
 @pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
+@pytest.mark.parametrize("dtype", [torch.float32], ids=["fp32"])
 @pytest.mark.parametrize("per_axis", [True, False], ids=["per-axis", "per-tensor"])
-def test_quantize_linear(batch_size, tokens, embeddings, use_bias, per_axis, device):
-    linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(device)
+def test_quantize_linear(batch_size, tokens, embeddings, use_bias, dtype, per_axis, device):
+    linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(dtype).to(device)
     qlinear = QLinear.from_module(linear)
-    qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
+    qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=dtype).to(device)
     # Calibrate and obtain quantized outputs
     with torch.no_grad(), calibration(per_axis=per_axis):
         qout = qlinear(qinputs)
