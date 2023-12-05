@@ -18,7 +18,7 @@ class MLP(torch.nn.Module):
     def forward(self, inputs):
         x = torch.nn.functional.relu(self.input_layer(inputs))
         x = torch.nn.functional.relu(self.mid_layer(x))
-        return torch.nn.functional.softmax(self.output_layer(x))
+        return torch.nn.functional.softmax(self.output_layer(x), dim=-1)
 
 
 def check_mlp(model, frozen):
