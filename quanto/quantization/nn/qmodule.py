@@ -47,15 +47,26 @@ class QModuleMixin(ABC):
             )
         # This will setup the torch.nn.Module
         super().__init__(*args, **kwargs)
-        # We can now add our Module attributes
-        self.register_buffer("in_scale", torch.ones((), dtype=torch.float32))
-        self.register_buffer("out_scale", torch.ones((), dtype=torch.float32))
+        self.record_scale("in_scale", torch.ones((), dtype=torch.float32))
+        self.record_scale("out_scale", torch.ones((), dtype=torch.float32))
+        # We need to register a state_dict pre-hook to initialize scales that have been dynamically recorded
         self._register_load_state_dict_pre_hook(self._load_state_dict_pre_hook)
 
+    def record_scale(self, scale_attr, new_scale):
+        if getattr(self, scale_attr, None) is None:
+            self.register_buffer(scale_attr, new_scale)
+        else:
+            setattr(self, scale_attr, new_scale)
+
     def _load_state_dict_pre_hook(self, state_dict: Mapping[str, Any], prefix: str, *args, **kwargs):
+        def init_scale_from_dict(state_dict, prefix, scale_attr):
+            scale_key = f"{prefix}{scale_attr}"
+            if scale_key in state_dict:
+                self.record_scale(scale_attr, state_dict[scale_key])
+
         # We need to update the shapes of the scale as they are not known at initialization
-        self.in_scale.resize_(state_dict[f"{prefix}in_scale"].size())
-        self.out_scale.resize_(state_dict[f"{prefix}out_scale"].size())
+        for scale_attr in ["in_scale", "out_scale"]:
+            init_scale_from_dict(state_dict, prefix, scale_attr)
 
     @classmethod
     def from_module(cls, module: torch.nn.Module):
