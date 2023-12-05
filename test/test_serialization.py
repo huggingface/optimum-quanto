@@ -4,7 +4,7 @@ import pytest
 import torch
 from helpers import random_qtensor, random_tensor
 
-from quanto.quantization import QTensor, absmax_scale
+from quanto.quantization import QTensor, absmax_scale, calibration
 from quanto.quantization.nn import QLinear
 
 
@@ -27,23 +27,41 @@ def test_quantized_tensor_serialization(input_shape, int_dtype, dtype, axis):
     assert qinputs_reloaded.axis == qinputs.axis
 
 
-@pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
-def test_quantized_module_serialization(dtype, device):
+@pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
+@pytest.mark.parametrize(
+    "dtype, per_axis",
+    [[torch.float16, None], [torch.float32, False], [torch.float32, True]],
+    ids=["fp16", "fp32-per-tensor", "fp32-per-axis"],
+)
+def test_quantized_module_serialization(use_bias, dtype, per_axis, device):
     embeddings = 10
-    linear = torch.nn.Linear(embeddings, embeddings).to(dtype).to(device)
+    linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(dtype).to(device)
     linear.to(dtype)
     qlinear = QLinear.from_module(linear)
+    if per_axis is not None:
+        qinputs = random_qtensor((10, 10, embeddings), dtype=dtype).to(device)
+        with calibration(per_axis=per_axis):
+            qlinear(qinputs)
     qlinear.freeze()
     b = io.BytesIO()
     torch.save(qlinear.state_dict(), b)
     b.seek(0)
     state_dict = torch.load(b)
-    qlinear_reloaded = QLinear(embeddings, embeddings)
+    qlinear_reloaded = QLinear(embeddings, embeddings, bias=use_bias)
     # We need to force assignment instead of copy to replace weights by quantized weights
     qlinear_reloaded.load_state_dict(state_dict, assign=True)
-    for attr in ["weight", "bias"]:
+    params = ["weight"]
+    if use_bias:
+        params.append("bias")
+    for attr in params:
         t = getattr(qlinear, attr)
         t_reloaded = getattr(qlinear_reloaded, attr)
         assert torch.equal(t._data, t_reloaded._data)
         assert torch.equal(t._scale, t_reloaded._scale)
         assert t_reloaded.dtype == dtype
+        assert t_reloaded.axis == t.axis
+    if per_axis is not None:
+        for attr in ["in_scale", "out_scale"]:
+            v = getattr(qlinear, attr)
+            v_reloaded = getattr(qlinear_reloaded, attr)
+            assert torch.equal(v, v_reloaded)
