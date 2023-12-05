@@ -31,9 +31,9 @@ class QLinear(QModuleMixin, torch.nn.Linear):
             if isinstance(qbias, QTensor):
                 if torch.any(qbias._scale != bias_scale):
                     # This should only happen if we calibrate again a frozen module
-                    qbias = qbias.rescale(torch.int32, bias_scale)
+                    qbias = qbias.rescale(torch.int16, bias_scale)
             else:
-                qbias = QTensor.quantize(qbias, torch.int32, bias_scale)
+                qbias = QTensor.quantize(qbias, torch.int16, bias_scale)
         return qweight, qbias
 
     def qweight(self):
