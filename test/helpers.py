@@ -22,11 +22,27 @@ def random_qtensor(shape, dtype=torch.float32, axis=None):
     return QTensor.quantize(t, scale=scale)
 
 
-def q_assert_close(x: torch.Tensor, xq: QTensor):
-    # Absolute error is the quantization scale
-    atol = torch.maximum(xq._scale, torch.tensor(1e-6))
-    abs_error = torch.abs(x - xq.dequantize())
-    if not torch.all(abs_error <= atol):
-        print("Float", x)
-        print("Quantized", xq.dequantize())
-        raise ValueError("Error exceeds absolute tolerance")
+def q_assert_close(x: torch.Tensor, xq: QTensor, atol: float = None, rtol: float = None):
+    # Please refer to that discussion for default rtol values based on the float type:
+    # https://scicomp.stackexchange.com/questions/43111/float-equality-tolerance-for-single-and-half-precision
+    dtype = x.dtype
+    if atol is None:
+        # We use torch finfo resolution
+        atol = torch.finfo(x.dtype).resolution
+    # We cannot expect an absolute error lower than the quantization scale
+    atol = torch.maximum(xq._scale, torch.tensor(atol))
+    if rtol is None:
+        # Please refer to that discussion for default rtol values based on the float type:
+        # https://scicomp.stackexchange.com/questions/43111/float-equality-tolerance-for-single-and-half-precision
+        rtol = {torch.float32: 1e-5, torch.float16: 1e-3, torch.bfloat16: 1e-1}[dtype]
+    xdq = xq.dequantize()
+    abs_error = torch.abs(x - xdq)
+    closeness = atol + rtol * torch.abs(x)
+    if not torch.all(abs_error <= closeness):
+        max_error_index = torch.argmax(abs_error - closeness)
+        max_error_x = x.flatten()[max_error_index]
+        max_rel_error = abs_error.flatten()[max_error_index] / torch.abs(max_error_x) * 100
+        max_error_xdq = xdq.flatten()[max_error_index]
+        raise ValueError(
+            f"Error exceeds tolerance (max: {max_error_xdq:.8f} instead of {max_error_x:.8f} ({max_rel_error:.4f} %)."
+        )
