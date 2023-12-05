@@ -1,5 +1,4 @@
-import os
-from tempfile import TemporaryDirectory
+import io
 
 import pytest
 import torch
@@ -8,10 +7,10 @@ from helpers import random_qtensor
 
 def test_quantized_tensor_serialization():
     qinputs = random_qtensor((1, 10, 32), dtype=torch.float32)
-    with TemporaryDirectory() as tmpdir:
-        qinputs_file = os.path.join(tmpdir, "qinputs.pt")
-        torch.save(qinputs, qinputs_file)
-        qinputs_reloaded = torch.load(qinputs_file)
+    b = io.BytesIO()
+    torch.save(qinputs, b)
+    b.seek(0)
+    qinputs_reloaded = torch.load(b)
     assert torch.equal(qinputs._data, qinputs_reloaded._data)
     assert torch.equal(qinputs._scale, qinputs_reloaded._scale)
 
@@ -30,19 +29,19 @@ def test_quantized_module_serialization(device, quantize_before_load):
         return qlinear
 
     qlinear = new_qlinear(embeddings, device)
-    with TemporaryDirectory() as tmpdir:
-        qlinear_file = os.path.join(tmpdir, "qlinear.pt")
-        torch.save(qlinear.state_dict(), qlinear_file)
-        torch.load(qlinear_file)
-        if quantize_before_load:
-            qlinear_reloaded = new_qlinear(embeddings, device)
-            # Since the weights are already quantized tensors, we can copy instead of assigning
-            assign = False
-        else:
-            qlinear_reloaded = torch.nn.Linear(embeddings, embeddings)
-            # We need to force assignment instead of copy to replace weights by quantized weights
-            assign = True
-        qlinear_reloaded.load_state_dict(torch.load(qlinear_file), assign=assign)
+    b = io.BytesIO()
+    torch.save(qlinear.state_dict(), b)
+    b.seek(0)
+    state_dict = torch.load(b)
+    if quantize_before_load:
+        qlinear_reloaded = new_qlinear(embeddings, device)
+        # Since the weights are already quantized tensors, we can copy instead of assigning
+        assign = False
+    else:
+        qlinear_reloaded = torch.nn.Linear(embeddings, embeddings)
+        # We need to force assignment instead of copy to replace weights by quantized weights
+        assign = True
+    qlinear_reloaded.load_state_dict(state_dict, assign=assign)
     for attr in ["weight", "bias"]:
         t = getattr(qlinear, attr)
         t_reloaded = getattr(qlinear_reloaded, attr)
