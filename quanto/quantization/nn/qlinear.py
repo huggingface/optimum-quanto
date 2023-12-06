@@ -46,18 +46,20 @@ class QLinear(QModuleMixin, torch.nn.Linear):
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         # If needed, quantize inputs
-        if isinstance(input, QTensor):
-            if input._data.dtype == torch.int32:
-                # Requantize input to per-tensor int8
-                input = input.rescale(torch.int8, self.scales.input)
-        else:
-            input = QTensor.quantize(input, torch.int8, self.scales.input)
+        if self.scales.input is not None:
+            if isinstance(input, QTensor):
+                if input._data.dtype == torch.int32:
+                    # Requantize input to per-tensor int8
+                    input = input.rescale(torch.int8, self.scales.input)
+            else:
+                input = QTensor.quantize(input, torch.int8, self.scales.input)
         # Operate on quantized tensors
         qweight, qbias = self.qparams()
         output = torch.nn.functional.linear(input, qweight, qbias)
-        if isinstance(output, QTensor):
-            # Downscale
-            output = output.rescale(torch.int8, self.scales.output)
+        if self.scales.output is not None:
+            if isinstance(output, QTensor):
+                # Downscale to int8
+                output = output.rescale(torch.int8, self.scales.output)
         return output
 
     def freeze(self):
