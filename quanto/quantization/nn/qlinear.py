@@ -22,9 +22,8 @@ class QLinear(QModuleMixin, torch.nn.Linear):
     def qparams(self):
         qweight = self.weight
         if not isinstance(qweight, QTensor):
-            # Quantize the weights per-axis if the outputs are per-axis
-            axis = None if self.scales.output.ndim == 0 else 0
-            wscale = absmax_scale(self.weight, axis=axis)
+            # Quantize the weights per-axis
+            wscale = absmax_scale(self.weight, axis=0)
             qweight = QTensor.quantize(self.weight, scale=wscale)
         qbias = self.bias
         if qbias is not None:
