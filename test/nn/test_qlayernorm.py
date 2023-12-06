@@ -44,7 +44,8 @@ def test_qnorm_serialization():
         qnorm_reloaded = QLayerNorm(embeddings)
         # When reloading we must assign instead of copying to force quantized tensors assignment
         qnorm_reloaded.load_state_dict(torch.load(qnorm_file), assign=True)
-    for attr in ["in_scale", "out_scale"]:
-        v = getattr(qnorm, attr)
-        v_reloaded = getattr(qnorm_reloaded, attr)
+    for attr in ["input", "output"]:
+        v = getattr(qnorm.scales, attr)
+        assert v is not None
+        v_reloaded = getattr(qnorm_reloaded.scales, attr)
         assert torch.equal(v, v_reloaded)

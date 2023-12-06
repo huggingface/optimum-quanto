@@ -36,6 +36,28 @@ def quantize_module(module):
 
 
 class QModuleMixin(ABC):
+    class ScalesMixin(object):
+        """Syntactic sugar class to manipulate scales as attributes.
+
+        Its main purpose is to return None if a scale is not set without
+        overloading getattr in the module class directly to avoid interfering
+        with the existing overloads.
+        """
+
+        def __init__(self, m: torch.nn.Module):
+            # Avoid recursion by using parent method
+            object.__setattr__(self, "_m", m)
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self._m, name, None)
+
+        def __setattr__(self, name: str, value: Any) -> None:
+            m = self._m
+            if getattr(m, name, None) is None:
+                m.register_buffer(name, value)
+            else:
+                setattr(m, name, value)
+
     def __init__(self, *args, **kwargs):
         # The tests below are meant to help people writing their own quantized Module class
         mro = self.__class__.__mro__
@@ -47,25 +69,20 @@ class QModuleMixin(ABC):
             )
         # This will setup the torch.nn.Module
         super().__init__(*args, **kwargs)
-        self.record_scale("in_scale", torch.ones((), dtype=torch.float32))
-        self.record_scale("out_scale", torch.ones((), dtype=torch.float32))
+        self.scales = self.ScalesMixin(self)
+        self.scales.input = torch.ones((), dtype=torch.float32)
+        self.scales.output = torch.ones((), dtype=torch.float32)
         # We need to register a state_dict pre-hook to initialize scales that have been dynamically recorded
         self._register_load_state_dict_pre_hook(self._load_state_dict_pre_hook)
-
-    def record_scale(self, scale_attr, new_scale):
-        if getattr(self, scale_attr, None) is None:
-            self.register_buffer(scale_attr, new_scale)
-        else:
-            setattr(self, scale_attr, new_scale)
 
     def _load_state_dict_pre_hook(self, state_dict: Mapping[str, Any], prefix: str, *args, **kwargs):
         def init_scale_from_dict(state_dict, prefix, scale_attr):
             scale_key = f"{prefix}{scale_attr}"
             if scale_key in state_dict:
-                self.record_scale(scale_attr, state_dict[scale_key])
+                setattr(self.scales, scale_attr, state_dict[scale_key])
 
         # We need to update the shapes of the scale as they are not known at initialization
-        for scale_attr in ["in_scale", "out_scale"]:
+        for scale_attr in ["input", "output"]:
             init_scale_from_dict(state_dict, prefix, scale_attr)
 
     @classmethod

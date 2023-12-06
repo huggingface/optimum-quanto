@@ -24,4 +24,4 @@ class QLayerNorm(QModuleMixin, torch.nn.LayerNorm):
             input = input.dequantize()
         out = torch.nn.functional.layer_norm(input, self.normalized_shape, self.weight, self.bias, self.eps)
         # Quantize output
-        return QTensor.quantize(out, torch.int8, self.out_scale)
+        return QTensor.quantize(out, torch.int8, self.scales.output)

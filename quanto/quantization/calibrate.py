@@ -14,9 +14,8 @@ from .qtensor import QTensor, absmax_scale
 __all__ = ["calibration"]
 
 
-def update_scale(scale, new_scale, momentum):
-    if torch.all(scale == 1):
-        # The original scale has never been set
+def updated_scale(scale, new_scale, momentum):
+    if scale is None:
         return new_scale
     return momentum * scale + new_scale * (1.0 - momentum)
 
@@ -26,12 +25,11 @@ def calibrate_input(module: torch.nn.Module, input, momentum: float = 0.9):
         input = input[0]
         if isinstance(input, QTensor):
             # Just adopt the maximum scale of the input
-            module.in_scale = torch.max(input._scale)
+            module.scales.input = torch.max(input._scale)
         else:
             # Evaluate the best scale
             input_scale = absmax_scale(input, torch.int8)
-            # Update the module input scale accordingly
-            module.in_scale = update_scale(module.in_scale, input_scale, momentum)
+            module.scales.input = updated_scale(module.scales.input, input_scale, momentum)
         return input
 
 
@@ -49,8 +47,7 @@ def calibrate_output(
             float_input = float_input.dequantize()
         float_output = super(module.__class__, module).forward(float_input)
         output_scale = absmax_scale(float_output, torch.int8, axis=-1 if per_axis else None)
-        # Update the module output scale accordingly
-        module.out_scale = update_scale(module.out_scale, output_scale, momentum)
+        module.scales.output = updated_scale(module.scales.output, output_scale, momentum)
         # Reevaluate output with the correct output scale
         qoutput = module.forward(input[0])
         return qoutput

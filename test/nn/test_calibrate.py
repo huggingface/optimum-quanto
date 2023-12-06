@@ -19,15 +19,15 @@ def test_calibrate_qlinear(batch_size, tokens, embeddings, use_bias, per_axis, d
         qout = qlinear(qinputs)
     assert qout._data.dtype == torch.int8
     assert torch.all(qout._scale == 1.0)
-    assert torch.all(qlinear.in_scale == 1.0)
-    assert torch.all(qlinear.out_scale == 1.0)
+    assert torch.all(qlinear.scales.input == 1.0)
+    assert torch.all(qlinear.scales.output == 1.0)
     # Calibrate to adjust input and output scales
     with torch.no_grad(), calibration(per_axis=per_axis):
         qout = qlinear(qinputs)
     assert qout._data.dtype == torch.int8
     assert torch.all(qout._scale != 1.0)
-    assert torch.all(qlinear.in_scale != 1.0)
-    assert torch.all(qlinear.out_scale != 1.0)
+    assert torch.all(qlinear.scales.input != 1.0)
+    assert torch.all(qlinear.scales.output != 1.0)
     if per_axis:
         assert qout.axis == 2
     # Freeze to set quantized weights
@@ -66,10 +66,10 @@ def test_calibrate_custom_module(per_axis):
     qinputs = random_qtensor((1,) + (tokens, embeddings), dtype=torch.float32)
     with torch.no_grad(), calibration(per_axis=per_axis):
         qout = model(qinputs)
-    assert torch.all(model.linear1.in_scale != 1)
-    assert torch.all(model.linear1.out_scale != 1)
-    assert torch.all(model.linear2.in_scale != 1)
-    assert torch.all(model.linear2.out_scale != 1)
+    assert torch.all(model.linear1.scales.input != 1)
+    assert torch.all(model.linear1.scales.output != 1)
+    assert torch.all(model.linear2.scales.input != 1)
+    assert torch.all(model.linear2.scales.output != 1)
     if not per_axis:
         assert isinstance(qout, QTensor)
         assert torch.all(qout._scale != 1)
