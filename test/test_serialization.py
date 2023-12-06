@@ -61,7 +61,8 @@ def test_quantized_module_serialization(use_bias, dtype, per_axis, device):
         assert t_reloaded.dtype == dtype
         assert t_reloaded.axis == t.axis
     if per_axis is not None:
-        for attr in ["in_scale", "out_scale"]:
-            v = getattr(qlinear, attr)
-            v_reloaded = getattr(qlinear_reloaded, attr)
+        for attr in ["input", "output"]:
+            v = getattr(qlinear.scales, attr)
+            assert v is not None
+            v_reloaded = getattr(qlinear_reloaded.scales, attr)
             assert torch.equal(v, v_reloaded)

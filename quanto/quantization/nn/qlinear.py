@@ -23,12 +23,12 @@ class QLinear(QModuleMixin, torch.nn.Linear):
         qweight = self.weight
         if not isinstance(qweight, QTensor):
             # Quantize the weights per-axis if the outputs are per-axis
-            axis = None if self.out_scale.ndim == 0 else 0
+            axis = None if self.scales.output.ndim == 0 else 0
             wscale = absmax_scale(self.weight, axis=axis)
             qweight = QTensor.quantize(self.weight, scale=wscale)
         qbias = self.bias
         if qbias is not None:
-            bias_scale = torch.squeeze(self.in_scale * qweight._scale)
+            bias_scale = torch.squeeze(self.scales.input * qweight._scale)
             if isinstance(qbias, QTensor):
                 if torch.any(qbias._scale != bias_scale):
                     # This should only happen if we calibrate again a frozen module
@@ -41,7 +41,7 @@ class QLinear(QModuleMixin, torch.nn.Linear):
         if isinstance(self.weight, QTensor):
             return self.weight
         # Quantize the weights per-axis if the outputs are per-axis
-        axis = None if self.out_scale.ndim == 0 else 0
+        axis = None if self.scales.output.ndim == 0 else 0
         wscale = absmax_scale(self.weight, axis=axis)
         return QTensor.quantize(self.weight, scale=wscale)
 
@@ -50,15 +50,15 @@ class QLinear(QModuleMixin, torch.nn.Linear):
         if isinstance(input, QTensor):
             if input._data.dtype == torch.int32:
                 # Requantize input to per-tensor int8
-                input = input.rescale(torch.int8, self.in_scale)
+                input = input.rescale(torch.int8, self.scales.input)
         else:
-            input = QTensor.quantize(input, torch.int8, self.in_scale)
+            input = QTensor.quantize(input, torch.int8, self.scales.input)
         # Operate on quantized tensors
         qweight, qbias = self.qparams()
         output = torch.nn.functional.linear(input, qweight, qbias)
         if isinstance(output, QTensor):
             # Downscale
-            output = output.rescale(torch.int8, self.out_scale)
+            output = output.rescale(torch.int8, self.scales.output)
         return output
 
     def freeze(self):
