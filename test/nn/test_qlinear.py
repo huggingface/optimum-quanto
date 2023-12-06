@@ -23,8 +23,6 @@ def test_quantize_linear(batch_size, tokens, embeddings, use_bias, dtype, per_ax
     freeze(qlinear)
     # Align linear weights with quantized linear weights for comparison
     linear.weight = torch.nn.Parameter(qlinear.weight.dequantize())
-    if use_bias:
-        linear.bias = torch.nn.Parameter(qlinear.bias.dequantize())
     out = linear(qinputs.dequantize())
     q_assert_close(out, qout)
     # Now run an inference with frozen model
