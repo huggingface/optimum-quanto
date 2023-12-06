@@ -1,17 +1,19 @@
 import pytest
 import torch
-from helpers import q_assert_close, random_qtensor
+from helpers import q_assert_close, random_qtensor, random_tensor
 
-from quanto.quantization import calibration, freeze
+from quanto.quantization import QTensor, calibration, freeze
 from quanto.quantization.nn import QLinear
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
 @pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
-@pytest.mark.parametrize("dtype", [torch.float32], ids=["fp32"])
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float16], ids=["fp32", "fp16"])
 @pytest.mark.parametrize("per_axis", [True, False], ids=["per-axis", "per-tensor"])
 def test_quantize_linear(batch_size, tokens, embeddings, use_bias, dtype, per_axis, device):
+    if dtype == torch.float16 and device == torch.device('cpu'):
+        pytest.skip("torch.ops.aten.addmm is not supported for float16 on CPU.")
     linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(dtype).to(device)
     qlinear = QLinear.from_module(linear)
     qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=dtype).to(device)
@@ -31,6 +33,29 @@ def test_quantize_linear(batch_size, tokens, embeddings, use_bias, dtype, per_ax
     assert torch.equal(qout._scale, int_qout._scale)
     # There may be a slight difference, but of at most one quantization interval
     assert torch.max(torch.abs(qout._data - int_qout._data)) <= 1
+
+
+@pytest.mark.parametrize("batch_size", [1, 10])
+@pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
+@pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float16], ids=["fp32", "fp16"])
+def test_quantize_linear_weight_only(batch_size, tokens, embeddings, use_bias, dtype, device):
+    if dtype == torch.float16 and device == torch.device('cpu'):
+        pytest.skip("torch.ops.aten.addmm is not supported for float16 on CPU.")
+    linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(dtype).to(device)
+    qlinear = QLinear.from_module(linear)
+    freeze(qlinear)
+    inputs = random_tensor((batch_size,) + (tokens, embeddings), dtype=dtype).to(device)
+    qout = qlinear(inputs)
+    assert qout.dtype == dtype
+    assert not isinstance(qout, QTensor)
+    # Align linear weights with quantized linear weights for comparison
+    linear.weight = torch.nn.Parameter(qlinear.weight.dequantize())
+    out = linear(inputs)
+    # We need to use higher values than the default that correspond to float64
+    atol = {torch.float32: 1e-6, torch.float16: 1e-3}[dtype]
+    rtol = {torch.float32: 1e-5, torch.float16: 1e-2}[dtype]
+    assert torch.allclose(out, qout, rtol=rtol, atol=atol)
 
 
 @pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
