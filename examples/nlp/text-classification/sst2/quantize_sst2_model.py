@@ -56,29 +56,22 @@ def main():
 
     print("Float model")
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
-    # Quantize model
     quantize(model)
-    # Test inference
-    print("Quantized model")
+    print("Quantized model (dynamic weights only)")
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
-    # Test inference with calibration
-    print("Quantized calibrated model")
+    print("Quantized model (dynamic weights and activations)")
     with calibration(per_axis=args.per_axis):
         evaluate_model(model, tokenizer, dataset, device, args.batch_size)
-    # Freeze model
     freeze(model)
-    print("Quantized frozen model")
+    print("Quantized model (static weights and activations)")
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
-    # Now save the model and reload it to verify quantized weights are restored
     with TemporaryDirectory() as tmpdir:
-        bert_file = os.path.join(tmpdir, "bert.pt")
-        torch.save(model.state_dict(), bert_file)
-        # Reinstantiate a model with float weights
+        model_file = os.path.join(tmpdir, "model.pt")
+        torch.save(model.state_dict(), model_file)
         model_reloaded = AutoModelForSequenceClassification.from_pretrained(args.model).to(device)
         quantize(model_reloaded)
-        # When reloading we must assign instead of copying to force quantized tensors assignment
-        model_reloaded.load_state_dict(torch.load(bert_file), assign=True)
-    print("Quantized model with serialized integer weights")
+        model_reloaded.load_state_dict(torch.load(model_file), assign=True)
+    print("Serialized quantized model (static weights and activations)")
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
 
 
