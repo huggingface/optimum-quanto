@@ -5,7 +5,7 @@ import pytest
 import torch
 from helpers import random_qtensor
 
-from quanto.quantization import QLinear, QTensor, freeze, quantize
+from quanto.quantization import QLinear, QTensor, calibration, freeze, quantize
 
 
 class MLP(torch.nn.Module):
@@ -44,7 +44,8 @@ def test_quantize_mlp(frozen, device):
     if frozen:
         freeze(model)
     check_mlp(model, frozen)
-    check_outputs(model, 1, 32, device)
+    with calibration():
+        check_outputs(model, 1, 32, device)
 
 
 def test_serialize_quantized_mlp(device):
@@ -53,6 +54,8 @@ def test_serialize_quantized_mlp(device):
     output_features = 128
     model = MLP(input_features, hidden_features, output_features).to(device)
     quantize(model)
+    with calibration():
+        check_outputs(model, 1, input_features, device)
     freeze(model)
     with TemporaryDirectory() as tmpdir:
         mlp_file = os.path.join(tmpdir, "mlp.pt")
