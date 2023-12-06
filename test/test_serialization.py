@@ -50,16 +50,12 @@ def test_quantized_module_serialization(use_bias, dtype, per_axis, device):
     qlinear_reloaded = QLinear(embeddings, embeddings, bias=use_bias)
     # We need to force assignment instead of copy to replace weights by quantized weights
     qlinear_reloaded.load_state_dict(state_dict, assign=True)
-    params = ["weight"]
-    if use_bias:
-        params.append("bias")
-    for attr in params:
-        t = getattr(qlinear, attr)
-        t_reloaded = getattr(qlinear_reloaded, attr)
-        assert torch.equal(t._data, t_reloaded._data)
-        assert torch.equal(t._scale, t_reloaded._scale)
-        assert t_reloaded.dtype == dtype
-        assert t_reloaded.axis == t.axis
+    w = qlinear.weight
+    w_reloaded = qlinear_reloaded.weight
+    assert torch.equal(w._data, w_reloaded._data)
+    assert torch.equal(w._scale, w_reloaded._scale)
+    assert w_reloaded.dtype == dtype
+    assert w_reloaded.axis == w.axis
     if per_axis is not None:
         for attr in ["input", "output"]:
             v = getattr(qlinear.scales, attr)

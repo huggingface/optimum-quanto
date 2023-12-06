@@ -19,29 +19,11 @@ class QLinear(QModuleMixin, torch.nn.Linear):
                 qmodule.bias.copy_(module.bias)
         return qmodule
 
-    def qparams(self):
-        qweight = self.weight
-        if not isinstance(qweight, QTensor):
-            # Quantize the weights per-axis
-            wscale = absmax_scale(self.weight, axis=0)
-            qweight = QTensor.quantize(self.weight, scale=wscale)
-        qbias = self.bias
-        if qbias is not None:
-            bias_scale = torch.squeeze(self.scales.input * qweight._scale)
-            if isinstance(qbias, QTensor):
-                if torch.any(qbias._scale != bias_scale):
-                    # This should only happen if we calibrate again a frozen module
-                    qbias = qbias.rescale(torch.int16, bias_scale)
-            else:
-                qbias = QTensor.quantize(qbias, torch.int16, bias_scale)
-        return qweight, qbias
-
     def qweight(self):
         if isinstance(self.weight, QTensor):
             return self.weight
-        # Quantize the weights per-axis if the outputs are per-axis
-        axis = None if self.scales.output.ndim == 0 else 0
-        wscale = absmax_scale(self.weight, axis=axis)
+        # Quantize the weights per-axis
+        wscale = absmax_scale(self.weight, axis=0)
         return QTensor.quantize(self.weight, scale=wscale)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
@@ -53,18 +35,21 @@ class QLinear(QModuleMixin, torch.nn.Linear):
                     input = input.rescale(torch.int8, self.scales.input)
             else:
                 input = QTensor.quantize(input, torch.int8, self.scales.input)
-        # Operate on quantized tensors
-        qweight, qbias = self.qparams()
-        output = torch.nn.functional.linear(input, qweight, qbias)
+        # We always use quantized weights
+        qweight = self.qweight()
+        # The weights might be dequantized in the matmul if the inputs are not quantized
+        output = torch.matmul(input, qweight.t())
+        if self.bias is not None:
+            # The outputs will be dequantized in the addition since the biases are not quantized
+            output = output + self.bias
         if self.scales.output is not None:
             if isinstance(output, QTensor):
                 # Downscale to int8
                 output = output.rescale(torch.int8, self.scales.output)
+            else:
+                output = QTensor.quantize(output, torch.int8, self.scales.output)
         return output
 
     def freeze(self):
         # Replace float weights by quantized weights
-        qweight, qbias = self.qparams()
-        self.weight = torch.nn.Parameter(qweight)
-        if self.bias is not None:
-            self.bias = torch.nn.Parameter(qbias)
+        self.weight = torch.nn.Parameter(self.qweight())
