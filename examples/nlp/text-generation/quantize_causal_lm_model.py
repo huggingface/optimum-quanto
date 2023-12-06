@@ -1,7 +1,5 @@
 import argparse
-import os
 import time
-from tempfile import TemporaryDirectory
 
 import torch
 from datasets import load_dataset
@@ -86,31 +84,15 @@ def main():
     print("Float model")
     generate(model, tokenizer, device, prompt)
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
-    # Quantize model
     quantize(model)
-    # Test inference
-    print("Quantized model")
+    print("Quantized model (dynamic weights only)")
     generate(model, tokenizer, device, prompt)
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
-    # Test inference with calibration
-    print("Quantized calibrated model")
+    print("Quantized model (dynamic weights and activations)")
     with calibration(per_axis=args.per_axis):
         evaluate_model(model, tokenizer, dataset, device, args.batch_size)
-    # Freeze model
     freeze(model)
-    print("Quantized frozen model")
-    generate(model, tokenizer, device, prompt)
-    evaluate_model(model, tokenizer, dataset, device, args.batch_size)
-    # Now save the model and reload it to verify quantized weights are restored
-    with TemporaryDirectory() as tmpdir:
-        opt_file = os.path.join(tmpdir, "opt.pt")
-        torch.save(model.state_dict(), opt_file)
-        # Reinstantiate a model with float weights
-        model_reloaded = AutoModelForCausalLM.from_pretrained(args.model).to(device)
-        quantize(model_reloaded)
-        # When reloading we must assign instead of copying to force quantized tensors assignment
-        model_reloaded.load_state_dict(torch.load(opt_file), assign=True)
-    print("Quantized model with serialized integer weights")
+    print("Quantized model (static weights and activations)")
     generate(model, tokenizer, device, prompt)
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
 
