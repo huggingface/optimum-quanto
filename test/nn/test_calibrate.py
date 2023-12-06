@@ -17,24 +17,30 @@ def test_calibrate_qlinear(batch_size, tokens, embeddings, use_bias, per_axis, d
     # Run a first inference without calibration
     with torch.no_grad():
         qout = qlinear(qinputs)
-    assert qout._data.dtype == torch.int8
-    assert torch.all(qout._scale == 1.0)
-    assert torch.all(qlinear.scales.input == 1.0)
-    assert torch.all(qlinear.scales.output == 1.0)
+    assert qout.dtype == qinputs.dtype
+    if not use_bias:
+        assert isinstance(qout, QTensor)
+        assert qout._data.dtype == torch.int32
+    else:
+        assert not isinstance(qout, QTensor)
+    assert qlinear.scales.input is None
+    assert qlinear.scales.output is None
     # Calibrate to adjust input and output scales
     with torch.no_grad(), calibration(per_axis=per_axis):
         qout = qlinear(qinputs)
+    assert isinstance(qout, QTensor)
+    assert qout.dtype == qinputs.dtype
     assert qout._data.dtype == torch.int8
-    assert torch.all(qout._scale != 1.0)
-    assert torch.all(qlinear.scales.input != 1.0)
-    assert torch.all(qlinear.scales.output != 1.0)
+    assert qlinear.scales.input is not None
+    assert qlinear.scales.output is not None
     if per_axis:
         assert qout.axis == 2
     # Freeze to set quantized weights
     freeze(qlinear)
     # Align linear weights with quantized linear weights for comparison
     linear.weight = torch.nn.Parameter(qlinear.weight.dequantize())
-    out = linear(qinputs.dequantize())
+    with torch.no_grad():
+        out = linear(qinputs.dequantize())
     q_assert_close(out, qout)
     # Now run an inference without calibrating
     with torch.no_grad():
@@ -64,10 +70,10 @@ def test_calibrate_custom_module(per_axis):
     qinputs = random_qtensor((1,) + (tokens, embeddings), dtype=torch.float32)
     with torch.no_grad(), calibration(per_axis=per_axis):
         qout = model(qinputs)
-    assert torch.all(model.linear1.scales.input != 1)
-    assert torch.all(model.linear1.scales.output != 1)
-    assert torch.all(model.linear2.scales.input != 1)
-    assert torch.all(model.linear2.scales.output != 1)
+    assert model.linear1.scales.input is not None
+    assert model.linear1.scales.output is not None
+    assert model.linear2.scales.input is not None
+    assert model.linear2.scales.output is not None
     if not per_axis:
         assert isinstance(qout, QTensor)
-        assert torch.all(qout._scale != 1)
+        assert qout._data.dtype == torch.int8

@@ -70,8 +70,6 @@ class QModuleMixin(ABC):
         # This will setup the torch.nn.Module
         super().__init__(*args, **kwargs)
         self.scales = self.ScalesMixin(self)
-        self.scales.input = torch.ones((), dtype=torch.float32)
-        self.scales.output = torch.ones((), dtype=torch.float32)
         # We need to register a state_dict pre-hook to initialize scales that have been dynamically recorded
         self._register_load_state_dict_pre_hook(self._load_state_dict_pre_hook)
 
