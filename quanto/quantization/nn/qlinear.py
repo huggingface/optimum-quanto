@@ -11,13 +11,12 @@ __all__ = ["QLinear"]
 class QLinear(QModuleMixin, torch.nn.Linear):
     @classmethod
     def from_module(cls, module):
-        qmodule = cls(module.in_features, module.out_features, module.bias is not None)
+        qmodule = cls(module.in_features, module.out_features, module.bias is not None, dtype=module.weight.dtype)
         with torch.no_grad():
-            qmodule.to(module.weight.dtype).to(module.weight.device)
             qmodule.weight.copy_(module.weight)
             if module.bias is not None:
                 qmodule.bias.copy_(module.bias)
-        return qmodule
+        return qmodule.to(module.weight.device)
 
     def qweight(self):
         if isinstance(self.weight, QTensor):
