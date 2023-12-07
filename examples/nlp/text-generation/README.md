@@ -6,15 +6,15 @@ This is not a very robust test, as we evaluate with the same sentences we use fo
 
 Note: since the samples are shuffled, the results might be different between runs.
 
-| model                            | fp32 | w int8 a fp32 | w int8 a int8 per-tensor | w int8 a int8 per-axis |
-|----------------------------------|------|---------------|--------------------------|------------------------|
-| facebook/opt-125m                | 0.61 | 0.61          | 0.03                     | 0.59 (tbc)             |
-| facebook/opt-350m                | 0.63 | 0.63          | **0.63**                 | 0.63 (tbc)             |
-| facebook/opt-1.3b                | 0.72 | 0.72          | 0.46                     | 0.72 (tbc)             |
-| EleutherAI/pythia-160m           | 0.65 | 0.64          | 0.04                     | 0.62 (tbc)             |
-| EleutherAI/pythia-410m           | 0.71 | 0.71          | 0.19                     | 0.56 (tbc)             |
-| EleutherAI/pythia-1b             | 0.75 | 0.75          | 0.42                     | 0.65 (tbc)             |
-| princeton-nlp/Sheared-LLaMA-1.3B | 0.83 | 0.83          | **0.66**                 | 0.75 (tbc)             |
+| model                            | fp32 | fp16 | w int8 a fp32 | w int8 a fp16 | w int8 a int8 per-tensor | w int8 a int8 per-axis |
+|----------------------------------|------|------|---------------|---------------|--------------------------|------------------------|
+| facebook/opt-125m                | 0.61 | 0.61 | 0.61          | 0.61          | 0.05                     | 0.47                   |
+| facebook/opt-350m                | 0.63 | 0.63 | 0.63          | 0.63          | **0.59**                 | 0.59                   |
+| facebook/opt-1.3b                | 0.72 | 0.72 | 0.72          | 0.72          | 0.53                     | 0.34                   |
+| EleutherAI/pythia-160m           | 0.65 | 0.62 | 0.64          | 0.61          | 0.03                     | 0.29                   |
+| EleutherAI/pythia-410m           | 0.71 | 0.71 | 0.71          | 0.71          | 0.16                     | 0.21                   |
+| EleutherAI/pythia-1b             | 0.75 | 0.75 | 0.75          | 0.75          | 0.50                     | 0.33                   |
+| princeton-nlp/Sheared-LLaMA-1.3B | 0.83 | 0.83 | 0.83          | 0.83          | **0.65**                 | 0.73                   |
 
 As we can see, there is no performance degradation when quantizing only the weights to int8.
 
