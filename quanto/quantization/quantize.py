@@ -28,6 +28,10 @@ def quantize(model, modules=None):
         if qmodule is not None:
             set_module_by_name(model, name, qmodule)
             qmodule.name = name
+            for name, param in m.named_parameters():
+                # Save device memory by clearing parameters
+                setattr(m, name, None)
+                del param
 
 
 def freeze(model):
