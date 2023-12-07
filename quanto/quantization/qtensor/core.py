@@ -73,7 +73,6 @@ class Dequantizer(Function):
     def forward(ctx, t):
         if t._data.dtype == torch.int32:
             # The dequantization operation might actually overflow in float16/bfloat16
-            t._scale.to(torch.float32)
             return (t._scale.to(torch.float32) * t._data).to(t._scale.dtype)
         return t._scale * t._data
 
