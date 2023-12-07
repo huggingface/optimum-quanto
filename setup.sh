@@ -14,4 +14,4 @@ fi
 # Build tools
 pip install black ruff pytest build
 # For examples
-pip install transformers datasets
+pip install accelerate transformers datasets
