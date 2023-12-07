@@ -72,7 +72,8 @@ class Dequantizer(Function):
     @staticmethod
     def forward(ctx, t):
         if t._data.dtype == torch.int32:
-            # The dequantization operation might actually overflow in float16/bfloat16
+            # The dequantization operation requires data to be cast to the scale float type before multiplication
+            # by the scale, but this might actually overflow for float16/bfloat16
             return (t._scale.to(torch.float32) * t._data).to(t._scale.dtype)
         return t._scale * t._data
 
@@ -96,6 +97,10 @@ class ReQuantizer(Function):
         else:
             # It is up to the caller to make sure the scale is consistent with the target int dtype
             int_rescale = base._scale / scale
+        if base._data.dtype == torch.int32:
+            # The rescaling operation requires data to be cast to the scale float type before multiplication
+            # by the scale, but this might actually overflow for float16/bfloat16
+            int_rescale = int_rescale.to(torch.float32)
         data = torch.clamp(torch.round(base._data * int_rescale), min=dst_iinfo.min, max=dst_iinfo.max).to(int_dtype)
         # The instantiation of the quantized tensor must happen within the context of the Function
         # for the autograd magic to work.
