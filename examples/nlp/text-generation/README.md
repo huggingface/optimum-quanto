@@ -15,6 +15,7 @@ Note: since the samples are shuffled, the results might be different between run
 | EleutherAI/pythia-410m           | 0.71 | 0.71 | 0.71          | 0.71          | 0.16                     | 0.21                   |
 | EleutherAI/pythia-1b             | 0.75 | 0.75 | 0.75          | 0.75          | 0.50                     | 0.33                   |
 | princeton-nlp/Sheared-LLaMA-1.3B | 0.83 | 0.83 | 0.83          | 0.83          | **0.65**                 | 0.73                   |
+| NousResearch/Llama-2-7b-hf       | 0.92 | 0.92 | 0.92          | 0.92          | **0.73**                 | 0.46                   |
 
 As we can see, there is no performance degradation when quantizing only the weights to int8.
 
