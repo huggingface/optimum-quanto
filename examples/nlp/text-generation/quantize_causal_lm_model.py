@@ -74,7 +74,7 @@ def main():
     else:
         device = torch.device(args.device)
 
-    model = AutoModelForCausalLM.from_pretrained(args.model).to(device)
+    model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype="auto", low_cpu_mem_usage=True).to(device)
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     tokenizer.pad_token_id = tokenizer.eos_token_id
     tokenizer.padding_side = "left"
