@@ -12,7 +12,7 @@ from quanto.quantization.nn import QLinear
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16], ids=["fp32", "fp16"])
 @pytest.mark.parametrize("per_axis", [True, False], ids=["per-axis", "per-tensor"])
 def test_quantize_linear(batch_size, tokens, embeddings, use_bias, dtype, per_axis, device):
-    if dtype == torch.float16 and device == torch.device('cpu'):
+    if dtype == torch.float16 and device == torch.device("cpu"):
         pytest.skip("torch.ops.aten.addmm is not supported for float16 on CPU.")
     linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(dtype).to(device)
     qlinear = QLinear.from_module(linear)
@@ -40,7 +40,7 @@ def test_quantize_linear(batch_size, tokens, embeddings, use_bias, dtype, per_ax
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16], ids=["fp32", "fp16"])
 def test_quantize_linear_weight_only(batch_size, tokens, embeddings, use_bias, dtype, device):
-    if dtype == torch.float16 and device == torch.device('cpu'):
+    if dtype == torch.float16 and device == torch.device("cpu"):
         pytest.skip("torch.ops.aten.addmm is not supported for float16 on CPU.")
     linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(dtype).to(device)
     qlinear = QLinear.from_module(linear)
