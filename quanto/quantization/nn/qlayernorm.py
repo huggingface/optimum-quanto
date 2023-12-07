@@ -13,9 +13,9 @@ class QLayerNorm(QModuleMixin, torch.nn.LayerNorm):
     def from_module(cls, module):
         qmodule = cls(module.normalized_shape, module.eps, module.elementwise_affine, module.bias is not None)
         with torch.no_grad():
-            qmodule.weight.copy_(module.weight)
+            qmodule.weight = torch.nn.Parameter(module.weight.clone().detach())
             if module.bias is not None:
-                qmodule.bias.copy_(module.bias)
+                qmodule.bias = torch.nn.Parameter(module.bias.clone().detach())
         return qmodule.to(module.weight.device)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
