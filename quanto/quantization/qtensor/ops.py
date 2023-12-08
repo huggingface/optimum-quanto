@@ -64,9 +64,10 @@ def is_scalar(t):
 
 @register_qtensor_op([torch.ops.aten._to_copy])
 def _to_copy(op, t, dtype=None, **kwargs):
-    # Ignore dtype and use the inner data tensors dtypes instead
+    # Ignore dtype and use the inner data tensors dtype instead
     out_data = op(t._data, dtype=t._data.dtype, **kwargs)
-    out_scale = op(t._scale, dtype=t._scale.dtype, **kwargs)
+    # Apply the new dtype on the scale
+    out_scale = op(t._scale, dtype=dtype, **kwargs)
     return QTensor(out_data, out_scale)
 
 
