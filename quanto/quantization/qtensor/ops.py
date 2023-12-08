@@ -236,7 +236,14 @@ def mm(op, input, other):
         # Matric multiplication is only supported between a per-tensor QTensor and a QTensor
         return dequantized_op(op, input, other)
     # Cast int8 data to float32 and do the operation
-    out_data = op(input._data.to(torch.float32), other._data.to(torch.float32))
+    n, m = input.shape
+    p = other.shape[-1]
+    if input.device.type == "cuda" and n > 16 and n % 8 == 0 and m % 8 == 0 and p % 8 == 0:
+        # Use integer GEMM
+        out_data = torch._int_mm(input._data, other._data)
+    else:
+        # Cast data to float32 and do the operation
+        out_data = op(input._data.to(torch.float32), other._data.to(torch.float32))
     out_scale = input._scale * other._scale
     return QTensor(out_data.to(torch.int32), out_scale)
 
