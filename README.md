@@ -50,6 +50,11 @@ down inference a bit, but is required if the model needs to be tuned.
 
 Activations are only quantized if the model has been calibrated to evaluate the activation scales.
 
+Biases are not quantized because to preserve the accuracy of a typical `addmm` operation, they must be quantized with a
+scale that is equal to the product of the input and weight scales, which leads to a ridiculously small scale, and conversely
+requires a very high bitwidth to avoid clipping. Typically, with `int8` inputs and weights, biases would need to be quantized
+with at least `12` bits, i.e in `int16`. Since most biases ar today `float16`, this is a waste of time.
+
 Although `Quanto` uses integer activations and weights, the current implementation falls
 back to `float32` operations for integer inputs if there is no support for the corresponding integer
 operation on the target device (which means pretty much all operations except 2D matrix multiplications on CUDA devices).
@@ -100,17 +105,19 @@ The first step converts a standard float model into a dynamically quantized mode
 quantize(model)
 ```
 
+At this stage, only the inference of the model is modified to dynamically quantize the weights.
+
 2. Calibrate (optional)
 
-Activations are quantized using a default `[-1, 1]` range which can lead to severe clipping and/or inaccurate values.
-
-Quanto supports a calibration mode that allows to adjust the activation ranges while passing representative samples through the quantized model.
+Quanto supports a calibration mode that allows to record the activation ranges while passing representative samples through the quantized model.
 
 ```
 with calibration():
     model(samples)
 ```
-Note that during calibration, all activations and weights are dequantized and inference is evaluated with float precision.
+
+This automatically activates the quantization of the activations in the quantized modules.
+
 
 3. Tune, aka Quantization-Aware-Training (optional)
 
@@ -139,26 +146,23 @@ Please refer to the [examples](https://github.com/huggingface/quanto/tree/main/e
 
 ## Per-axis versus per-tensor
 
-By default, all weights and activations are quantized per-tensor, as it is the quantization scheme that is compatible with the
-highest number of operations with minimal changes.
+Activations are always quantized per-tensor because most linear algebra operations in a model graph are not compatible with per-axis inputs:
+you simply cannot add numbers that are not expressed in the same base (`you cannot add apples and oranges`).
 
-This can however lead to serious quantization errors if the corresponding tensors contain large outlier values: typically, this will
-lead to quantized tensors with most values set to zero (except the outliers).
+Weights involved in matrix multiplications are in the contrary always quantized along their fist axis, because all output features are evaluated
+independently from one another.
 
-To work around that issue, activations can also be quantized per-axis:
+The outputs of a quantized matrix multiplication will anyway always be dequantized, even if activations are quantized, because:
 
-```
-with calibration(per_axis=True):
-    model(samples)
-```
+- the resulting integer values are expressed with a much higher bitwidth (typically `int32`) than the activation bitwidth (tpyically `int8`),
+- they might be combined with a `float` bias.
 
-This is unlikely to produce a fully quantized graph however, since a lot of operations require per-tensor inputs, leading to a dequantization
-down the line.
+Quantizing activations per-tensor can lead to serious quantization errors if the corresponding tensors contain large outlier values: typically,
+this will lead to quantized tensors with most values set to zero (except the outliers).
 
-Typically, in a transformer model, per-axis activations of Q, K, V linear projections will be dequantized when they are split by heads, and the
-downstream matmul will be performed on float tensors.
+The only solution to work around that issue is to 'smooth' the activations either dynamically, or statically as illustrated for instance by
+[SmoothQuant](https://github.com/mit-han-lab/smoothquant).
 
-**In other words, quantizing activations per-axis will most of the time be equivalent to a weight-only quantization.**
 
 ## Implementation details
 
@@ -173,6 +177,6 @@ In addition to the quantized tensors, Quanto uses quantized modules as substitut
 - store quantized weights,
 - gather input and output scales to rescale QTensor `int32` data to `int8`.
 
-Eventually, the produced quantized graph should be passed to a specific inductor backend to fuse rescale into the previous operation.
+Eventually, the produced quantized graph should be compiled through torch.dynamo to fuse rescale into the previous operation.
 
-Examples of fused operations can be found in https://github.com/Guangxuan-Xiao/torch-int.
+This is currently blocked by several pending pytorch issues to add proper support of Tensor subclasses in `torch.dynamo`.
