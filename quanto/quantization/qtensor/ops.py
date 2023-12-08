@@ -219,7 +219,18 @@ def linear(op, input, weight, bias=None):
     return QTensor(out_data.to(torch.int32), out_scale)
 
 
-@register_qtensor_op([torch.ops.aten.bmm, torch.ops.aten.mm])
+@register_qtensor_op([torch.ops.aten.bmm])
+def bmm(op, input, other):
+    if not ensure_qtensor_inputs(input, other, per_tensor=False) or input.axis is not None:
+        # Matric multiplication is only supported between a per-tensor QTensor and a QTensor
+        return dequantized_op(op, input, other)
+    # Cast int8 data to float32 and do the operation
+    out_data = op(input._data.to(torch.float32), other._data.to(torch.float32))
+    out_scale = input._scale * other._scale
+    return QTensor(out_data.to(torch.int32), out_scale)
+
+
+@register_qtensor_op([torch.ops.aten.mm])
 def mm(op, input, other):
     if not ensure_qtensor_inputs(input, other, per_tensor=False) or input.axis is not None:
         # Matric multiplication is only supported between a per-tensor QTensor and a QTensor
