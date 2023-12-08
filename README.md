@@ -10,30 +10,34 @@
 - automatically inserts quantized functional operations,
 - automatically inserts quantized modules (see below the list of supported modules),
 - provides a seamless workflow from float model to dynamic to static quantized model,
-- supports quantized model serialization as a `state_dict`.
+- supports quantized model serialization as a `state_dict`,
+- uses integer matrix multiplications (`mm`) on CUDA devices.
 
 Features yet to be implemented:
 
 - quantize clone (quantization happens in-place for now),
-- smart calibration to decide if activations must be per-tensor or per-axis,
-- optimized integer kernels,
-- quantized operators fusion,
+- dynamic activations smoothing,
+- integer batched matrix multiplications (`bmm`) on CUDA devices,
+- integer matrix multiplications for CPU and MPS devices,
+- quantized operators fusion (`mm` followed by dequantization is the most common use case),
 - support `int4` weights,
 - compatibility with [torch compiler](https://pytorch.org/docs/stable/torch.compiler.html) (aka dynamo).
 
-## Supported modules
+## Quantized modules
+
+Thanks to a seamless propagation mechanism through quantized tensors, only a few modules working as quantized
+tensors insertion points are actually required.
 
 The following modules can be quantized:
 
 - [Linear](https://pytorch.org/docs/stable/generated/torch.nn.Linear.html) (QLinear).
-Weights are quantized to `int8`, and biases to `int32`. Outputs are quantized to `int8`.
-If the activations are quantized per-axis, the weights are also quantized per-axis.
+Weights are quantized to `int8`, and biases are not quantized. Inputs and outputs can be quantized to `int8`.
 - [LayerNorm](https://pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html),
-Weights and biases are __not__ quantized. Outputs are quantized to `int8`.
+Weights and biases are __not__ quantized. Outputs can be quantized to `int8`.
 
 The next modules to be implemented are:
 
-- LLamaRMSNorm.
+- Conv2D.
 
 ## Limitations and design choices
 
@@ -42,12 +46,36 @@ Quanto uses a strict affine quantization scheme (no zero-point).
 Quanto does not support mixed-precision quantization.
 
 Quanto dynamically quantizes weights until a model is frozen: this slows
-down inference a lot, but is required if the model needs to be tuned.
+down inference a bit, but is required if the model needs to be tuned.
+
+Activations are only quantized if the model has been calibrated to evaluate the activation scales.
 
 Although `Quanto` uses integer activations and weights, the current implementation falls
-back to `float32` operations for integer inputs, and some quantization operations are
-redundant, which means that inference is slower, even for frozen models.
-The weight storage and on-device memory usage should however be lower.
+back to `float32` operations for integer inputs if there is no support for the corresponding integer
+operation on the target device (which means pretty much all operations except 2D matrix multiplications on CUDA devices).
+
+Note: integer operations cannot be performed in `float16` as a fallback because this format is very bad at representing
+`integer` and will likely lead to overflows in intermediate calculations.
+
+## Performances
+
+**DISCLAIMER**: these are preliminary observations gathered from a panel of models, and not an actual performance report.
+
+In terms of accuracy:
+
+- models using only quantized int8 weights do not seem to suffer any drop in accuracy,
+- models using also quantized activations do suffer from moderate to severe accuracy drops.
+
+In terms of speed:
+
+- models using quantized weights only are very slightly slower than the original float model due to the weight dequantization,
+- models using also quantized activations are significantly faster on CUDA devices,
+- models using also quantized activations are significantly slower on CPU and MPS devices, where fallbacks are triggered.
+
+The weight storage and on-device memory usage should:
+
+- be equivalent for a model with dynamic weights,
+- lower for a model with static weights.
 
 ## Installation
 
