@@ -1,6 +1,23 @@
+import functools
+
+import pytest
 import torch
+from packaging import version
 
 from quanto.quantization import QTensor, absmax_scale
+
+
+def torch_min_version(v):
+    def torch_min_version_decorator(test):
+        @functools.wraps(test)
+        def test_wrapper(*args, **kwargs):
+            if version.parse(torch.__version__) < version.parse(v):
+                pytest.skip(f"Requires pytorch >= {v}")
+            test(*args, **kwargs)
+
+        return test_wrapper
+
+    return torch_min_version_decorator
 
 
 def device_eq(a, b):
