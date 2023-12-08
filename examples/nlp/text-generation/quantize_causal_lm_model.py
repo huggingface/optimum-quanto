@@ -26,7 +26,7 @@ def generate(model, tokenizer, device, prompt):
 
 
 @torch.no_grad()
-def evaluate_model(model, tokenizer, dataset, device, batch_size):
+def evaluate_model(model, tokenizer, dataset, device, batch_size, log=True):
     model.eval()
     # The task is to predict the last token of the input.
     total, hit = 0, 0
@@ -43,7 +43,8 @@ def evaluate_model(model, tokenizer, dataset, device, batch_size):
         hit += (preds == labels).sum().item()
     end = time.time()
     acc = hit / total
-    print(f"{total} sequences evaluated in {end - start:.2f} s. accuracy = {acc:.2f}")
+    if log:
+        print(f"{total} sequences evaluated in {end - start:.2f} s. accuracy = {acc:.2f}")
     return acc
 
 
@@ -85,13 +86,13 @@ def main():
     generate(model, tokenizer, device, prompt)
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
     quantize(model)
-    print("Quantized model (dynamic weights only)")
+    freeze(model)
+    print("Quantized model (static weights only)")
     generate(model, tokenizer, device, prompt)
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
-    print("Quantized model (dynamic weights and activations)")
+    print("Calibrating ...")
     with calibration(per_axis=args.per_axis):
-        evaluate_model(model, tokenizer, dataset, device, args.batch_size)
-    freeze(model)
+        evaluate_model(model, tokenizer, dataset, device, args.batch_size, log=False)
     print("Quantized model (static weights and activations)")
     generate(model, tokenizer, device, prompt)
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
