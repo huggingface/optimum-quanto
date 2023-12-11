@@ -3,7 +3,7 @@ from typing import Optional
 
 import torch
 import torch.utils.checkpoint
-from helpers import random_tensor
+from helpers import assert_similar, random_tensor
 from torch import nn
 
 from quanto.quantization import calibration, quantize
@@ -172,13 +172,11 @@ def test_quantize_attention_weights_only(device):
     qatt, inputs, outputs = get_qatt_and_ref_ios(device)
     with torch.no_grad():
         qoutputs = qatt(inputs)
-    sim = torch.nn.functional.cosine_similarity(outputs, qoutputs, dim=-1)
-    assert torch.allclose(sim, torch.tensor(1.0), atol=1e-4)
+    assert_similar(outputs, qoutputs, atol=1e-4)
 
 
 def test_quantize_attention_activations(device):
     qatt, inputs, outputs = get_qatt_and_ref_ios(device)
     with torch.no_grad(), calibration():
         qoutputs = qatt(inputs)
-    sim = torch.nn.functional.cosine_similarity(outputs, qoutputs.dequantize(), dim=-1)
-    assert torch.allclose(sim, torch.tensor(1.0), atol=1e-3)
+    assert_similar(outputs, qoutputs, atol=1e-3)
