@@ -1,6 +1,6 @@
 import pytest
 import torch
-from helpers import random_tensor
+from helpers import random_tensor, torch_min_version
 
 from quanto.quantization import QTensor, absmax_scale
 
@@ -36,6 +36,7 @@ def test_compile_quantize_tensor(input_shape, int_dtype, axis, dtype, device):
     assert qa.axis == expected_axis
 
 
+@torch_min_version("2.1.2")
 @pytest.mark.parametrize("qtensor_input", [True, False], ids=["qtensor-input", "tensor-input"])
 def test_compile_qtensor_to(qtensor_input, device):
     input_shape = (10, 32, 32)
