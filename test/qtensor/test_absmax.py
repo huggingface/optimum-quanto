@@ -6,12 +6,12 @@ from quanto.quantization import absmax_scale
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (2, 10), (10, 32, 32)])
-@pytest.mark.parametrize("int_dtype", [torch.int8], ids=["int8"])
+@pytest.mark.parametrize("itype", [torch.int8], ids=["int8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("axis", [None, 0, -1], ids=["per-tensor", "first-axis", "last-axis"])
-def test_quantize_scale(input_shape, axis, dtype, int_dtype, device):
+def test_quantize_scale(input_shape, axis, dtype, itype, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
-    scale = absmax_scale(a, int_dtype, axis)
+    scale = absmax_scale(a, itype, axis)
     assert scale.dtype == dtype
     if axis is None:
         assert scale.ndim == 0

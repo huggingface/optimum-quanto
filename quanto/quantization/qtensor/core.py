@@ -7,8 +7,13 @@ from torch.autograd import Function
 __all__ = ["absmax_scale", "QTensor"]
 
 
+def _dtype_info(dtype):
+    info = torch.finfo if dtype.is_floating_point else torch.iinfo
+    return info(dtype)
+
+
 def absmax_scale(
-    base: torch.Tensor, int_dtype: torch.Tensor.dtype = torch.int8, axis: Optional[int] = None
+    base: torch.Tensor, itype: torch.Tensor.dtype = torch.int8, axis: Optional[int] = None
 ) -> torch.Tensor:
     """Evaluate the quantization scale using the absmax algorithm.
 
@@ -19,7 +24,7 @@ def absmax_scale(
 
     Args:
         base (`torch.Tensor`): the base tensor on which the scale will be applied.
-        int_dtype (`torch.Tensor.dtype`): the target integer dtype for quantization.
+        itype (`torch.Tensor.dtype`): the target internal dtype for quantization.
         axis (`int`): the index of the axis to preserve, or -1 for the last one.
             Defaults to None to reduce all axis.
 
@@ -36,7 +41,8 @@ def absmax_scale(
         else:
             dim.remove(axis)
         qranges = torch.amax(torch.abs(base), dim=dim, keepdim=True)
-    return qranges / torch.iinfo(int_dtype).max
+    info = _dtype_info(itype)
+    return qranges / info.max
 
 
 class Quantizer(Function):
@@ -46,10 +52,10 @@ class Quantizer(Function):
     """
 
     @staticmethod
-    def forward(ctx, base, int_dtype: torch.Tensor.dtype = torch.int8, scale=None):
-        iinfo = torch.iinfo(int_dtype)
+    def forward(ctx, base, itype: torch.Tensor.dtype = torch.int8, scale=None):
+        info = _dtype_info(itype)
         if scale is None:
-            scale = absmax_scale(base, int_dtype)
+            scale = absmax_scale(base, itype)
         elif scale.ndim > 0:
             if torch.squeeze(scale).ndim > 1:
                 raise ValueError("Quantizing along multiple axis is not supported")
@@ -57,7 +63,7 @@ class Quantizer(Function):
                 raise ValueError(
                     "When quantizing per-axis, the scale must be broadcastable to the base (Tip: try to add missing dims of length zero)."
                 )
-        data = torch.clamp(torch.round(base / scale), min=iinfo.min, max=iinfo.max).to(int_dtype)
+        data = torch.clamp(torch.round(base / scale), min=info.min, max=info.max).to(itype)
         # The instantiation of the quantized tensor must happen within the context of the Function
         # for the autograd magic to work.
         return QTensor(data, scale)
@@ -85,10 +91,10 @@ class Dequantizer(Function):
 
 class ReQuantizer(Function):
     @staticmethod
-    def forward(ctx, base, int_dtype=torch.int8, scale=None):
-        dst_iinfo = torch.iinfo(int_dtype)
+    def forward(ctx, base, itype=torch.int8, scale=None):
+        dst_iinfo = torch.iinfo(itype)
         if scale is None:
-            if int_dtype == base._data.dtype:
+            if itype == base._data.dtype:
                 return base
             # Assuming the base scale is correct, simply project to the target integer range
             src_iinfo = torch.iinfo(base._data.dtype)
@@ -101,7 +107,7 @@ class ReQuantizer(Function):
             # The rescaling operation requires data to be cast to the scale float type before multiplication
             # by the scale, but this might actually overflow for float16/bfloat16
             int_rescale = int_rescale.to(torch.float32)
-        data = torch.clamp(torch.round(base._data * int_rescale), min=dst_iinfo.min, max=dst_iinfo.max).to(int_dtype)
+        data = torch.clamp(torch.round(base._data * int_rescale), min=dst_iinfo.min, max=dst_iinfo.max).to(itype)
         # The instantiation of the quantized tensor must happen within the context of the Function
         # for the autograd magic to work.
         return QTensor(data, scale)
@@ -148,17 +154,17 @@ class QTensor(torch.Tensor):
         return f"QTensor({self._data}, scale={self._scale}, public_dtype={self.dtype}{autograd_info})"
 
     @classmethod
-    def quantize(cls, base, int_dtype=torch.int8, scale=None):
+    def quantize(cls, base, itype=torch.int8, scale=None):
         """Differentiable quantization function"""
-        return Quantizer.apply(base, int_dtype, scale)
+        return Quantizer.apply(base, itype, scale)
 
     def dequantize(self):
         """Differentiable dequantization function"""
         return Dequantizer.apply(self)
 
-    def rescale(self, int_dtype=torch.int8, scale=None):
+    def rescale(self, itype=torch.int8, scale=None):
         """Differentiable requantization function"""
-        return ReQuantizer.apply(self, int_dtype, scale)
+        return ReQuantizer.apply(self, itype, scale)
 
     @property
     def axis(self):
