@@ -81,6 +81,9 @@ class Dequantizer(Function):
             # The dequantization operation requires data to be cast to the scale float type before multiplication
             # by the scale, but this might actually overflow for float16/bfloat16
             return (t._scale.to(torch.float32) * t._data).to(t._scale.dtype)
+        elif t._data.dtype.is_floating_point:
+            # Upcast explicitly to the scale dtype
+            return t._scale * t._data.to(t._scale.dtype)
         return t._scale * t._data
 
     @staticmethod
