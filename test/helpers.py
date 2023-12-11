@@ -63,3 +63,10 @@ def q_assert_close(x: torch.Tensor, xq: QTensor, atol: float = None, rtol: float
         raise ValueError(
             f"Error exceeds tolerance (max: {max_error_xdq:.8f} instead of {max_error_x:.8f} ({max_rel_error:.4f} %)."
         )
+
+
+def assert_similar(a, b, atol=1e-6, rtol=1e-5):
+    """Verify that the cosine similarity of the two inputs is close to 1.0 everywhere"""
+    assert a.shape == b.shape
+    sim = torch.nn.functional.cosine_similarity(a.flatten(), b.flatten(), dim=0)
+    assert torch.allclose(sim, torch.tensor(1.0), atol=atol, rtol=rtol)

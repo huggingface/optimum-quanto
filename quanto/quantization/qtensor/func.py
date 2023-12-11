@@ -42,6 +42,6 @@ def unary_unsupported_op(func, t, *args, **kwargs):
     return func(t.dequantize(), *args, **kwargs)
 
 
-@register_qtensor_func([torch.nn.functional.cross_entropy])
+@register_qtensor_func([torch.nn.functional.cross_entropy, torch.nn.functional.cosine_similarity])
 def plurary_unsupported_op(func, *args, **kwargs):
     return func(*dequantize(*args), **kwargs)
