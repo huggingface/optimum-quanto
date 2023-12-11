@@ -3,20 +3,33 @@ from tempfile import TemporaryDirectory
 
 import pytest
 import torch
-from helpers import device_eq, q_assert_close, random_qtensor, random_tensor
+from helpers import assert_similar, device_eq, q_assert_close, random_qtensor, random_tensor
 
 from quanto.quantization import QTensor, absmax_scale
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 @pytest.mark.parametrize("itype", [torch.int8, torch.int16], ids=["int8", "int16"])
-def test_quantize_default(input_shape, itype, device):
+def test_quantize_integer(input_shape, itype, device):
     a = random_tensor(input_shape, dtype=torch.float32).to(device)
     qa = QTensor.quantize(a, itype)
     assert isinstance(qa, QTensor)
     assert qa._data.dtype == itype
     assert device_eq(qa.device, device)
     q_assert_close(a, qa)
+
+
+@pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
+@pytest.mark.parametrize("itype", [torch.float8_e5m2, torch.float8_e4m3fn], ids=["float8_e5m2", "float8_e4m3"])
+def test_quantize_float8(input_shape, itype, device):
+    if device.type == "mps":
+        pytest.skip("Float8 are not supported on MPS device")
+    a = random_tensor(input_shape, dtype=torch.float32).to(device)
+    qa = QTensor.quantize(a, itype)
+    assert isinstance(qa, QTensor)
+    assert qa._data.dtype == itype
+    assert device_eq(qa.device, device)
+    assert_similar(a, qa, atol=5e-3)
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (2, 10), (10, 32, 32)])
