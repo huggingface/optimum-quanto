@@ -9,13 +9,13 @@ from quanto.quantization.nn import QLinear
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (2, 10), (10, 32, 32)])
-@pytest.mark.parametrize("int_dtype", [torch.int8], ids=["int8"])
+@pytest.mark.parametrize("itype", [torch.int8], ids=["int8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("axis", [None, 0, -1], ids=["per-tensor", "first-axis", "last-axis"])
-def test_quantized_tensor_serialization(input_shape, int_dtype, dtype, axis):
+def test_quantized_tensor_serialization(input_shape, itype, dtype, axis):
     inputs = random_tensor(input_shape, dtype=dtype)
-    scale = absmax_scale(inputs, int_dtype, axis)
-    qinputs = QTensor.quantize(inputs, int_dtype, scale)
+    scale = absmax_scale(inputs, itype, axis)
+    qinputs = QTensor.quantize(inputs, itype, scale)
     b = io.BytesIO()
     torch.save(qinputs, b)
     b.seek(0)

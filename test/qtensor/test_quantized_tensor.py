@@ -9,24 +9,24 @@ from quanto.quantization import QTensor, absmax_scale
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
-@pytest.mark.parametrize("int_dtype", [torch.int8, torch.int16], ids=["int8", "int16"])
-def test_quantize_default(input_shape, int_dtype, device):
+@pytest.mark.parametrize("itype", [torch.int8, torch.int16], ids=["int8", "int16"])
+def test_quantize_default(input_shape, itype, device):
     a = random_tensor(input_shape, dtype=torch.float32).to(device)
-    qa = QTensor.quantize(a, int_dtype)
+    qa = QTensor.quantize(a, itype)
     assert isinstance(qa, QTensor)
-    assert qa._data.dtype == int_dtype
+    assert qa._data.dtype == itype
     assert device_eq(qa.device, device)
     q_assert_close(a, qa)
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (2, 10), (10, 32, 32)])
-@pytest.mark.parametrize("int_dtype", [torch.int8], ids=["int8"])
+@pytest.mark.parametrize("itype", [torch.int8], ids=["int8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("axis", [None, 0, -1], ids=["per-tensor", "first-axis", "last-axis"])
-def test_quantize_scale(input_shape, axis, dtype, int_dtype, device):
+def test_quantize_scale(input_shape, axis, dtype, itype, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
-    scale = absmax_scale(a, int_dtype, axis)
-    qa = QTensor.quantize(a, int_dtype, scale)
+    scale = absmax_scale(a, itype, axis)
+    qa = QTensor.quantize(a, itype, scale)
     if axis is not None:
         if a.ndim == 1:
             # Quantization is actually per-tensor since the input tensor is a vector
@@ -37,17 +37,17 @@ def test_quantize_scale(input_shape, axis, dtype, int_dtype, device):
         else:
             assert qa.axis is not None
     assert isinstance(qa, QTensor)
-    assert qa._data.dtype == int_dtype
+    assert qa._data.dtype == itype
     assert qa._scale.dtype == dtype
     assert device_eq(qa.device, device)
     q_assert_close(a, qa)
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
-@pytest.mark.parametrize("int_dtype", [torch.int8, torch.int16, torch.int32], ids=["int8", "int16", "int32"])
-def test_instantiate(input_shape, int_dtype, device):
-    max_value = min(1024, torch.iinfo(int_dtype).max)
-    data = torch.randint(-max_value, max_value, input_shape, dtype=int_dtype)
+@pytest.mark.parametrize("itype", [torch.int8, torch.int16, torch.int32], ids=["int8", "int16", "int32"])
+def test_instantiate(input_shape, itype, device):
+    max_value = min(1024, torch.iinfo(itype).max)
+    data = torch.randint(-max_value, max_value, input_shape, dtype=itype)
     qa = QTensor(data, scale=torch.tensor(1.0 / max_value)).to(device)
     assert torch.max(torch.abs(qa.dequantize())) <= 1
 
@@ -55,7 +55,7 @@ def test_instantiate(input_shape, int_dtype, device):
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 def test_rescale_int16_int8(input_shape, device):
     a = random_tensor(input_shape, dtype=torch.float32).to(device)
-    qa = QTensor.quantize(a, int_dtype=torch.int16)
+    qa = QTensor.quantize(a, itype=torch.int16)
     # Rescale to int8
     qa_rescaled = qa.rescale(torch.int8)
     q_assert_close(a, qa_rescaled)
@@ -137,7 +137,7 @@ def test_quantized_tensor_chained_backward(device):
 def test_rescale_backward(device):
     a = random_tensor((10,), dtype=torch.float32).to(device)
     a.requires_grad = True
-    qa = QTensor.quantize(a, int_dtype=torch.int16)
+    qa = QTensor.quantize(a, itype=torch.int16)
     # Rescale to int8
     qa_rescaled = qa.rescale(torch.int8)
     assert qa_rescaled.requires_grad is True
