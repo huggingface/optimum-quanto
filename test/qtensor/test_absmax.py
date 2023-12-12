@@ -11,7 +11,7 @@ from quanto.quantization import absmax_scale
 )
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("axis", [None, 0, -1], ids=["per-tensor", "first-axis", "last-axis"])
-def test_quantize_scale(input_shape, axis, dtype, itype, device):
+def test_absmax_scale(input_shape, axis, dtype, itype, device):
     if device.type == "mps" and itype.is_floating_point:
         pytest.skip("Float8 are not supported on MPS device")
     a = random_tensor(input_shape, dtype=dtype).to(device)
