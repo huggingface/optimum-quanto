@@ -88,11 +88,11 @@ def test_cat(input_shape, device):
     qinputs = random_qtensor(input_shape, dtype=torch.float32).to(device)
     other = random_tensor(input_shape, dtype=torch.float32).to(device)
     # First, quantize other with the same scale
-    qother = QTensor.quantize(other, qinputs._data.dtype, qinputs._scale)
+    qother = QTensor.quantize(other, qinputs.itype, qinputs._scale)
     qcat = torch.cat([qinputs, qother])
     assert isinstance(qcat, QTensor)
     q_assert_close(torch.cat([qinputs.dequantize(), qother.dequantize()]), qcat)
     # Now, verify that with different scales, the output is dequantized
-    qother = QTensor.quantize(other, qinputs._data.dtype)
+    qother = QTensor.quantize(other, qinputs.itype)
     qcat = torch.cat([qinputs, qother])
     assert not isinstance(qcat, QTensor)

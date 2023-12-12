@@ -20,7 +20,7 @@ def test_quantize_linear(batch_size, tokens, embeddings, use_bias, dtype, per_ax
     # Calibrate and obtain quantized outputs
     with torch.no_grad(), calibration(per_axis=per_axis):
         qout = qlinear(qinputs)
-    assert qout._data.dtype == torch.int8
+    assert qout.itype == torch.int8
     # Freeze to set quantized weights
     freeze(qlinear)
     # Align linear weights with quantized linear weights for comparison

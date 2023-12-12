@@ -14,7 +14,7 @@ def test_quantize_integer(input_shape, itype, device):
     a = random_tensor(input_shape, dtype=torch.float32).to(device)
     qa = QTensor.quantize(a, itype)
     assert isinstance(qa, QTensor)
-    assert qa._data.dtype == itype
+    assert qa.itype == itype
     assert device_eq(qa.device, device)
     q_assert_close(a, qa)
 
@@ -27,7 +27,7 @@ def test_quantize_float8(input_shape, itype, device):
     a = random_tensor(input_shape, dtype=torch.float32).to(device)
     qa = QTensor.quantize(a, itype)
     assert isinstance(qa, QTensor)
-    assert qa._data.dtype == itype
+    assert qa.itype == itype
     assert device_eq(qa.device, device)
     assert_similar(a, qa, atol=5e-3)
 
@@ -50,7 +50,7 @@ def test_quantize_scale(input_shape, axis, dtype, itype, device):
         else:
             assert qa.axis is not None
     assert isinstance(qa, QTensor)
-    assert qa._data.dtype == itype
+    assert qa.itype == itype
     assert qa._scale.dtype == dtype
     assert device_eq(qa.device, device)
     q_assert_close(a, qa)
