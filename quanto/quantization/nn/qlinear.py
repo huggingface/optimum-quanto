@@ -9,9 +9,19 @@ __all__ = ["QLinear"]
 
 @register_qmodule(torch.nn.Linear)
 class QLinear(QModuleMixin, torch.nn.Linear):
+    def __init__(self, *args, weights: torch.dtype = torch.int8, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.weights = weights
+
     @classmethod
-    def from_module(cls, module):
-        qmodule = cls(module.in_features, module.out_features, module.bias is not None, dtype=module.weight.dtype)
+    def from_module(cls, module, weights=torch.int8):
+        qmodule = cls(
+            module.in_features,
+            module.out_features,
+            module.bias is not None,
+            dtype=module.weight.dtype,
+            weights=weights,
+        )
         with torch.no_grad():
             qmodule.weight.copy_(module.weight)
             if module.bias is not None:
@@ -23,7 +33,7 @@ class QLinear(QModuleMixin, torch.nn.Linear):
             return self.weight
         # Quantize the weights per-axis
         wscale = absmax_scale(self.weight, axis=0)
-        return QTensor.quantize(self.weight, scale=wscale)
+        return QTensor.quantize(self.weight, itype=self.weights, scale=wscale)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         # If needed, quantize inputs
