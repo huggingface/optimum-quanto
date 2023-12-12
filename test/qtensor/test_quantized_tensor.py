@@ -9,24 +9,28 @@ from quanto.quantization import QTensor, absmax_scale
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("itype", [torch.int8, torch.int16], ids=["int8", "int16"])
-def test_quantize_integer(input_shape, itype, device):
-    a = random_tensor(input_shape, dtype=torch.float32).to(device)
+def test_quantize_integer(input_shape, dtype, itype, device):
+    a = random_tensor(input_shape, dtype=dtype).to(device)
     qa = QTensor.quantize(a, itype)
     assert isinstance(qa, QTensor)
+    assert qa.dtype == dtype
     assert qa.itype == itype
     assert device_eq(qa.device, device)
     q_assert_close(a, qa)
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("itype", [torch.float8_e5m2, torch.float8_e4m3fn], ids=["float8_e5m2", "float8_e4m3"])
-def test_quantize_float8(input_shape, itype, device):
+def test_quantize_float8(input_shape, dtype, itype, device):
     if device.type == "mps":
         pytest.skip("Float8 are not supported on MPS device")
-    a = random_tensor(input_shape, dtype=torch.float32).to(device)
+    a = random_tensor(input_shape, dtype=dtype).to(device)
     qa = QTensor.quantize(a, itype)
     assert isinstance(qa, QTensor)
+    assert qa.dtype == dtype
     assert qa.itype == itype
     assert device_eq(qa.device, device)
     assert_similar(a, qa, atol=5e-3)
@@ -57,12 +61,15 @@ def test_quantize_scale(input_shape, axis, dtype, itype, device):
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("itype", [torch.int8, torch.int16, torch.int32], ids=["int8", "int16", "int32"])
-def test_instantiate(input_shape, itype, device):
+def test_instantiate(input_shape, dtype, itype, device):
     max_value = min(1024, torch.iinfo(itype).max)
     data = torch.randint(-max_value, max_value, input_shape, dtype=itype)
-    qa = QTensor(data, scale=torch.tensor(1.0 / max_value)).to(device)
+    qa = QTensor(data, scale=torch.tensor(1.0 / max_value, dtype=dtype)).to(device)
     assert torch.max(torch.abs(qa.dequantize())) <= 1
+    assert qa.dtype == dtype
+    assert qa.itype == itype
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
