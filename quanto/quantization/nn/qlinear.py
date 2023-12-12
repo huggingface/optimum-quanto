@@ -29,7 +29,7 @@ class QLinear(QModuleMixin, torch.nn.Linear):
         # If needed, quantize inputs
         if self.scales.input is not None:
             if isinstance(input, QTensor):
-                if input._data.dtype == torch.int32:
+                if input.itype == torch.int32:
                     # Requantize input to per-tensor int8
                     input = input.rescale(torch.int8, self.scales.input)
             else:
