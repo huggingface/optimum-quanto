@@ -1,6 +1,7 @@
 import math
 from typing import Optional
 
+import pytest
 import torch
 import torch.utils.checkpoint
 from helpers import assert_similar, random_tensor
@@ -156,7 +157,7 @@ class Attention(nn.Module):
         return self.o_proj(attn_output)
 
 
-def get_qatt_and_ref_ios(device):
+def get_qatt_and_ref_ios(device, weights=torch.int8):
     att = Attention().to(device)
     batch_size = 10
     seq_len = 64
@@ -164,12 +165,13 @@ def get_qatt_and_ref_ios(device):
     inputs = random_tensor(input_shape).to(device)
     with torch.no_grad():
         outputs = att(inputs)
-    quantize(att)
+    quantize(att, weights=weights)
     return att, inputs, outputs
 
 
-def test_quantize_attention_weights_only(device):
-    qatt, inputs, outputs = get_qatt_and_ref_ios(device)
+@pytest.mark.parametrize("weights", [torch.int8])
+def test_quantize_attention_weights_only(weights, device):
+    qatt, inputs, outputs = get_qatt_and_ref_ios(device, weights=weights)
     with torch.no_grad():
         qoutputs = qatt(inputs)
     assert_similar(outputs, qoutputs, atol=1e-4)
