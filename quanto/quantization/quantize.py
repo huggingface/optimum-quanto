@@ -19,12 +19,12 @@ def set_module_by_name(parent_module, name, child_module):
         setattr(next_module, module_names[-1], child_module)
 
 
-def quantize(model, modules=None):
+def quantize(model, modules=None, **kwargs):
     # Quantization happens in-place
     for name, m in model.named_modules():
         if modules is not None and m not in modules:
             continue
-        qmodule = quantize_module(m)
+        qmodule = quantize_module(m, **kwargs)
         if qmodule is not None:
             set_module_by_name(model, name, qmodule)
             qmodule.name = name

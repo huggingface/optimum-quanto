@@ -37,10 +37,11 @@ def check_outputs(model, batch_size, input_features, device):
     assert isinstance(qout, QTensor)
 
 
+@pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
-def test_quantize_mlp(frozen, device):
+def test_quantize_mlp(weights, frozen, device):
     model = MLP(32, 10, 128).to(device)
-    quantize(model)
+    quantize(model, weights=weights)
     if frozen:
         freeze(model)
     check_mlp(model, frozen)
