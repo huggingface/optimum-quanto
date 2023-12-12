@@ -73,6 +73,9 @@ def _to_copy(op, t, dtype=None, **kwargs):
 
 @register_qtensor_op([torch.ops.aten.argmax])
 def argmax(op, input, *args, **kwargs):
+    if input.axis is not None:
+        # If we have different scales we need to dequantize first
+        return dequantized_op(op, input, *args, **kwargs)
     # We just return the argmax for the data
     return op(input._data, *args, **kwargs)
 
