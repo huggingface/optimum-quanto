@@ -48,7 +48,3 @@ class QLinear(QModuleMixin, torch.nn.Linear):
             else:
                 output = QTensor.quantize(output, torch.int8, self.scales.output)
         return output
-
-    def freeze(self):
-        # Replace float weights by quantized weights
-        self.weight = torch.nn.Parameter(self.qweight())
