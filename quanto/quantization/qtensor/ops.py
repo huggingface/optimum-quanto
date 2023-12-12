@@ -64,9 +64,9 @@ def is_scalar(t):
 
 @register_qtensor_op([torch.ops.aten._to_copy])
 def _to_copy(op, t, dtype=None, **kwargs):
-    # Ignore dtype and use the inner data tensors dtype instead
-    out_data = op(t._data, dtype=t._data.dtype, **kwargs)
-    # Apply the new dtype on the scale
+    # For data, ignore dtype and use the inner type instead
+    out_data = op(t._data, dtype=t.itype, **kwargs)
+    # Apply the new dtype on the scale only
     out_scale = op(t._scale, dtype=dtype, **kwargs)
     return QTensor(out_data, out_scale)
 
@@ -275,8 +275,8 @@ def _softmax(op, input, dim, half_to_float):
     # Softmax must be performed in float
     out_data = op(input.dequantize(), dim, half_to_float)
     # Since softmax is normalized, we know the optimal scale
-    out_scale = torch.tensor(1 / torch.iinfo(input._data.dtype).max, dtype=input._scale.dtype).to(input.device)
-    return QTensor.quantize(out_data, input._data.dtype, out_scale)
+    out_scale = torch.tensor(1 / torch.iinfo(input.itype).max, dtype=input.dtype).to(input.device)
+    return QTensor.quantize(out_data, input.itype, out_scale)
 
 
 @register_qtensor_op([torch.ops.aten.stack])
@@ -341,4 +341,4 @@ def where(op, condition, input, other):
         raise NotImplementedError
     float_data = op(condition, input.dequantize(), other)
     # We requantize with the input scale
-    return QTensor.quantize(float_data, input._data.dtype, input._scale)
+    return QTensor.quantize(float_data, input.itype, input._scale)

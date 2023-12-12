@@ -77,11 +77,11 @@ class Quantizer(Function):
 class Dequantizer(Function):
     @staticmethod
     def forward(ctx, t):
-        if t._data.dtype == torch.int32:
+        if t.itype == torch.int32:
             # The dequantization operation requires data to be cast to the scale float type before multiplication
             # by the scale, but this might actually overflow for float16/bfloat16
             return (t._scale.to(torch.float32) * t._data).to(t._scale.dtype)
-        elif t._data.dtype.is_floating_point:
+        elif t.itype.is_floating_point:
             # Upcast explicitly to the scale dtype
             return t._scale * t._data.to(t._scale.dtype)
         return t._scale * t._data
@@ -97,16 +97,16 @@ class ReQuantizer(Function):
     def forward(ctx, base, itype=torch.int8, scale=None):
         dst_iinfo = torch.iinfo(itype)
         if scale is None:
-            if itype == base._data.dtype:
+            if itype == base.itype:
                 return base
             # Assuming the base scale is correct, simply project to the target integer range
-            src_iinfo = torch.iinfo(base._data.dtype)
+            src_iinfo = torch.iinfo(base.itype)
             int_rescale = dst_iinfo.max / src_iinfo.max
             scale = base._scale * src_iinfo.max / dst_iinfo.max
         else:
             # It is up to the caller to make sure the scale is consistent with the target int dtype
             int_rescale = base._scale / scale
-        if base._data.dtype == torch.int32:
+        if base.itype == torch.int32:
             # The rescaling operation requires data to be cast to the scale float type before multiplication
             # by the scale, but this might actually overflow for float16/bfloat16
             int_rescale = int_rescale.to(torch.float32)
@@ -172,6 +172,10 @@ class QTensor(torch.Tensor):
     @property
     def axis(self):
         return self._axis
+
+    @property
+    def itype(self):
+        return self._data.dtype
 
     def __tensor_flatten__(self):
         return ["_data", "_scale"], None
