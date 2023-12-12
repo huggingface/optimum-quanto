@@ -3,6 +3,8 @@ from typing import Any, Mapping
 
 import torch
 
+from ..qtensor import QTensor
+
 
 __all__ = ["QModuleMixin", "register_qmodule", "quantize_module"]
 
@@ -87,6 +89,16 @@ class QModuleMixin(ABC):
     def from_module(cls, module: torch.nn.Module):
         raise NotImplementedError
 
+    def qweight(self):
+        # Default implementation for QModules that do not quantize their weights
+        return None
+
     def freeze(self):
-        # Default implementation if the quantized Module does not have any quantized weights
-        pass
+        qweight = self.qweight()
+        if qweight is not None:
+            # Replace float weights by quantized weights
+            self.weight = torch.nn.Parameter(self.qweight())
+
+    @property
+    def frozen(self):
+        return isinstance(self.weight, QTensor)
