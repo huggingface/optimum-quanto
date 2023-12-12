@@ -30,7 +30,7 @@ def test_compile_quantize_tensor(input_shape, itype, axis, dtype, device):
     compiled_f = compile_for_device(f, device)
     qa = compiled_f(a, itype, axis)
     assert isinstance(qa, QTensor)
-    assert qa._data.dtype == itype
+    assert qa.itype == itype
     assert qa._scale.dtype == dtype
     expected_axis = a.ndim - 1 if axis == -1 else axis
     assert qa.axis == expected_axis
@@ -52,5 +52,5 @@ def test_compile_qtensor_to(qtensor_input, device):
         a = QTensor.quantize(a)
     qa = compiled_f(a, torch.float16)
     assert isinstance(qa, QTensor)
-    assert qa._data.dtype == torch.int8
+    assert qa.itype == torch.int8
     assert qa._scale.dtype == torch.float16

@@ -47,7 +47,7 @@ class QConv1D(QModuleMixin, Conv1D):
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         # If needed, quantize inputs, weights and bias
         if isinstance(input, QTensor):
-            if input._data.dtype == torch.int32:
+            if input.itype == torch.int32:
                 # Reduce input bitwidth
                 input = input.rescale(torch.int8, self.in_scale)
         else:

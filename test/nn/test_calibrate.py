@@ -20,7 +20,7 @@ def test_calibrate_qlinear(batch_size, tokens, embeddings, use_bias, per_axis, d
     assert qout.dtype == qinputs.dtype
     if not use_bias:
         assert isinstance(qout, QTensor)
-        assert qout._data.dtype == torch.int32
+        assert qout.itype == torch.int32
     else:
         assert not isinstance(qout, QTensor)
     assert qlinear.scales.input is None
@@ -30,7 +30,7 @@ def test_calibrate_qlinear(batch_size, tokens, embeddings, use_bias, per_axis, d
         qout = qlinear(qinputs)
     assert isinstance(qout, QTensor)
     assert qout.dtype == qinputs.dtype
-    assert qout._data.dtype == torch.int8
+    assert qout.itype == torch.int8
     assert qlinear.scales.input is not None
     assert qlinear.scales.output is not None
     if per_axis:
@@ -76,4 +76,4 @@ def test_calibrate_custom_module(per_axis):
     assert model.linear2.scales.output is not None
     if not per_axis:
         assert isinstance(qout, QTensor)
-        assert qout._data.dtype == torch.int8
+        assert qout.itype == torch.int8
