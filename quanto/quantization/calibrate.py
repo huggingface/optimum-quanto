@@ -15,21 +15,21 @@ __all__ = ["calibration"]
 
 
 def updated_scale(scale, new_scale, momentum):
-    if scale is None:
+    if torch.all(scale == 1):
         return new_scale
     return momentum * scale + new_scale * (1.0 - momentum)
 
 
 def calibrate_input(module: torch.nn.Module, input, momentum: float = 0.9):
-    if isinstance(module, QModuleMixin):
+    if isinstance(module, QModuleMixin) and module.activations is not None:
         input = input[0]
         if isinstance(input, QTensor):
             # Just adopt the maximum scale of the input
-            module.scales.input = torch.max(input._scale)
+            module.input_scale = torch.max(input._scale)
         else:
             # Evaluate the best scale
-            input_scale = absmax_scale(input, torch.int8)
-            module.scales.input = updated_scale(module.scales.input, input_scale, momentum)
+            input_scale = absmax_scale(input, module.activations)
+            module.input_scale = updated_scale(module.input_scale, input_scale, momentum)
         return input
 
 
@@ -40,14 +40,14 @@ def calibrate_output(
     momentum: float = 0.9,
     per_axis: bool = False,
 ):
-    if isinstance(module, (QModuleMixin)):
+    if isinstance(module, (QModuleMixin)) and module.activations is not None:
         # Reevaluate output using float path and get its actual scale
         float_input = input[0]
         if isinstance(float_input, QTensor):
             float_input = float_input.dequantize()
-        float_output = super(module.__class__, module).forward(float_input)
-        output_scale = absmax_scale(float_output, torch.int8, axis=-1 if per_axis else None)
-        module.scales.output = updated_scale(module.scales.output, output_scale, momentum)
+        float_output = module.qforward(float_input)
+        output_scale = absmax_scale(float_output, module.activations, axis=-1 if per_axis else None)
+        module.output_scale = updated_scale(module.output_scale, output_scale, momentum)
         # Reevaluate output with the correct output scale
         qoutput = module.forward(input[0])
         return qoutput

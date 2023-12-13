@@ -15,8 +15,8 @@ models=(
 )
 
 for m in ${models[@]}; do
-    echo $m "per-tensor"
-    python ${SCRIPT_PATH}/quantize_causal_lm_model.py --model $m
-    echo $m "per-axis"
-    python ${SCRIPT_PATH}/quantize_causal_lm_model.py --model $m --per_axis
+    echo $m "w: int8 a: none"
+    python ${SCRIPT_PATH}/quantize_causal_lm_model.py --model $m --weights int8 --activations none
+    echo $m "w: int8 a: int8"
+    python ${SCRIPT_PATH}/quantize_causal_lm_model.py --model $m --weights int8 --activations int8
 done

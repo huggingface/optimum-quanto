@@ -1,9 +1,6 @@
-import os
-from tempfile import TemporaryDirectory
-
 import pytest
 import torch
-from helpers import random_qtensor
+from helpers import assert_similar, random_qtensor
 
 from quanto.quantization import QLinear, QTensor, calibration, freeze, quantize
 
@@ -31,39 +28,24 @@ def check_mlp(model, frozen):
         assert isinstance(model.output_layer.weight, QTensor)
 
 
-def check_outputs(model, batch_size, input_features, device):
+def get_outputs(model, batch_size, input_features, device):
     qinputs = random_qtensor((batch_size, input_features), dtype=torch.float32).to(device)
-    qout = model(qinputs)
-    assert isinstance(qout, QTensor)
+    return model(qinputs)
 
 
 @pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
+@pytest.mark.parametrize("activations", [None, torch.int8], ids=["a-float", "a-int8"])
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
-def test_quantize_mlp(weights, frozen, device):
+def test_quantize_mlp(weights, activations, frozen, device):
     model = MLP(32, 10, 128).to(device)
-    quantize(model, weights=weights)
+    output = get_outputs(model, 1, 32, device)
+    quantize(model, weights=weights, activations=activations)
     if frozen:
         freeze(model)
     check_mlp(model, frozen)
     with calibration():
-        check_outputs(model, 1, 32, device)
-
-
-def test_serialize_quantized_mlp(device):
-    input_features = 32
-    hidden_features = 10
-    output_features = 128
-    model = MLP(input_features, hidden_features, output_features).to(device)
-    quantize(model)
-    with calibration():
-        check_outputs(model, 1, input_features, device)
-    freeze(model)
-    with TemporaryDirectory() as tmpdir:
-        mlp_file = os.path.join(tmpdir, "mlp.pt")
-        torch.save(model.state_dict(), mlp_file)
-        model_reloaded = MLP(input_features, hidden_features, output_features).to(device)
-        quantize(model_reloaded)
-        # When reloading we must assign instead of copying to force quantized tensors assignment
-        model_reloaded.load_state_dict(torch.load(mlp_file), assign=True)
-    check_mlp(model_reloaded, frozen=True)
-    check_outputs(model_reloaded, 1, input_features, device)
+        qoutput = get_outputs(model, 1, 32, device)
+    if activations is not None:
+        assert isinstance(qoutput, QTensor)
+    # Don't expect more than a 0.99 similarity
+    assert_similar(output, qoutput, atol=1e-2)

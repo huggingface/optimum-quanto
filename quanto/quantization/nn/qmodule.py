@@ -1,6 +1,6 @@
 from abc import ABC
 from inspect import signature
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional
 
 import torch
 
@@ -54,29 +54,7 @@ def quantize_module(module, **kwargs):
 
 
 class QModuleMixin(ABC):
-    class ScalesMixin(object):
-        """Syntactic sugar class to manipulate scales as attributes.
-
-        Its main purpose is to return None if a scale is not set without
-        overloading getattr in the module class directly to avoid interfering
-        with the existing overloads.
-        """
-
-        def __init__(self, m: torch.nn.Module):
-            # Avoid recursion by using parent method
-            object.__setattr__(self, "_m", m)
-
-        def __getattr__(self, name: str) -> Any:
-            return getattr(self._m, name, None)
-
-        def __setattr__(self, name: str, value: Any) -> None:
-            m = self._m
-            if getattr(m, name, None) is None:
-                m.register_buffer(name, value)
-            else:
-                setattr(m, name, value)
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, activations: Optional[torch.dtype] = None, **kwargs):
         # The tests below are meant to help people writing their own quantized Module class
         mro = self.__class__.__mro__
         if torch.nn.Module not in mro:
@@ -87,27 +65,48 @@ class QModuleMixin(ABC):
             )
         # This will setup the torch.nn.Module
         super().__init__(*args, **kwargs)
-        self.scales = self.ScalesMixin(self)
-        # We need to register a state_dict pre-hook to initialize scales that have been dynamically recorded
+        self.activations = activations
+        self.register_buffer("input_scale", torch.ones(()))
+        self.register_buffer("output_scale", torch.ones(()))
+        # We need to register a state_dict pre-hook to reset scales because their actual shapes and dtype are yet unknown
         self._register_load_state_dict_pre_hook(self._load_state_dict_pre_hook)
 
     def _load_state_dict_pre_hook(self, state_dict: Mapping[str, Any], prefix: str, *args, **kwargs):
         def init_scale_from_dict(state_dict, prefix, scale_attr):
             scale_key = f"{prefix}{scale_attr}"
             if scale_key in state_dict:
-                setattr(self.scales, scale_attr, state_dict[scale_key])
+                setattr(self, scale_attr, state_dict[scale_key])
 
-        # We need to update the shapes of the scale as they are not known at initialization
-        for scale_attr in ["input", "output"]:
+        # We need to update the shapes and dtypes of the scales as they are not known at initialization
+        for scale_attr in ["input_scale", "output_scale"]:
             init_scale_from_dict(state_dict, prefix, scale_attr)
 
     @classmethod
-    def from_module(cls, module: torch.nn.Module):
+    def from_module(cls, module: torch.nn.Module, activations: Optional[torch.dtype] = None):
         raise NotImplementedError
 
     def qweight(self):
         # Default implementation for QModules that do not quantize their weights
         return None
+
+    def qforward(self, input: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError
+
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        def maybe_requantize(t, scale):
+            if t.itype == self.activations and t.axis is None:
+                return t
+            return t.rescale(self.activations, scale)
+
+        if self.activations is not None and isinstance(input, QTensor):
+            input = maybe_requantize(input, self.input_scale)
+        output = self.qforward(input)
+        if self.activations is not None:
+            if isinstance(output, QTensor):
+                output = maybe_requantize(output, self.output_scale)
+            else:
+                output = QTensor.quantize(output, self.activations, self.output_scale)
+        return output
 
     def freeze(self):
         qweight = self.qweight()
