@@ -4,8 +4,8 @@ import pytest
 import torch
 from helpers import random_qtensor, random_tensor
 
-from quanto.quantization import QTensor, absmax_scale, calibration
-from quanto.quantization.nn import QLinear
+from quanto.quantization import QTensor, absmax_scale, calibration, freeze, quantize
+from quanto.quantization.nn import QLinear, QModuleMixin
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (2, 10), (10, 32, 32)])
@@ -28,16 +28,16 @@ def test_quantized_tensor_serialization(input_shape, itype, dtype, axis):
 
 
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
+@pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
 @pytest.mark.parametrize(
     "dtype, per_axis",
     [[torch.float16, None], [torch.float32, False], [torch.float32, True]],
     ids=["fp16", "fp32-per-tensor", "fp32-per-axis"],
 )
-def test_quantized_module_serialization(use_bias, dtype, per_axis, device):
+def test_qlinear_serialization(use_bias, weights, dtype, per_axis, device):
     embeddings = 10
     linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(dtype).to(device)
-    linear.to(dtype)
-    qlinear = QLinear.from_module(linear)
+    qlinear = QLinear.from_module(linear, weights=weights, activations=torch.int8)
     if per_axis is not None:
         qinputs = random_qtensor((10, 10, embeddings), dtype=dtype).to(device)
         with calibration(per_axis=per_axis):
@@ -57,8 +57,51 @@ def test_quantized_module_serialization(use_bias, dtype, per_axis, device):
     assert w_reloaded.dtype == dtype
     assert w_reloaded.axis == w.axis
     if per_axis is not None:
-        for attr in ["input", "output"]:
-            v = getattr(qlinear.scales, attr)
-            assert v is not None
-            v_reloaded = getattr(qlinear_reloaded.scales, attr)
+        for attr in ["input_scale", "output_scale"]:
+            v = getattr(qlinear, attr)
+            v_reloaded = getattr(qlinear_reloaded, attr)
             assert torch.equal(v, v_reloaded)
+
+
+class MLP(torch.nn.Module):
+    def __init__(self, input_size, output_size, hidden_size):
+        super().__init__()
+        self.input_layer = torch.nn.Linear(input_size, hidden_size)
+        self.mid_layer = torch.nn.Linear(hidden_size, hidden_size)
+        self.output_layer = torch.nn.Linear(hidden_size, output_size)
+
+    def forward(self, inputs):
+        x = torch.nn.functional.relu(self.input_layer(inputs))
+        x = torch.nn.functional.relu(self.mid_layer(x))
+        return torch.nn.functional.softmax(self.output_layer(x), dim=-1)
+
+
+@pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
+def test_serialize_quantized_mlp(weights, dtype, device):
+    if dtype == torch.float16 and device.type == "cpu":
+        pytest.skip("Matrix multiplication is not supported for float16 on CPU")
+    input_features = 32
+    hidden_features = 10
+    output_features = 128
+    model = MLP(input_features, hidden_features, output_features).to(dtype).to(device)
+    quantize(model, weights=weights)
+    inputs = random_tensor((1, 10, input_features), dtype=dtype).to(device)
+    with calibration():
+        model(inputs)
+    freeze(model)
+    b = io.BytesIO()
+    torch.save(model.state_dict(), b)
+    b.seek(0)
+    state_dict = torch.load(b)
+    model_reloaded = MLP(input_features, hidden_features, output_features).to(device)
+    quantize(model_reloaded)
+    # When reloading we must assign instead of copying to force quantized tensors assignment
+    model_reloaded.load_state_dict(state_dict, assign=True)
+    for name, module in model.named_modules():
+        if isinstance(module, QModuleMixin):
+            module_reloaded = getattr(model_reloaded, name)
+            assert torch.equal(module_reloaded.weight._data, module.weight._data)
+            assert torch.equal(module_reloaded.weight._scale, module.weight._scale)
+            assert torch.equal(module_reloaded.input_scale, module.input_scale)
+            assert torch.equal(module_reloaded.output_scale, module.output_scale)

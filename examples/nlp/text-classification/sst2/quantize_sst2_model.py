@@ -1,7 +1,6 @@
 import argparse
-import os
+import io
 import time
-from tempfile import TemporaryDirectory
 
 import numpy as np
 import torch
@@ -23,6 +22,10 @@ def evaluate_model(model, tokenizer, dataset, device, batch_size):
     print(f"{len(pred_labels)} sentences evaluated in {end - start:.2f} s. accuracy = {accuracy}")
 
 
+def keyword_to_itype(k):
+    return {"none": None, "int8": torch.int8}[k]
+
+
 def main():
     parser = argparse.ArgumentParser(description="Transformers SST2 Example")
     parser.add_argument("--seed", type=int, default=1, metavar="S", help="random seed (default: 1)")
@@ -34,7 +37,8 @@ def main():
     )
     parser.add_argument("--samples", type=int, default=872, help="The number of sst2 samples to use for evaluation.")
     parser.add_argument("--batch_size", type=int, default=100, help="The batch size to use for evaluation.")
-    parser.add_argument("--per_axis", action="store_true", help="Quantize activations per-axis.")
+    parser.add_argument("--weights", type=str, default="int8", choices=["int8"], help="Only int8 is supported.")
+    parser.add_argument("--activations", type=str, default="int8", choices=["none", "int8"], help="One of none, int8.")
     parser.add_argument("--device", type=str, default=None, help="The device to use for evaluation.")
     args = parser.parse_args()
 
@@ -56,22 +60,24 @@ def main():
 
     print("Float model")
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
-    quantize(model)
-    print("Quantized model (dynamic weights only)")
-    evaluate_model(model, tokenizer, dataset, device, args.batch_size)
-    print("Quantized model (dynamic weights and activations)")
-    with calibration(per_axis=args.per_axis):
-        evaluate_model(model, tokenizer, dataset, device, args.batch_size)
+    weights = keyword_to_itype(args.weights)
+    activations = keyword_to_itype(args.activations)
+    quantize(model, weights=weights, activations=activations)
+    if activations is not None:
+        print("Calibrating ...")
+        with calibration():
+            evaluate_model(model, tokenizer, dataset, device, args.batch_size)
     freeze(model)
-    print("Quantized model (static weights and activations)")
+    print(f"Quantized model (w: {args.weights}, a: {args.activations})")
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
-    with TemporaryDirectory() as tmpdir:
-        model_file = os.path.join(tmpdir, "model.pt")
-        torch.save(model.state_dict(), model_file)
-        model_reloaded = AutoModelForSequenceClassification.from_pretrained(args.model).to(device)
-        quantize(model_reloaded)
-        model_reloaded.load_state_dict(torch.load(model_file), assign=True)
-    print("Serialized quantized model (static weights and activations)")
+    b = io.BytesIO()
+    torch.save(model.state_dict(), b)
+    b.seek(0)
+    state_dict = torch.load(b)
+    model_reloaded = AutoModelForSequenceClassification.from_pretrained(args.model).to(device)
+    quantize(model_reloaded, weights=weights, activations=activations)
+    model_reloaded.load_state_dict(state_dict, assign=True)
+    print("Serialized quantized model")
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
 
 

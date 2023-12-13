@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 
 from ..qtensor import QTensor, absmax_scale
@@ -14,13 +16,14 @@ class QLinear(QModuleMixin, torch.nn.Linear):
         self.weights = weights
 
     @classmethod
-    def from_module(cls, module, weights=torch.int8):
+    def from_module(cls, module, weights=torch.int8, activations: Optional[torch.dtype] = None):
         qmodule = cls(
             module.in_features,
             module.out_features,
             module.bias is not None,
             dtype=module.weight.dtype,
             weights=weights,
+            activations=activations,
         )
         with torch.no_grad():
             qmodule.weight.copy_(module.weight)
@@ -35,15 +38,7 @@ class QLinear(QModuleMixin, torch.nn.Linear):
         wscale = absmax_scale(self.weight, axis=0)
         return QTensor.quantize(self.weight, itype=self.weights, scale=wscale)
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        # If needed, quantize inputs
-        if self.scales.input is not None:
-            if isinstance(input, QTensor):
-                if input.itype == torch.int32:
-                    # Requantize input to per-tensor int8
-                    input = input.rescale(torch.int8, self.scales.input)
-            else:
-                input = QTensor.quantize(input, torch.int8, self.scales.input)
+    def qforward(self, input: torch.Tensor) -> torch.Tensor:
         # We always use quantized weights
         qweight = self.qweight()
         # The weights might be dequantized in the matmul if the inputs are not quantized
@@ -51,10 +46,4 @@ class QLinear(QModuleMixin, torch.nn.Linear):
         if self.bias is not None:
             # The outputs will be dequantized in the addition since the biases are not quantized
             output = output + self.bias
-        if self.scales.output is not None:
-            if isinstance(output, QTensor):
-                # Downscale to int8
-                output = output.rescale(torch.int8, self.scales.output)
-            else:
-                output = QTensor.quantize(output, torch.int8, self.scales.output)
         return output

@@ -48,6 +48,10 @@ def evaluate_model(model, tokenizer, dataset, device, batch_size, log=True):
     return acc
 
 
+def keyword_to_itype(k):
+    return {"none": None, "int8": torch.int8}[k]
+
+
 def main():
     parser = argparse.ArgumentParser(description="Transformers Causal LM Example")
     parser.add_argument("--seed", type=int, default=1, metavar="S", help="random seed (default: 1)")
@@ -59,7 +63,8 @@ def main():
     )
     parser.add_argument("--samples", type=int, default=100, help="The number of samples to use for evaluation.")
     parser.add_argument("--batch_size", type=int, default=32, help="The batch_size for evaluation (and calibration).")
-    parser.add_argument("--per_axis", action="store_true", help="Quantize activations per-axis.")
+    parser.add_argument("--weights", type=str, default="int8", choices=["int8"], help="Only int8 is supported.")
+    parser.add_argument("--activations", type=str, default="int8", choices=["none", "int8"], help="One of none, int8.")
     parser.add_argument("--device", type=str, default=None, help="The device to use for generation.")
     args = parser.parse_args()
 
@@ -85,15 +90,15 @@ def main():
     print("Float model")
     generate(model, tokenizer, device, prompt)
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
-    quantize(model)
+    weights = keyword_to_itype(args.weights)
+    activations = keyword_to_itype(args.activations)
+    quantize(model, weights=weights, activations=activations)
+    if activations is not None:
+        print("Calibrating ...")
+        with calibration():
+            evaluate_model(model, tokenizer, dataset, device, args.batch_size, log=False)
     freeze(model)
-    print("Quantized model (static weights only)")
-    generate(model, tokenizer, device, prompt)
-    evaluate_model(model, tokenizer, dataset, device, args.batch_size)
-    print("Calibrating ...")
-    with calibration(per_axis=args.per_axis):
-        evaluate_model(model, tokenizer, dataset, device, args.batch_size, log=False)
-    print("Quantized model (static weights and activations)")
+    print(f"Quantized model (w: {args.weights}, a: {args.activations})")
     generate(model, tokenizer, device, prompt)
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
 

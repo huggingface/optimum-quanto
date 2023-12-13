@@ -1,51 +1,35 @@
-import os
-from tempfile import TemporaryDirectory
-
 import pytest
 import torch
 from helpers import q_assert_close, random_qtensor
 
-from quanto.quantization import calibration
+from quanto.quantization import QTensor, calibration
 from quanto.quantization.nn import QLayerNorm
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
 @pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
-def test_quantize_layernorm(batch_size, tokens, embeddings, device):
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
+@pytest.mark.parametrize("activations", [torch.int8], ids=["a-int8"])
+def test_quantize_layernorm(batch_size, tokens, embeddings, dtype, activations, device):
+    if dtype == torch.float16 and device.type == "cpu":
+        pytest.skip("layer_norm is not supported for float16 on CPU")
     # Instantiate a normalization layer
-    norm = torch.nn.LayerNorm(embeddings).to(device)
-    qnorm = QLayerNorm.from_module(norm)
-    qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
-    # Calibrate and obtain quantized outputs
+    norm = torch.nn.LayerNorm(embeddings).to(dtype).to(device)
+    qnorm = QLayerNorm.from_module(norm, activations=activations)
+    qinputs = random_qtensor((batch_size,) + (tokens, embeddings), itype=activations, dtype=dtype).to(device)
+    # Calibrate to avoid clipping and to set the correct dtype
     with torch.no_grad(), calibration():
         qout = qnorm(qinputs)
+    qout = qnorm(qinputs)
+    assert isinstance(qout, QTensor)
+    assert qout.dtype == dtype
+    assert qout.itype == activations
+    # Compare with the float results
     out = norm(qinputs.dequantize())
     q_assert_close(out, qout)
-    # Now run an inference without calibrating
-    with torch.no_grad():
-        int_qout = qnorm(qinputs)
-    assert qout._scale == int_qout._scale
-    # There may be a slight difference, but of at most one quantization interval
-    assert torch.max(torch.abs(qout._data - int_qout._data)) <= 1
 
 
-def test_qnorm_serialization():
-    tokens = 10
-    embeddings = 32
-    norm = torch.nn.LayerNorm(embeddings)
-    qnorm = QLayerNorm.from_module(norm)
-    qinputs = random_qtensor((1,) + (tokens, embeddings), dtype=torch.float32)
-    # Calibrate and obtain quantized outputs
-    with torch.no_grad(), calibration():
-        qnorm(qinputs)
-    with TemporaryDirectory() as tmpdir:
-        qnorm_file = os.path.join(tmpdir, "qnorm.pt")
-        torch.save(qnorm.state_dict(), qnorm_file)
-        qnorm_reloaded = QLayerNorm(embeddings)
-        # When reloading we must assign instead of copying to force quantized tensors assignment
-        qnorm_reloaded.load_state_dict(torch.load(qnorm_file), assign=True)
-    for attr in ["input", "output"]:
-        v = getattr(qnorm.scales, attr)
-        assert v is not None
-        v_reloaded = getattr(qnorm_reloaded.scales, attr)
-        assert torch.equal(v, v_reloaded)
+def test_quantize_layernom_no_activation():
+    norm = torch.nn.LayerNorm(32)
+    qnorm = QLayerNorm.from_module(norm, activations=None)
+    assert qnorm is None

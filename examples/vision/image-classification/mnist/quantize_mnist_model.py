@@ -1,7 +1,6 @@
 import argparse
-import os
+import io
 import time
-from tempfile import TemporaryDirectory
 
 import torch
 import torch.nn.functional as F
@@ -61,6 +60,10 @@ def train(log_interval, model, device, train_loader, optimizer, epoch):
             )
 
 
+def keyword_to_itype(k):
+    return {"none": None, "int8": torch.int8}[k]
+
+
 def main():
     # Training settings
     parser = argparse.ArgumentParser(description="PyTorch MNIST Example")
@@ -69,7 +72,8 @@ def main():
     )
     parser.add_argument("--seed", type=int, default=1, metavar="S", help="random seed (default: 1)")
     parser.add_argument("--model", type=str, default="dacorvo/mnist-mlp", help="The name of the trained Model.")
-    parser.add_argument("--per_axis", action="store_true", help="Quantize activations per-axis.")
+    parser.add_argument("--weights", type=str, default="int8", choices=["int8"], help="Only int8 is supported.")
+    parser.add_argument("--activations", type=str, default="int8", choices=["none", "int8"], help="One of none, int8.")
     parser.add_argument("--device", type=str, default=None, help="The device to use for evaluation.")
     args = parser.parse_args()
 
@@ -105,27 +109,31 @@ def main():
     model.eval()
     print("Float model")
     test(model, device, test_loader)
-    quantize(model)
-    print("Quantized model (dynamic weights only)")
+    weights = keyword_to_itype(args.weights)
+    activations = keyword_to_itype(args.activations)
+    quantize(model, weights=weights, activations=activations)
+    if activations is not None:
+        print("Calibrating ...")
+        with calibration():
+            test(model, device, test_loader)
+    print(f"Quantized model (w: {args.weights}, a: {args.activations})")
     test(model, device, test_loader)
-    print("Quantized model (dynamic weights and activations)")
-    with calibration(per_axis=args.per_axis):
-        test(model, device, test_loader)
     print("Tuning quantized model for one epoch")
     optimizer = torch.optim.Adadelta(model.parameters(), lr=0.5)
     train(50, model, device, train_loader, optimizer, 1)
-    print("Quantized tuned model (dynamic weights and static activations)")
+    print("Quantized tuned model")
     test(model, device, test_loader)
-    print("Quantized frozen model (static weights and activations)")
+    print("Quantized frozen model")
     freeze(model)
     test(model, device, test_loader)
-    with TemporaryDirectory() as tmpdir:
-        mlp_file = os.path.join(tmpdir, "mlp.pt")
-        torch.save(model.state_dict(), mlp_file)
-        model_reloaded = AutoModel.from_pretrained(args.model, trust_remote_code=True)
-        quantize(model_reloaded)
-        model_reloaded.load_state_dict(torch.load(mlp_file), assign=True)
-    print("Serialized quantized model (static weights and activations)")
+    b = io.BytesIO()
+    torch.save(model.state_dict(), b)
+    b.seek(0)
+    state_dict = torch.load(b)
+    model_reloaded = AutoModel.from_pretrained(args.model, trust_remote_code=True)
+    quantize(model_reloaded, weights=weights, activations=activations)
+    model_reloaded.load_state_dict(state_dict, assign=True)
+    print("Serialized quantized model")
     test(model_reloaded, device, test_loader)
 
 

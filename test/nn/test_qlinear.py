@@ -1,6 +1,6 @@
 import pytest
 import torch
-from helpers import q_assert_close, random_qtensor, random_tensor
+from helpers import assert_similar, random_qtensor, random_tensor
 
 from quanto.quantization import QTensor, calibration, freeze
 from quanto.quantization.nn import QLinear
@@ -10,31 +10,28 @@ from quanto.quantization.nn import QLinear
 @pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
+@pytest.mark.parametrize("activations", [None, torch.int8], ids=["a-float", "a-int8"])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16], ids=["fp32", "fp16"])
 @pytest.mark.parametrize("per_axis", [True, False], ids=["per-axis", "per-tensor"])
-def test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, dtype, per_axis, device):
+def test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, dtype, per_axis, device):
     if dtype == torch.float16 and device == torch.device("cpu"):
         pytest.skip("torch.ops.aten.addmm is not supported for float16 on CPU.")
     linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(dtype).to(device)
-    qlinear = QLinear.from_module(linear, weights=weights)
+    qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
     assert qlinear.qweight().itype == weights
     qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=dtype).to(device)
-    # Calibrate and obtain quantized outputs
+    # Run an inference with calibration to get the correct output dtype
     with torch.no_grad(), calibration(per_axis=per_axis):
         qout = qlinear(qinputs)
-    assert qout.itype == torch.int8
-    # Freeze to set quantized weights
-    freeze(qlinear)
+    if activations is not None:
+        assert isinstance(qout, QTensor)
+        assert qout.itype == activations
     # Align linear weights with quantized linear weights for comparison
-    linear.weight = torch.nn.Parameter(qlinear.weight.dequantize())
+    linear.weight = torch.nn.Parameter(qlinear.qweight().dequantize())
     out = linear(qinputs.dequantize())
-    q_assert_close(out, qout)
-    # Now run an inference with frozen model
-    with torch.no_grad():
-        int_qout = qlinear(qinputs)
-    assert torch.equal(qout._scale, int_qout._scale)
-    # There may be a slight difference, but of at most one quantization interval
-    assert torch.max(torch.abs(qout._data - int_qout._data)) <= 1
+    # We need to increase atol for float16
+    atol = {torch.float32: 1e-4, torch.float16: 1e-3}[dtype]
+    assert_similar(out, qout, atol=atol)
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
@@ -63,11 +60,12 @@ def test_quantize_linear_weight_only(batch_size, tokens, embeddings, use_bias, w
 
 
 @pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
-def test_qlinear_gradient(tokens, embeddings, device):
+@pytest.mark.parametrize("activations", [None, torch.int8], ids=["a-float", "a-int8"])
+def test_qlinear_gradient(tokens, embeddings, activations, device):
     # We use a batch size of 1 to simplify gradient manual calculations
     batch_size = 1
     linear = torch.nn.Linear(embeddings, embeddings).to(device)
-    qlinear = QLinear.from_module(linear)
+    qlinear = QLinear.from_module(linear, activations=activations)
     assert qlinear.weight.requires_grad is True
     assert qlinear.bias.requires_grad is True
     qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
