@@ -19,9 +19,6 @@ class QLayerNorm(QModuleMixin, torch.nn.LayerNorm):
         return qmodule.to(module.weight.device)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        # If needed, dequantize inputs
-        if isinstance(input, QTensor):
-            input = input.dequantize()
         out = torch.nn.functional.layer_norm(input, self.normalized_shape, self.weight, self.bias, self.eps)
         # Quantize output
         if self.scales.output is not None:
