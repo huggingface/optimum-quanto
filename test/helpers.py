@@ -69,4 +69,6 @@ def assert_similar(a, b, atol=1e-6, rtol=1e-5):
     """Verify that the cosine similarity of the two inputs is close to 1.0 everywhere"""
     assert a.shape == b.shape
     sim = torch.nn.functional.cosine_similarity(a.flatten(), b.flatten(), dim=0)
-    assert torch.allclose(sim, torch.tensor(1.0, dtype=sim.dtype), atol=atol, rtol=rtol)
+    if not torch.allclose(sim, torch.tensor(1.0, dtype=sim.dtype), atol=atol, rtol=rtol):
+        max_deviation = torch.min(sim)
+        raise ValueError(f"Alignment {max_deviation:.8f} deviates too much from 1.0 with atol={atol}, rtol={rtol}")
