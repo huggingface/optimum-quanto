@@ -157,28 +157,41 @@ class Attention(nn.Module):
         return self.o_proj(attn_output)
 
 
-def get_qatt_and_ref_ios(device, weights=torch.int8):
-    att = Attention().to(device)
+def _test_quantize_attention(device, dtype=torch.float32, weights=torch.int8, activations=None):
+    att = Attention().to(dtype).to(device)
     batch_size = 10
     seq_len = 64
     input_shape = (batch_size, seq_len, att.hidden_size)
     inputs = random_tensor(input_shape).to(device)
     with torch.no_grad():
         outputs = att(inputs)
-    quantize(att, weights=weights)
-    return att, inputs, outputs
+    quantize(att, weights=weights, activations=activations)
+    if activations is None:
+        with torch.no_grad():
+            qoutputs = att(inputs)
+    else:
+        with torch.no_grad(), calibration():
+            qoutputs = att(inputs)
+    atol = {None: 1e-4, torch.int8: 1e-3, torch.float8_e5m2: 5e-3, torch.float8_e4m3fn: 5e-3}[activations]
+    assert_similar(outputs, qoutputs, atol=atol)
 
 
-@pytest.mark.parametrize("weights", [torch.int8])
+@pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
 def test_quantize_attention_weights_only(weights, device):
-    qatt, inputs, outputs = get_qatt_and_ref_ios(device, weights=weights)
-    with torch.no_grad():
-        qoutputs = qatt(inputs)
-    assert_similar(outputs, qoutputs, atol=1e-4)
+    _test_quantize_attention(device, weights=weights)
 
 
-def test_quantize_attention_activations(device):
-    qatt, inputs, outputs = get_qatt_and_ref_ios(device)
-    with torch.no_grad(), calibration():
-        qoutputs = qatt(inputs)
-    assert_similar(outputs, qoutputs, atol=1e-3)
+@pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
+def test_quantize_attention_activations_int8(weights, device):
+    _test_quantize_attention(device, weights=weights, activations=torch.int8)
+
+
+@pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
+@pytest.mark.parametrize(
+    "activations",
+    [torch.float8_e5m2, torch.float8_e4m3fn],
+    ids=["a-float8-e5m2", "a-float8-e4m3"],
+)
+@pytest.mark.skip_device("mps")
+def test_quantize_attention_activations_float8(weights, activations, device):
+    _test_quantize_attention(device, weights=weights, activations=activations)

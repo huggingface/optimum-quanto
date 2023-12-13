@@ -4,10 +4,10 @@ import torch
 from torch.autograd import Function
 
 
-__all__ = ["absmax_scale", "QTensor"]
+__all__ = ["absmax_scale", "dtype_info", "QTensor"]
 
 
-def _dtype_info(dtype):
+def dtype_info(dtype):
     info = torch.finfo if dtype.is_floating_point else torch.iinfo
     return info(dtype)
 
@@ -41,7 +41,7 @@ def absmax_scale(
         else:
             dim.remove(axis)
         qranges = torch.amax(torch.abs(base), dim=dim, keepdim=True)
-    info = _dtype_info(itype)
+    info = dtype_info(itype)
     return qranges / info.max
 
 
@@ -53,7 +53,7 @@ class Quantizer(Function):
 
     @staticmethod
     def forward(ctx, base, itype: torch.Tensor.dtype = torch.int8, scale=None):
-        info = _dtype_info(itype)
+        info = dtype_info(itype)
         if scale is None:
             scale = absmax_scale(base, itype)
         elif scale.ndim > 0:
@@ -95,14 +95,14 @@ class Dequantizer(Function):
 class ReQuantizer(Function):
     @staticmethod
     def forward(ctx, base, itype=torch.int8, scale=None):
-        dst_iinfo = _dtype_info(itype)
+        dst_info = dtype_info(itype)
         if scale is None:
             if itype == base.itype:
                 return base
             # Assuming the base scale is correct, simply project to the target integer range
-            src_iinfo = torch.iinfo(base.itype)
-            int_rescale = dst_iinfo.max / src_iinfo.max
-            scale = base._scale * src_iinfo.max / dst_iinfo.max
+            src_info = dtype_info(base.itype)
+            int_rescale = dst_info.max / src_info.max
+            scale = base._scale * src_info.max / dst_info.max
         else:
             # It is up to the caller to make sure the scale is consistent with the target int dtype
             int_rescale = base._scale / scale
@@ -110,7 +110,7 @@ class ReQuantizer(Function):
             # The rescaling operation requires data to be cast to the scale float type before multiplication
             # by the scale, but this might actually overflow for float16/bfloat16
             int_rescale = int_rescale.to(torch.float32)
-        data = torch.clamp(torch.round(base._data * int_rescale), min=dst_iinfo.min, max=dst_iinfo.max).to(itype)
+        data = torch.clamp(torch.round(base._data * int_rescale), min=dst_info.min, max=dst_info.max).to(itype)
         # The instantiation of the quantized tensor must happen within the context of the Function
         # for the autograd magic to work.
         return QTensor(data, scale)
