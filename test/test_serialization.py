@@ -29,18 +29,17 @@ def test_quantized_tensor_serialization(input_shape, itype, dtype, axis):
 
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
-@pytest.mark.parametrize(
-    "dtype, per_axis",
-    [[torch.float16, None], [torch.float32, False], [torch.float32, True]],
-    ids=["fp16", "fp32-per-tensor", "fp32-per-axis"],
-)
-def test_qlinear_serialization(use_bias, weights, dtype, per_axis, device):
+@pytest.mark.parametrize("activations", [None, torch.int8], ids=["a-float", "a-int8"])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
+def test_qlinear_serialization(use_bias, activations, weights, dtype, device):
+    if dtype == torch.float16 and device.type == "cpu":
+        pytest.skip("Matrix multiplication is not supported for float16 on CPU")
     embeddings = 10
     linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(dtype).to(device)
-    qlinear = QLinear.from_module(linear, weights=weights, activations=torch.int8)
-    if per_axis is not None:
+    qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
+    if activations is not None:
         qinputs = random_qtensor((10, 10, embeddings), dtype=dtype).to(device)
-        with calibration(per_axis=per_axis):
+        with calibration():
             qlinear(qinputs)
     qlinear.freeze()
     b = io.BytesIO()
@@ -56,7 +55,7 @@ def test_qlinear_serialization(use_bias, weights, dtype, per_axis, device):
     assert torch.equal(w._scale, w_reloaded._scale)
     assert w_reloaded.dtype == dtype
     assert w_reloaded.axis == w.axis
-    if per_axis is not None:
+    if activations is not None:
         for attr in ["input_scale", "output_scale"]:
             v = getattr(qlinear, attr)
             v_reloaded = getattr(qlinear_reloaded, attr)

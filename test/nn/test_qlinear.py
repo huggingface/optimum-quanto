@@ -12,8 +12,7 @@ from quanto.quantization.nn import QLinear
 @pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
 @pytest.mark.parametrize("activations", [None, torch.int8], ids=["a-float", "a-int8"])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16], ids=["fp32", "fp16"])
-@pytest.mark.parametrize("per_axis", [True, False], ids=["per-axis", "per-tensor"])
-def test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, dtype, per_axis, device):
+def test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, dtype, device):
     if dtype == torch.float16 and device == torch.device("cpu"):
         pytest.skip("torch.ops.aten.addmm is not supported for float16 on CPU.")
     linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(dtype).to(device)
@@ -21,7 +20,7 @@ def test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, acti
     assert qlinear.qweight().itype == weights
     qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=dtype).to(device)
     # Run an inference with calibration to get the correct output dtype
-    with torch.no_grad(), calibration(per_axis=per_axis):
+    with torch.no_grad(), calibration():
         qout = qlinear(qinputs)
     if activations is not None:
         assert isinstance(qout, QTensor)
