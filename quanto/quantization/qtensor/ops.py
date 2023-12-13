@@ -3,7 +3,7 @@ from functools import partial
 
 import torch
 
-from . import QTensor
+from . import QTensor, dtype_info
 
 
 __all__ = ["get_qtensor_op", "register_qtensor_op"]
@@ -76,6 +76,9 @@ def argmax(op, input, *args, **kwargs):
     if input.axis is not None:
         # If we have different scales we need to dequantize first
         return dequantized_op(op, input, *args, **kwargs)
+    if input.itype.is_floating_point:
+        # Argmax is not supported for float8
+        return dequantized_op(op, input, *args, **kwargs)
     # We just return the argmax for the data
     return op(input._data, *args, **kwargs)
 
@@ -104,6 +107,9 @@ def cat(op, inputs, dim=0):
     if len(inputs) == 2:
         t1, t2 = inputs
         if isinstance(t1, QTensor) and isinstance(t2, QTensor) and torch.equal(t1._scale, t2._scale):
+            if t1.itype.is_floating_point or t2.itype.is_floating_point:
+                # Cat is not supported for float8
+                return dequantized_op(op, inputs, dim)
             # Only quantized tensors with identical scales can be concatenated
             out_data = op([t1._data, t2._data], dim)
             return QTensor(out_data, t1._scale)
@@ -171,10 +177,18 @@ def dot(op, input, other):
     return QTensor(out_data.to(torch.int32), out_scale)
 
 
+@register_qtensor_op([torch.ops.aten.neg])
+def neg(op, input, *args, **kwargs):
+    if input.itype.is_floating_point:
+        # Neg is not supported for float8
+        return op(input.dequantize(), *args, **kwargs)
+    out_data = op(input._data, *args, **kwargs)
+    return QTensor(out_data, input._scale)
+
+
 @register_qtensor_op(
     [
         torch.ops.aten.expand,
-        torch.ops.aten.neg,
         torch.ops.aten.permute,
         torch.ops.aten.select,
         torch.ops.aten.slice,
@@ -239,10 +253,17 @@ def mm(op, input, other):
     if not ensure_qtensor_inputs(input, other, per_tensor=False) or input.axis is not None:
         # Matric multiplication is only supported between a per-tensor QTensor and a QTensor
         return dequantized_op(op, input, other)
-    # Cast int8 data to float32 and do the operation
     n, m = input.shape
     p = other.shape[-1]
-    if input.device.type == "cuda" and n > 16 and n % 8 == 0 and m % 8 == 0 and p % 8 == 0:
+    if (
+        input.device.type == "cuda"
+        and input.itype == torch.int8
+        and other.itype == torch.int8
+        and n > 16
+        and n % 8 == 0
+        and m % 8 == 0
+        and p % 8 == 0
+    ):
         # Use integer GEMM
         out_data = torch._int_mm(input._data, other._data)
     else:
@@ -269,6 +290,9 @@ def mul(op, input, other):
 
 @register_qtensor_op([torch.ops.aten.relu])
 def relu(op, input):
+    if input.itype.is_floating_point:
+        # Relu is not supported for float8 types
+        return dequantized_op(op, input)
     out_data = op(input._data)
     return QTensor(out_data, input._scale)
 
@@ -278,7 +302,8 @@ def _softmax(op, input, dim, half_to_float):
     # Softmax must be performed in float
     out_data = op(input.dequantize(), dim, half_to_float)
     # Since softmax is normalized, we know the optimal scale
-    out_scale = torch.tensor(1 / torch.iinfo(input.itype).max, dtype=input.dtype).to(input.device)
+
+    out_scale = torch.tensor(1 / dtype_info(input.itype).max, dtype=input.dtype).to(input.device)
     return QTensor.quantize(out_data, input.itype, out_scale)
 
 
