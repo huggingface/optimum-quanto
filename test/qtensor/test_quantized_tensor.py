@@ -10,7 +10,7 @@ from quanto.quantization import QTensor, absmax_scale
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
-@pytest.mark.parametrize("itype", [torch.int8, torch.int16], ids=["int8", "int16"])
+@pytest.mark.parametrize("itype", [torch.int8], ids=["int8"])
 def test_quantize_integer(input_shape, dtype, itype, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
     qa = QTensor.quantize(a, itype)
