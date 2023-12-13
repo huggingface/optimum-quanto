@@ -26,7 +26,7 @@ def generate(model, tokenizer, device, prompt):
 
 
 @torch.no_grad()
-def evaluate_model(model, tokenizer, dataset, device, batch_size, log=True):
+def evaluate_model(model, tokenizer, dataset, device, batch_size, max_samples=None, log=True):
     model.eval()
     # The task is to predict the last token of the input.
     total, hit = 0, 0
@@ -41,6 +41,8 @@ def evaluate_model(model, tokenizer, dataset, device, batch_size, log=True):
         preds = outputs.logits[:, -1, :].argmax(dim=-1)
         total += labels.size(0)
         hit += (preds == labels).sum().item()
+        if max_samples is not None and total >= max_samples:
+            break
     end = time.time()
     acc = hit / total
     if log:
@@ -49,7 +51,7 @@ def evaluate_model(model, tokenizer, dataset, device, batch_size, log=True):
 
 
 def keyword_to_itype(k):
-    return {"none": None, "int8": torch.int8}[k]
+    return {"none": None, "int8": torch.int8, "fp8_e5m2": torch.float8_e5m2, "fp8_e4m3": torch.float8_e4m3fn}[k]
 
 
 def main():
@@ -61,11 +63,20 @@ def main():
         default="facebook/opt-350m",
         help="The name of the trained Model.",
     )
-    parser.add_argument("--samples", type=int, default=100, help="The number of samples to use for evaluation.")
+    parser.add_argument("--samples", type=int, default=512, help="The number of samples to use for evaluation.")
     parser.add_argument("--batch_size", type=int, default=32, help="The batch_size for evaluation (and calibration).")
+    parser.add_argument("--validation_batch", type=int, default=4, help="The number of batch to use for calibration.")
     parser.add_argument("--weights", type=str, default="int8", choices=["int8"], help="Only int8 is supported.")
-    parser.add_argument("--activations", type=str, default="int8", choices=["none", "int8"], help="One of none, int8.")
+    parser.add_argument(
+        "--activations",
+        type=str,
+        default="int8",
+        choices=["none", "int8", "fp8_e5m2", "fp8_e4m3"],
+        help="One of none, int8, fp8_e5m2, fp8_e4m3.",
+    )
     parser.add_argument("--device", type=str, default=None, help="The device to use for generation.")
+    parser.add_argument("--skip_float", action="store_true", help="Do not run comparison with float model.")
+    parser.add_argument("--skip_generation", action="store_true", help="Do not generate outputs.")
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -87,19 +98,23 @@ def main():
     dataset = load_dataset("lambada", split=f"validation[:{args.samples}]").shuffle()
 
     prompt = "One of my fondest memory is"
-    print("Float model")
-    generate(model, tokenizer, device, prompt)
-    evaluate_model(model, tokenizer, dataset, device, args.batch_size)
+    if not args.skip_float:
+        print(f"{args.model} ({model.config.torch_dtype})")
+        if not args.skip_generation:
+            generate(model, tokenizer, device, prompt)
+        evaluate_model(model, tokenizer, dataset, device, args.batch_size)
     weights = keyword_to_itype(args.weights)
     activations = keyword_to_itype(args.activations)
     quantize(model, weights=weights, activations=activations)
     if activations is not None:
         print("Calibrating ...")
         with calibration():
-            evaluate_model(model, tokenizer, dataset, device, args.batch_size, log=False)
+            max_samples = args.batch_size * args.validation_batch
+            evaluate_model(model, tokenizer, dataset, device, args.batch_size, max_samples=max_samples, log=False)
     freeze(model)
-    print(f"Quantized model (w: {args.weights}, a: {args.activations})")
-    generate(model, tokenizer, device, prompt)
+    print(f"{args.model} (w: {args.weights}, a: {args.activations})")
+    if not args.skip_generation:
+        generate(model, tokenizer, device, prompt)
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
 
 
