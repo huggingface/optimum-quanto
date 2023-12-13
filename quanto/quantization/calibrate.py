@@ -38,7 +38,6 @@ def calibrate_output(
     input,
     output,
     momentum: float = 0.9,
-    per_axis: bool = False,
 ):
     if isinstance(module, (QModuleMixin)) and module.activations is not None:
         # Reevaluate output using float path and get its actual scale
@@ -46,7 +45,8 @@ def calibrate_output(
         if isinstance(float_input, QTensor):
             float_input = float_input.dequantize()
         float_output = module.qforward(float_input)
-        output_scale = absmax_scale(float_output, module.activations, axis=-1 if per_axis else None)
+        # Evaluate the optimal scale per-tensor
+        output_scale = absmax_scale(float_output, module.activations, axis=None)
         module.output_scale = updated_scale(module.output_scale, output_scale, momentum)
         # Reevaluate output with the correct output scale
         qoutput = module.forward(input[0])
@@ -54,21 +54,19 @@ def calibrate_output(
 
 
 @contextmanager
-def calibration(momentum: float = 0.9, per_axis: bool = False):
+def calibration(momentum: float = 0.9):
     """A context to evaluate the quantized modules input and output scales.
 
     Scales are evaluated per-batch using the absmax algorithm and aggregated using a
     momentum.
-    Input scales are always evaluated per-tensor, but output scales can be evaluated
-    along the last dimension of the output.
+    Input and output scales are always evaluated per-tensor.
 
     Args:
         momentum (`float`): the momentum to use when updating scales.
-        per_axis (`bool`): evaluate output scales along the last dimension of the outputs. Defaults to False.
     """
     try:
         pre_handle = register_module_forward_pre_hook(partial(calibrate_input, momentum=momentum))
-        post_handle = register_module_forward_hook(partial(calibrate_output, momentum=momentum, per_axis=per_axis))
+        post_handle = register_module_forward_hook(partial(calibrate_output, momentum=momentum))
         yield
     finally:
         pre_handle.remove()
