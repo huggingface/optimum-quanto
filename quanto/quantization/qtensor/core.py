@@ -95,7 +95,7 @@ class Dequantizer(Function):
 class ReQuantizer(Function):
     @staticmethod
     def forward(ctx, base, itype=torch.int8, scale=None):
-        dst_iinfo = torch.iinfo(itype)
+        dst_iinfo = _dtype_info(itype)
         if scale is None:
             if itype == base.itype:
                 return base
