@@ -11,7 +11,8 @@
 - automatically inserts quantized modules (see below the list of supported modules),
 - provides a seamless workflow from float model to dynamic to static quantized model,
 - supports quantized model serialization as a `state_dict`,
-- uses integer matrix multiplications (`mm`) on CUDA devices.
+- uses integer matrix multiplications (`mm`) on CUDA devices,
+- supports float8 activations.
 
 Features yet to be implemented:
 
@@ -41,26 +42,40 @@ The next modules to be implemented are:
 
 ## Limitations and design choices
 
-Quanto uses a strict affine quantization scheme (no zero-point).
+### Tensors
 
-Quanto does not support mixed-precision quantization.
+At the heart of quanto is a Tensor subclass that corresponds to the projection of a source Tensor into
+the optimal range for a given destination type, that can be any integer of floating-point type.
 
-Quanto dynamically quantizes weights until a model is frozen: this slows
-down inference a bit, but is required if the model needs to be tuned.
+For floating-point types, the only difference with a simple cast is that the conversion saturates instead of overflowing.
 
-Activations are only quantized if the model has been calibrated to evaluate the activation scales.
+For integer types, the conversion corresponds to a quantization.
 
-Biases are not quantized because to preserve the accuracy of a typical `addmm` operation, they must be quantized with a
+The projection is symmetric (affine) i.e it does not use a zero-point. This makes quantized Tensors
+compatible with many operations.
+
+The current implementation however falls back to `float32` operations for a lot of operations because of a lack of dedicated kernels
+(only `int8` matrix multiplication is available).
+
+Note: integer operations cannot be performed in `float16` as a fallback because this format is very bad at representing
+`integer` and will likely lead to overflows in intermediate calculations.
+
+Quanto does not support the conversion of a Tensor using mixed destination types.
+
+### Modules
+
+Quanto provides a generic mechanismm to replace modules by quanto modules able to process quanto tensors.
+
+Quanto modules dynamically convert their weights until a model is frozen: this slows down inference a bit, but is
+required if the model needs to be tuned.
+
+Biases are not converted because to preserve the accuracy of a typical `addmm` operation, they must be converted with a
 scale that is equal to the product of the input and weight scales, which leads to a ridiculously small scale, and conversely
 requires a very high bitwidth to avoid clipping. Typically, with `int8` inputs and weights, biases would need to be quantized
 with at least `12` bits, i.e in `int16`. Since most biases ar today `float16`, this is a waste of time.
 
-Although `Quanto` uses integer activations and weights, the current implementation falls
-back to `float32` operations for integer inputs if there is no support for the corresponding integer
-operation on the target device (which means pretty much all operations except 2D matrix multiplications on CUDA devices).
-
-Note: integer operations cannot be performed in `float16` as a fallback because this format is very bad at representing
-`integer` and will likely lead to overflows in intermediate calculations.
+Activations are dynamically quantized using static scales (defaults to the range [-1, 1]).
+The model needs to be calibrated to evaluate the best activation scales (using a momentum).
 
 ## Performances
 
@@ -68,14 +83,16 @@ Note: integer operations cannot be performed in `float16` as a fallback because 
 
 In terms of accuracy:
 
-- models using only quantized int8 weights do not seem to suffer any drop in accuracy,
-- models using also quantized activations do suffer from moderate to severe accuracy drops.
+- models using only int8 weights do not seem to suffer any drop in accuracy,
+- models using also int8 activations do suffer from moderate to severe accuracy drops,
+- using float8 activations can help getting a better accuracy.
 
 In terms of speed:
 
-- models using quantized weights only are very slightly slower than the original float model due to the weight dequantization,
-- models using also quantized activations are significantly faster on CUDA devices,
-- models using also quantized activations are significantly slower on CPU and MPS devices, where fallbacks are triggered.
+- models using int8 weights only are very slightly slower than the original float model due to the weight dequantization,
+- models using int8 activations are significantly faster on CUDA devices,
+- models using int8 activations are significantly slower on CPU and MPS devices, where fallbacks are triggered.
+- models using float8 activations are significantly slower on CUDA devices, where fallbacks are triggered.
 
 The weight storage and on-device memory usage should:
 
@@ -102,7 +119,7 @@ A typical quantization workflow would consist in the following steps:
 The first step converts a standard float model into a dynamically quantized model.
 
 ```
-quantize(model)
+quantize(model, weights=torch.int8, activations=torch.int8)
 ```
 
 At this stage, only the inference of the model is modified to dynamically quantize the weights.
@@ -112,7 +129,7 @@ At this stage, only the inference of the model is modified to dynamically quanti
 Quanto supports a calibration mode that allows to record the activation ranges while passing representative samples through the quantized model.
 
 ```
-with calibration():
+with calibration(momentum=0.9):
     model(samples)
 ```
 
@@ -160,23 +177,5 @@ The outputs of a quantized matrix multiplication will anyway always be dequantiz
 Quantizing activations per-tensor can lead to serious quantization errors if the corresponding tensors contain large outlier values: typically,
 this will lead to quantized tensors with most values set to zero (except the outliers).
 
-The only solution to work around that issue is to 'smooth' the activations either dynamically, or statically as illustrated for instance by
+A possible solution to work around that issue would be to 'smooth' the activations either dynamically, or statically as illustrated for instance by
 [SmoothQuant](https://github.com/mit-han-lab/smoothquant).
-
-
-## Implementation details
-
-Under the hood, Quanto uses a `torch.Tensor` subclass (`QTensor`) to dispatch `aten` base operations to integer operations.
-
-All integer operations accept `QTensor` with `int8` data.
-
-Most arithmetic operations return a `QTensor` with `int32` data.
-
-In addition to the quantized tensors, Quanto uses quantized modules as substitutes to some base torch modules to:
-
-- store quantized weights,
-- gather input and output scales to rescale QTensor `int32` data to `int8`.
-
-Eventually, the produced quantized graph should be compiled through torch.dynamo to fuse rescale into the previous operation.
-
-This is currently blocked by several pending pytorch issues to add proper support of Tensor subclasses in `torch.dynamo`.
