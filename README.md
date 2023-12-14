@@ -177,5 +177,7 @@ The outputs of a quantized matrix multiplication will anyway always be dequantiz
 Quantizing activations per-tensor can lead to serious quantization errors if the corresponding tensors contain large outlier values: typically,
 this will lead to quantized tensors with most values set to zero (except the outliers).
 
-A possible solution to work around that issue would be to 'smooth' the activations either dynamically, or statically as illustrated for instance by
-[SmoothQuant](https://github.com/mit-han-lab/smoothquant).
+A possible solution to work around that issue is to 'smooth' the activations statically as illustrated by [SmoothQuant](https://github.com/mit-han-lab/smoothquant).
+You can find a script to smooth some model architectures under [external/smoothquant](external/smoothquant).
+
+A better option is often to represent activations using `float8` instead of `int8`.
