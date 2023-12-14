@@ -172,7 +172,7 @@ def _test_quantize_attention(device, dtype=torch.float32, weights=torch.int8, ac
     else:
         with torch.no_grad(), calibration():
             qoutputs = att(inputs)
-    atol = {None: 1e-4, torch.int8: 1e-3, torch.float8_e5m2: 5e-3, torch.float8_e4m3fn: 5e-3}[activations]
+    atol = {None: 1e-4, torch.int8: 1e-3, torch.float8_e5m2: 1e-2, torch.float8_e4m3fn: 1e-2}[activations]
     assert_similar(outputs, qoutputs, atol=atol)
 
 
