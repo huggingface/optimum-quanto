@@ -63,7 +63,10 @@ class Quantizer(Function):
                 raise ValueError(
                     "When quantizing per-axis, the scale must be broadcastable to the base (Tip: try to add missing dims of length zero)."
                 )
-        data = torch.clamp(torch.round(base / scale), min=info.min, max=info.max).to(itype)
+        data = base / scale
+        if not itype.is_floating_point:
+            data = torch.round(data)
+        data = torch.clamp(data, min=info.min, max=info.max).to(itype)
         # The instantiation of the quantized tensor must happen within the context of the Function
         # for the autograd magic to work.
         return QTensor(data, scale)
