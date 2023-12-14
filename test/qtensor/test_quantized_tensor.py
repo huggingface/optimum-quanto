@@ -24,9 +24,8 @@ def test_quantize_integer(input_shape, dtype, itype, device):
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("itype", [torch.float8_e5m2, torch.float8_e4m3fn], ids=["float8_e5m2", "float8_e4m3"])
+@pytest.mark.skip_device("mps")
 def test_quantize_float8(input_shape, dtype, itype, device):
-    if device.type == "mps":
-        pytest.skip("Float8 are not supported on MPS device")
     a = random_tensor(input_shape, dtype=dtype).to(device)
     qa = QTensor.quantize(a, itype)
     assert isinstance(qa, QTensor)
