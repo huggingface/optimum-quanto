@@ -40,17 +40,15 @@ def calibrate_output(
     momentum: float = 0.9,
 ):
     if isinstance(module, (QModuleMixin)) and module.activations is not None:
-        # Reevaluate output using float path and get its actual scale
-        float_input = input[0]
-        if isinstance(float_input, QTensor):
-            float_input = float_input.dequantize()
-        float_output = module.qforward(float_input)
-        # Evaluate the optimal scale per-tensor
-        output_scale = absmax_scale(float_output, module.activations, axis=None)
+        # Reevaluate raw module output
+        qoutput = module.qforward(input[0])
+        if isinstance(qoutput, QTensor):
+            qoutput = qoutput.dequantize()
+        # Evaluate the optimal scale per-tensor and update output scale
+        output_scale = absmax_scale(qoutput, module.activations, axis=None)
         module.output_scale = updated_scale(module.output_scale, output_scale, momentum)
         # Reevaluate output with the correct output scale
-        qoutput = module.forward(input[0])
-        return qoutput
+        return module.forward(input[0])
 
 
 @contextmanager

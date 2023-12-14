@@ -39,9 +39,11 @@ class QLinear(QModuleMixin, torch.nn.Linear):
         return QTensor.quantize(self.weight, itype=self.weights, scale=wscale)
 
     def qforward(self, input: torch.Tensor) -> torch.Tensor:
+        if self.activations is not None and not isinstance(input, QTensor):
+            # Quantize tensor to be able to take advantage of accelerated matmul
+            input = QTensor.quantize(input, self.activations, self.input_scale)
         # We always use quantized weights
         qweight = self.qweight()
-        # The weights might be dequantized in the matmul if the inputs are not quantized
         output = torch.matmul(input, qweight.t())
         if self.bias is not None:
             # The outputs will be dequantized in the addition since the biases are not quantized
