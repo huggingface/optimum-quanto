@@ -90,7 +90,7 @@ In terms of accuracy:
 In terms of speed:
 
 - models using int8 weights only are very slightly slower than the original float model due to the weight dequantization,
-- models using int8 activations are significantly faster on CUDA devices,
+- models using int8 activations are slightly slower on CUDA devices,
 - models using int8 activations are significantly slower on CPU and MPS devices, where fallbacks are triggered.
 - models using float8 activations are significantly slower on CUDA devices, where fallbacks are triggered.
 
