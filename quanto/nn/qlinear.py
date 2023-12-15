@@ -44,8 +44,4 @@ class QLinear(QModuleMixin, torch.nn.Linear):
             input = QTensor.quantize(input, self.activations, self.input_scale)
         # We always use quantized weights
         qweight = self.qweight()
-        output = torch.matmul(input, qweight.t())
-        if self.bias is not None:
-            # The outputs will be dequantized in the addition since the biases are not quantized
-            output = output + self.bias
-        return output
+        return torch.nn.functional.linear(input, qweight, bias=self.bias)
