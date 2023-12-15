@@ -9,6 +9,7 @@ from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers.models.bloom.modeling_bloom import BloomBlock
 from transformers.models.opt.modeling_opt import OPTDecoderLayer
+from transformers.models.llama.modeling_llama import LlamaDecoderLayer, LlamaRMSNorm
 
 
 def get_act_scales(model, tokenizer, dataset, num_samples=512, seq_len=512):
@@ -51,7 +52,7 @@ def get_act_scales(model, tokenizer, dataset, num_samples=512, seq_len=512):
 def smooth_ln_fcs(ln, fcs, act_scales, alpha=0.5):
     if not isinstance(fcs, list):
         fcs = [fcs]
-    assert isinstance(ln, nn.LayerNorm)
+    assert isinstance(ln, (nn.LayerNorm, LlamaRMSNorm))
     for fc in fcs:
         assert isinstance(fc, nn.Linear)
         assert ln.weight.numel() == fc.in_features == act_scales.numel()
@@ -64,7 +65,8 @@ def smooth_ln_fcs(ln, fcs, act_scales, alpha=0.5):
     scales = (act_scales.pow(alpha) / weight_scales.pow(1 - alpha)).clamp(min=1e-5).to(device).to(dtype)
 
     ln.weight.div_(scales)
-    ln.bias.div_(scales)
+    if getattr(ln, 'bias', None) is not None:
+        ln.bias.div_(scales)
 
     for fc in fcs:
         fc.weight.mul_(scales.view(1, -1))
@@ -93,6 +95,16 @@ def smooth_lm(model, scales, alpha=0.5):
             fc1 = module.mlp.dense_h_to_4h
             fc1_input_scales = scales[name + ".mlp.dense_h_to_4h"]
             smooth_ln_fcs(ffn_ln, fc1, fc1_input_scales, alpha)
+        elif isinstance(module, LlamaDecoderLayer):
+            attn_ln = module.input_layernorm
+            qkv = [module.self_attn.q_proj, module.self_attn.k_proj, module.self_attn.v_proj]
+            qkv_input_scales = scales[name + ".self_attn.q_proj"]
+            smooth_ln_fcs(attn_ln, qkv, qkv_input_scales, alpha)
+
+            ffn_ln = module.post_attention_layernorm
+            fc = [module.mlp.gate_proj, module.mlp.up_proj]
+            fc_input_scales = scales[name + ".mlp.gate_proj"]
+            smooth_ln_fcs(ffn_ln, fc, fc_input_scales, alpha)
 
 
 def main():
