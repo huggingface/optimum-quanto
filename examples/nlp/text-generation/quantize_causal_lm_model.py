@@ -121,7 +121,7 @@ def main():
     print(f"{args.model} (w: {args.weights}, a: {args.activations})")
     if not args.skip_generation:
         generate(model, tokenizer, device, prompt)
-    evaluate_model(model, tokenizer, test_dataset, device, args.batch_size)
+    evaluate_model(model, tokenizer, test_dataset, device, args.batch_size, samples=args.samples)
 
 
 if __name__ == "__main__":
