@@ -26,7 +26,7 @@ def generate(model, tokenizer, device, prompt):
 
 
 @torch.no_grad()
-def evaluate_model(model, tokenizer, dataset, device, batch_size, max_samples=None, log=True):
+def evaluate_model(model, tokenizer, dataset, device, batch_size, samples=None, log=True):
     model.eval()
     # The task is to predict the last token of the input.
     total, hit = 0, 0
@@ -41,7 +41,7 @@ def evaluate_model(model, tokenizer, dataset, device, batch_size, max_samples=No
         preds = outputs.logits[:, -1, :].argmax(dim=-1)
         total += labels.size(0)
         hit += (preds == labels).sum().item()
-        if max_samples is not None and total >= max_samples:
+        if samples is not None and total >= samples:
             break
     end = time.time()
     acc = hit / total
@@ -63,7 +63,12 @@ def main():
         default="facebook/opt-350m",
         help="The name of the trained Model.",
     )
-    parser.add_argument("--samples", type=int, default=512, help="The number of samples to use for evaluation.")
+    parser.add_argument(
+        "--samples",
+        type=int,
+        default=None,
+        help="The number of samples to use for evaluation (defaults to the full test set).",
+    )
     parser.add_argument("--batch_size", type=int, default=32, help="The batch_size for evaluation (and calibration).")
     parser.add_argument("--validation_batch", type=int, default=4, help="The number of batch to use for calibration.")
     parser.add_argument("--weights", type=str, default="int8", choices=["int8"], help="Only int8 is supported.")
@@ -95,27 +100,28 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     tokenizer.pad_token_id = tokenizer.eos_token_id
     tokenizer.padding_side = "left"
-    dataset = load_dataset("lambada", split=f"validation[:{args.samples}]").shuffle()
+    test_dataset, cal_dataset = load_dataset("lambada", split=["test", "validation"])
 
     prompt = "One of my fondest memory is"
     if not args.skip_float:
         print(f"{args.model} ({model.config.torch_dtype})")
         if not args.skip_generation:
             generate(model, tokenizer, device, prompt)
-        evaluate_model(model, tokenizer, dataset, device, args.batch_size)
+        evaluate_model(model, tokenizer, test_dataset, device, args.batch_size, samples=args.samples)
     weights = keyword_to_itype(args.weights)
     activations = keyword_to_itype(args.activations)
     quantize(model, weights=weights, activations=activations)
     if activations is not None:
         print("Calibrating ...")
+        cal_dataset.shuffle(args.seed)
         with calibration():
-            max_samples = args.batch_size * args.validation_batch
-            evaluate_model(model, tokenizer, dataset, device, args.batch_size, max_samples=max_samples, log=False)
+            cal_samples = args.batch_size * args.validation_batch
+            evaluate_model(model, tokenizer, cal_dataset, device, args.batch_size, samples=cal_samples, log=False)
     freeze(model)
     print(f"{args.model} (w: {args.weights}, a: {args.activations})")
     if not args.skip_generation:
         generate(model, tokenizer, device, prompt)
-    evaluate_model(model, tokenizer, dataset, device, args.batch_size)
+    evaluate_model(model, tokenizer, test_dataset, device, args.batch_size)
 
 
 if __name__ == "__main__":
