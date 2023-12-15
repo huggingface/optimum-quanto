@@ -10,6 +10,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers.models.bloom.modeling_bloom import BloomBlock
 from transformers.models.opt.modeling_opt import OPTDecoderLayer
 from transformers.models.llama.modeling_llama import LlamaDecoderLayer, LlamaRMSNorm
+from transformers.models.mistral.modeling_mistral import MistralDecoderLayer, MistralRMSNorm
 
 
 def get_act_scales(model, tokenizer, dataset, num_samples=512, seq_len=512):
@@ -52,7 +53,7 @@ def get_act_scales(model, tokenizer, dataset, num_samples=512, seq_len=512):
 def smooth_ln_fcs(ln, fcs, act_scales, alpha=0.5):
     if not isinstance(fcs, list):
         fcs = [fcs]
-    assert isinstance(ln, (nn.LayerNorm, LlamaRMSNorm))
+    assert isinstance(ln, (nn.LayerNorm, LlamaRMSNorm, MistralRMSNorm))
     for fc in fcs:
         assert isinstance(fc, nn.Linear)
         assert ln.weight.numel() == fc.in_features == act_scales.numel()
@@ -95,7 +96,7 @@ def smooth_lm(model, scales, alpha=0.5):
             fc1 = module.mlp.dense_h_to_4h
             fc1_input_scales = scales[name + ".mlp.dense_h_to_4h"]
             smooth_ln_fcs(ffn_ln, fc1, fc1_input_scales, alpha)
-        elif isinstance(module, LlamaDecoderLayer):
+        elif isinstance(module, (LlamaDecoderLayer, MistralDecoderLayer)):
             attn_ln = module.input_layernorm
             qkv = [module.self_attn.q_proj, module.self_attn.k_proj, module.self_attn.v_proj]
             qkv_input_scales = scales[name + ".self_attn.q_proj"]
