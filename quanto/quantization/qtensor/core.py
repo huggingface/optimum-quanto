@@ -113,7 +113,10 @@ class ReQuantizer(Function):
             # The rescaling operation requires data to be cast to the scale float type before multiplication
             # by the scale, but this might actually overflow for float16/bfloat16
             int_rescale = int_rescale.to(torch.float32)
-        data = torch.clamp(torch.round(base._data * int_rescale), min=dst_info.min, max=dst_info.max).to(itype)
+        data = base._data * int_rescale
+        if not itype.is_floating_point:
+            data = torch.round(data)
+        data = torch.clamp(data, min=dst_info.min, max=dst_info.max).to(itype)
         # The instantiation of the quantized tensor must happen within the context of the Function
         # for the autograd magic to work.
         return QTensor(data, scale)
