@@ -2,7 +2,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_qtensor
 
-from quanto import QLinear, QTensor, calibration, freeze, quantize
+from quanto import Calibration, QLinear, QTensor, freeze, quantize
 
 
 class MLP(torch.nn.Module):
@@ -40,7 +40,7 @@ def _test_quantize_mlp(weights, activations, frozen, device):
     if frozen:
         freeze(model)
     check_mlp(model, frozen)
-    with calibration():
+    with Calibration():
         qoutput = get_outputs(model, 1, 32, device)
     if activations is not None:
         assert isinstance(qoutput, QTensor)

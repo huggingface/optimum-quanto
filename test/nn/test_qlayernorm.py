@@ -2,7 +2,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_qtensor
 
-from quanto import QTensor, calibration
+from quanto import Calibration, QTensor
 from quanto.nn import QLayerNorm
 
 
@@ -12,7 +12,7 @@ def _test_quantize_layernorm(batch_size, tokens, embeddings, dtype, activations,
     qnorm = QLayerNorm.from_module(norm, activations=activations)
     qinputs = random_qtensor((batch_size,) + (tokens, embeddings), itype=activations, dtype=dtype).to(device)
     # Calibrate to avoid clipping and to set the correct dtype
-    with torch.no_grad(), calibration():
+    with torch.no_grad(), Calibration():
         qout = qnorm(qinputs)
     qout = qnorm(qinputs)
     assert isinstance(qout, QTensor)

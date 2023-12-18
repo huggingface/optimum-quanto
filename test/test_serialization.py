@@ -4,7 +4,7 @@ import pytest
 import torch
 from helpers import random_qtensor, random_tensor
 
-from quanto import QTensor, absmax_scale, calibration, freeze, quantize
+from quanto import Calibration, QTensor, absmax_scale, freeze, quantize
 from quanto.nn import QLinear, QModuleMixin
 
 
@@ -39,7 +39,7 @@ def test_qlinear_serialization(use_bias, activations, weights, dtype, device):
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
     if activations is not None:
         qinputs = random_qtensor((10, 10, embeddings), dtype=dtype).to(device)
-        with calibration():
+        with Calibration():
             qlinear(qinputs)
     qlinear.freeze()
     b = io.BytesIO()
@@ -86,7 +86,7 @@ def test_serialize_quantized_mlp(weights, dtype, device):
     model = MLP(input_features, hidden_features, output_features).to(dtype).to(device)
     quantize(model, weights=weights)
     inputs = random_tensor((1, 10, input_features), dtype=dtype).to(device)
-    with calibration():
+    with Calibration():
         model(inputs)
     freeze(model)
     b = io.BytesIO()

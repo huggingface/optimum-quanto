@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from functools import partial
 
 import torch
@@ -6,12 +5,13 @@ from torch.nn.modules.module import (
     register_module_forward_hook,
     register_module_forward_pre_hook,
 )
+from torch.utils._python_dispatch import TorchDispatchMode
 
 from .nn import QModuleMixin
 from .qtensor import QTensor, absmax_scale
 
 
-__all__ = ["calibration"]
+__all__ = ["Calibration"]
 
 
 def updated_scale(scale, new_scale, momentum):
@@ -51,21 +51,46 @@ def calibrate_output(
         return module.forward(input[0])
 
 
-@contextmanager
-def calibration(momentum: float = 0.9):
-    """A context to evaluate the quantized modules input and output scales.
+class Calibration(TorchDispatchMode):
+    """A custom torch dispatch mode to calibrate quantized modules.
 
-    Scales are evaluated per-batch using the absmax algorithm and aggregated using a
+    The dispatch mode tracks the outputs of each quantized module down the operations graph
+    to detect which operation(s) consume(s) them.
+
+    Baesd on that information, it decides if these outputs can be quantized or not: if
+    the consuming operation only accepts higher-precision outputs, there is no point in
+    quantizing them.
+
+    If the outputs can be quantized, it evaluates if the consuming operation(s) accept
+    per-axis inputs, otherwise it quantize the outputs per-tensor.
+
+    In order to improve the accuracy of the quantized activations, the input and output
+    scales of each quantized module is evaluated per-batch using the absmax algorithm and aggregated using a
     momentum.
-    Input and output scales are always evaluated per-tensor.
 
     Args:
         momentum (`float`): the momentum to use when updating scales.
     """
-    try:
-        pre_handle = register_module_forward_pre_hook(partial(calibrate_input, momentum=momentum))
-        post_handle = register_module_forward_hook(partial(calibrate_output, momentum=momentum))
-        yield
-    finally:
-        pre_handle.remove()
-        post_handle.remove()
+
+    def __init__(self, *args, momentum: float = 0.9, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.momentum = momentum
+
+    def __torch_dispatch__(self, func, types, args=(), kwargs=None):
+        kwargs = kwargs if kwargs is not None else {}
+        qinput = QTensor in types
+        output = func(*args, **kwargs)
+        if qinput and not isinstance(output, QTensor):
+            # Here we will eventually modify the behaviour of the source module.
+            pass
+        return output
+
+    def __enter__(self):
+        super().__enter__()
+        self.pre_handle = register_module_forward_pre_hook(partial(calibrate_input, momentum=self.momentum))
+        self.post_handle = register_module_forward_hook(partial(calibrate_output, momentum=self.momentum))
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        super().__exit__(exc_type, exc_val, exc_tb)
+        self.pre_handle.remove()
+        self.post_handle.remove()

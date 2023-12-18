@@ -2,7 +2,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_qtensor
 
-from quanto import QTensor, calibration
+from quanto import Calibration, QTensor
 from quanto.nn import QLinear
 
 
@@ -11,8 +11,8 @@ def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, act
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
     assert qlinear.qweight().itype == weights
     qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=dtype).to(device)
-    # Run an inference with calibration to get the correct output dtype
-    with torch.no_grad(), calibration():
+    # Run an inference with Calibration to get the correct output dtype
+    with torch.no_grad(), Calibration():
         qout = qlinear(qinputs)
     if activations is not None:
         assert isinstance(qout, QTensor)
