@@ -7,7 +7,7 @@ import torch.utils.checkpoint
 from helpers import assert_similar, random_tensor
 from torch import nn
 
-from quanto.quantization import calibration, quantize
+from quanto import calibration, quantize
 
 
 class RotaryEmbedding(nn.Module):

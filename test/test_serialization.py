@@ -4,8 +4,8 @@ import pytest
 import torch
 from helpers import random_qtensor, random_tensor
 
-from quanto.quantization import QTensor, absmax_scale, calibration, freeze, quantize
-from quanto.quantization.nn import QLinear, QModuleMixin
+from quanto import QTensor, absmax_scale, calibration, freeze, quantize
+from quanto.nn import QLinear, QModuleMixin
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (2, 10), (10, 32, 32)])

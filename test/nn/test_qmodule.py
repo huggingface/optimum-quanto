@@ -1,8 +1,8 @@
 import pytest
 import torch
 
-from quanto.quantization import QTensor
-from quanto.quantization.nn import QLinear
+from quanto import QTensor
+from quanto.nn import QLinear
 
 
 @pytest.mark.parametrize("in_features", [8, 16])

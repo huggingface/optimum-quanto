@@ -5,7 +5,7 @@ import pytest
 import torch
 from helpers import assert_similar, device_eq, q_assert_close, random_qtensor, random_tensor
 
-from quanto.quantization import QTensor, absmax_scale
+from quanto import QTensor, absmax_scale
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])

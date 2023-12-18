@@ -5,7 +5,7 @@ import pytest
 import torch
 from helpers import q_assert_close, random_qtensor
 
-from quanto.quantization import QModuleMixin, QTensor, calibration, freeze, register_qmodule
+from quanto import QModuleMixin, QTensor, calibration, freeze, register_qmodule
 
 
 class Conv1D(torch.nn.Module):

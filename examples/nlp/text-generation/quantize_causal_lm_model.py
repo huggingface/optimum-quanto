@@ -5,7 +5,7 @@ import torch
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from quanto.quantization import calibration, freeze, quantize
+from quanto import calibration, freeze, quantize
 
 
 @torch.no_grad()

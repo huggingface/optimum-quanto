@@ -2,7 +2,7 @@ import pytest
 import torch
 from helpers import random_tensor, torch_min_version
 
-from quanto.quantization import QTensor, absmax_scale
+from quanto import QTensor, absmax_scale
 
 
 def compile_for_device(f, device):
