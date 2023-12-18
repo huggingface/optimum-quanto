@@ -4,7 +4,7 @@ import torch
 from torch.autograd import Function
 
 
-__all__ = ["absmax_scale", "dtype_info", "QTensor"]
+__all__ = ["absmax_scale", "dequantized_op", "dtype_info", "QTensor"]
 
 
 def dtype_info(dtype):
@@ -43,6 +43,21 @@ def absmax_scale(
         qranges = torch.amax(torch.abs(base), dim=dim, keepdim=True)
     info = dtype_info(itype)
     return qranges / info.max
+
+
+def dequantized_op(func, *args, **kwargs):
+    def dequantize(x):
+        if isinstance(x, list):
+            return [dequantize(y) for y in x]
+        if isinstance(x, tuple):
+            return (dequantize(y) for y in x)
+        return x.dequantize() if isinstance(x, QTensor) else x
+
+    dq_args = [dequantize(arg) for arg in args]
+    dq_kwargs = {}
+    for name, kwarg in kwargs.items():
+        dq_kwargs[name] = dequantize(kwarg)
+    return func(*dq_args, **dq_kwargs)
 
 
 class Quantizer(Function):
@@ -212,14 +227,21 @@ class QTensor(torch.Tensor):
 
     @classmethod
     def __torch_dispatch__(cls, op, types, args, kwargs=None):
-        from .ops import get_qtensor_op
+        from .ops import get_qtensor_op_dispatch
 
         # Do not use directly func, but rather its overload
         op = op.overloadpacket
         # Look for a dispatched op accepting QTensor inputs
-        qop = get_qtensor_op(op)
-        if qop is not None:
-            return qop(*args, **kwargs)
+        qdispatch = get_qtensor_op_dispatch(op)
+        if qdispatch is not None:
+            if qdispatch.qargs is not None:
+                # Check QTensor arguments
+                for qarg in qdispatch.qargs:
+                    arg = args[qarg.index]
+                    if not isinstance(arg, QTensor) or arg.axis not in qarg.axis:
+                        # Incompatible argument detected: fallback
+                        return dequantized_op(op, *args, **kwargs)
+            return qdispatch.qop(*args, **kwargs)
         # Identify the types of the args
         types = [type(arg).__name__ for arg in args]
         raise ValueError(f"{op} {types} is no supported for QTensor.")

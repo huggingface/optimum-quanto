@@ -1,18 +1,40 @@
 import numbers
+from dataclasses import dataclass, field
 from functools import partial
+from typing import Any, Callable, List, Optional
 
 import torch
 
-from . import QTensor, dtype_info
+from . import QTensor, dequantized_op, dtype_info
 
 
-__all__ = ["get_qtensor_op", "register_qtensor_op"]
+__all__ = ["get_qtensor_op_dispatch", "register_qtensor_op"]
+
+
+@dataclass
+class QArg:
+    """A simple class to describe the expected QTensor type of an argument"""
+
+    index: int = 0
+    axis: List[Any] = field(default_factory=[None])
+
+
+@dataclass
+class QOpDispatch:
+    """A simple class to describe a quantized dispatched operation.
+
+    It contains the quantized operation and the expected QTensor types
+    for its arguments.
+    """
+
+    qop: Callable
+    qargs: List[QArg] = field(default_factory=lambda: [])
 
 
 _QTENSOR_OP_TABLE = {}
 
 
-def register_qtensor_op(aten_ops):
+def register_qtensor_op(aten_ops: List[Callable], qargs: Optional[List[QArg]] = []):
     """
     Used for registering a new __torch_dispatch__ aten operation to QTensor
 
@@ -25,28 +47,13 @@ def register_qtensor_op(aten_ops):
 
     def wrapper(op):
         for aten_op in aten_ops:
-            _QTENSOR_OP_TABLE[aten_op] = partial(op, aten_op)
+            _QTENSOR_OP_TABLE[aten_op] = QOpDispatch(partial(op, aten_op), qargs)
 
     return wrapper
 
 
-def get_qtensor_op(aten_op):
+def get_qtensor_op_dispatch(aten_op):
     return _QTENSOR_OP_TABLE.get(aten_op, None)
-
-
-def dequantized_op(func, *args, **kwargs):
-    def dequantize(x):
-        if isinstance(x, list):
-            return [dequantize(y) for y in x]
-        if isinstance(x, tuple):
-            return (dequantize(y) for y in x)
-        return x.dequantize() if isinstance(x, QTensor) else x
-
-    dq_args = [dequantize(arg) for arg in args]
-    dq_kwargs = {}
-    for name, kwarg in kwargs.items():
-        dq_kwargs[name] = dequantize(kwarg)
-    return func(*dq_args, **dq_kwargs)
 
 
 def ensure_qtensor_inputs(*args, per_tensor=True):
@@ -237,12 +244,9 @@ def linear(op, input, weight, bias=None):
     return QTensor(out_data.to(torch.int32), out_scale)
 
 
-@register_qtensor_op([torch.ops.aten.bmm])
+@register_qtensor_op([torch.ops.aten.bmm], qargs=[QArg(index=0, axis=[None]), QArg(index=1, axis=[None, -1])])
 def bmm(op, input, other):
-    if not ensure_qtensor_inputs(input, other, per_tensor=False) or input.axis is not None:
-        # Matric multiplication is only supported between a per-tensor QTensor and a QTensor
-        return dequantized_op(op, input, other)
-    # Cast int8 data to float32 and do the operation
+    # Cast data to float32 and do the operation
     out_data = op(input._data.to(torch.float32), other._data.to(torch.float32))
     out_scale = input._scale * other._scale
     return QTensor(out_data.to(torch.int32), out_scale)
