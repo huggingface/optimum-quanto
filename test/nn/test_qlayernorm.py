@@ -2,8 +2,8 @@ import pytest
 import torch
 from helpers import assert_similar, random_qtensor
 
-from quanto.quantization import QTensor, calibration
-from quanto.quantization.nn import QLayerNorm
+from quanto import QTensor, calibration
+from quanto.nn import QLayerNorm
 
 
 def _test_quantize_layernorm(batch_size, tokens, embeddings, dtype, activations, device):

@@ -4,7 +4,7 @@ import pytest
 import torch
 from packaging import version
 
-from quanto.quantization import QTensor, absmax_scale
+from quanto import QTensor, absmax_scale
 
 
 def torch_min_version(v):

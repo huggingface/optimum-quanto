@@ -2,7 +2,7 @@ import pytest
 import torch
 from helpers import q_assert_close, random_qtensor, random_tensor
 
-from quanto.quantization import QTensor
+from quanto import QTensor
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])

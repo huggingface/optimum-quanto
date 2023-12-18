@@ -2,7 +2,7 @@ import pytest
 import torch
 from helpers import random_tensor
 
-from quanto.quantization import absmax_scale
+from quanto import absmax_scale
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (2, 10), (10, 32, 32)])

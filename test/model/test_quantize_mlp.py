@@ -2,7 +2,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_qtensor
 
-from quanto.quantization import QLinear, QTensor, calibration, freeze, quantize
+from quanto import QLinear, QTensor, calibration, freeze, quantize
 
 
 class MLP(torch.nn.Module):

@@ -7,8 +7,7 @@ import torch.nn.functional as F
 from torchvision import datasets, transforms
 from transformers import AutoModel
 
-from quanto.quantization import QTensor, freeze, quantize
-from quanto.quantization.calibrate import calibration
+from quanto import QTensor, calibration, freeze, quantize
 
 
 def test(model, device, test_loader):

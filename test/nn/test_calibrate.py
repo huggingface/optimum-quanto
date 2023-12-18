@@ -2,8 +2,8 @@ import pytest
 import torch
 from helpers import random_qtensor
 
-from quanto.quantization import calibration
-from quanto.quantization.nn import QLinear
+from quanto import calibration
+from quanto.nn import QLinear
 
 
 def _test_calibrate_qlinear(batch_size, tokens, embeddings, use_bias, activations, device):

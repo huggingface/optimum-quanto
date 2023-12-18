@@ -8,8 +8,7 @@ from datasets import load_dataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
 from transformers.pipelines.pt_utils import KeyDataset
 
-from quanto.quantization import freeze, quantize
-from quanto.quantization.calibrate import calibration
+from quanto import calibration, freeze, quantize
 
 
 def evaluate_model(model, tokenizer, dataset, device, batch_size):
