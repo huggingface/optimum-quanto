@@ -8,7 +8,7 @@ from datasets import load_dataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
 from transformers.pipelines.pt_utils import KeyDataset
 
-from quanto import calibration, freeze, quantize
+from quanto import Calibration, freeze, quantize
 
 
 def evaluate_model(model, tokenizer, dataset, device, batch_size):
@@ -64,7 +64,7 @@ def main():
     quantize(model, weights=weights, activations=activations)
     if activations is not None:
         print("Calibrating ...")
-        with calibration():
+        with Calibration():
             evaluate_model(model, tokenizer, dataset, device, args.batch_size)
     freeze(model)
     print(f"Quantized model (w: {args.weights}, a: {args.activations})")

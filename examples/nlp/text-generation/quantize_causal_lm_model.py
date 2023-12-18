@@ -5,7 +5,7 @@ import torch
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from quanto import calibration, freeze, quantize
+from quanto import Calibration, freeze, quantize
 
 
 @torch.no_grad()
@@ -114,7 +114,7 @@ def main():
     if activations is not None:
         print("Calibrating ...")
         cal_dataset.shuffle(args.seed)
-        with calibration():
+        with Calibration():
             cal_samples = args.batch_size * args.validation_batch
             evaluate_model(model, tokenizer, cal_dataset, device, args.batch_size, samples=cal_samples, log=False)
     freeze(model)

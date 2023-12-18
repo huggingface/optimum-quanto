@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torchvision import datasets, transforms
 from transformers import AutoModel
 
-from quanto import QTensor, calibration, freeze, quantize
+from quanto import Calibration, QTensor, freeze, quantize
 
 
 def test(model, device, test_loader):
@@ -113,7 +113,7 @@ def main():
     quantize(model, weights=weights, activations=activations)
     if activations is not None:
         print("Calibrating ...")
-        with calibration():
+        with Calibration():
             test(model, device, test_loader)
     print(f"Quantized model (w: {args.weights}, a: {args.activations})")
     test(model, device, test_loader)

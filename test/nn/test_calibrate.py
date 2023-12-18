@@ -2,7 +2,7 @@ import pytest
 import torch
 from helpers import random_qtensor
 
-from quanto import calibration
+from quanto import Calibration
 from quanto.nn import QLinear
 
 
@@ -10,13 +10,13 @@ def _test_calibrate_qlinear(batch_size, tokens, embeddings, use_bias, activation
     linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(device)
     qlinear = QLinear.from_module(linear, activations=activations)
     qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
-    # Run a first inference without calibration
+    # Run a first inference without Calibration
     with torch.no_grad():
         qout = qlinear(qinputs)
     assert torch.all(qlinear.input_scale == 1)
     assert torch.all(qlinear.output_scale == 1)
     # Calibrate to adjust input and output scales and set the correct dtype
-    with torch.no_grad(), calibration():
+    with torch.no_grad(), Calibration():
         qout = qlinear(qinputs)
     assert qout.itype == activations
     assert torch.any(qlinear.input_scale != 1)
@@ -60,7 +60,7 @@ def _test_calibrate_custom_module(activations, device):
     model.linear1 = QLinear.from_module(model.linear1, activations=activations)
     model.linear2 = QLinear.from_module(model.linear2, activations=activations)
     qinputs = random_qtensor((1,) + (tokens, embeddings), dtype=torch.float32).to(device)
-    with torch.no_grad(), calibration():
+    with torch.no_grad(), Calibration():
         qout = model(qinputs)
     assert torch.any(model.linear1.input_scale != 1)
     assert torch.any(model.linear1.output_scale != 1)
