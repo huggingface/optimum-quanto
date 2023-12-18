@@ -44,15 +44,23 @@ The next modules to be implemented are:
 
 ### Tensors
 
-At the heart of quanto is a Tensor subclass that corresponds to the projection of a source Tensor into
-the optimal range for a given destination type, that can be any integer of floating-point type.
+At the heart of quanto is a Tensor subclass that corresponds to:
+- the projection of a source Tensor into the optimal range for a given destination type,
+- the mapping of projected values to the destination type.
 
-For floating-point types, the only difference with a simple cast is that the conversion saturates instead of overflowing.
+For floating-point destination types, the mapping is done by the native pytorch cast (i.e. `Tensor.to()`).
 
-For integer types, the conversion corresponds to a quantization.
+For integer destination types, the mapping is a simple rouding opeation (i.e. `torch.round()`).
+
+The goal of the projection is to increase the accuracy of the conversion by minimizing the number of:
+- saturated values (i.e. mapped to the destination type min/max),
+- zeroed values (because they are below the smallest number that can be represented by the destination type)
 
 The projection is symmetric (affine) i.e it does not use a zero-point. This makes quantized Tensors
 compatible with many operations.
+
+One of the benefit of using a lower-bitwidth representation is indeed to be able to take advantage of accelerated operations
+for the destination type, which are typically faster than their higher precision equivalents.
 
 The current implementation however falls back to `float32` operations for a lot of operations because of a lack of dedicated kernels
 (only `int8` matrix multiplication is available).
