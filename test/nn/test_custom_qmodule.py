@@ -5,7 +5,7 @@ import pytest
 import torch
 from helpers import q_assert_close, random_qtensor
 
-from quanto import QModuleMixin, QTensor, calibration, freeze, register_qmodule
+from quanto import Calibration, QModuleMixin, QTensor, freeze, register_qmodule
 
 
 class Conv1D(torch.nn.Module):
@@ -85,7 +85,7 @@ def test_quantize_conv1d(batch_size, tokens, embeddings, device):
     qconv = QConv1D.from_module(conv)
     qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
     # Calibrate and obtain quantized outputs
-    with torch.no_grad(), calibration():
+    with torch.no_grad(), Calibration():
         qout = qconv(qinputs)
     # Freeze to set quantized weights
     freeze(qconv)
@@ -110,7 +110,7 @@ def test_qconv1d_serialization():
     qconv = QConv1D.from_module(conv)
     qinputs = random_qtensor((1,) + (tokens, embeddings), dtype=torch.float32)
     # Calibrate and obtain quantized outputs
-    with torch.no_grad(), calibration():
+    with torch.no_grad(), Calibration():
         qconv(qinputs)
     # Freeze conv to store quantized weights and biases
     qconv.freeze()

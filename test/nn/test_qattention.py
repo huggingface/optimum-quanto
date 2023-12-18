@@ -7,7 +7,7 @@ import torch.utils.checkpoint
 from helpers import assert_similar, random_tensor
 from torch import nn
 
-from quanto import calibration, quantize
+from quanto import Calibration, quantize
 
 
 class RotaryEmbedding(nn.Module):
@@ -170,7 +170,7 @@ def _test_quantize_attention(device, dtype=torch.float32, weights=torch.int8, ac
         with torch.no_grad():
             qoutputs = att(inputs)
     else:
-        with torch.no_grad(), calibration():
+        with torch.no_grad(), Calibration():
             qoutputs = att(inputs)
     atol = {None: 1e-4, torch.int8: 1e-3, torch.float8_e5m2: 1e-2, torch.float8_e4m3fn: 1e-2}[activations]
     assert_similar(outputs, qoutputs, atol=atol)
