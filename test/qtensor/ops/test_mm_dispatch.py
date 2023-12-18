@@ -15,6 +15,7 @@ def test_matmul(dtype, in_features, hidden, out_features, device):
     qa = random_qtensor((in_features, hidden), dtype=dtype).to(device)
     qb = random_qtensor((hidden, out_features), dtype=dtype).to(device)
     qmatmul = torch.matmul(qa, qb)
+    assert isinstance(qmatmul, QTensor)
     # The outputs should be almost identical if we use the dequantized inputs
     matmul = torch.matmul(qa.dequantize(), qb.dequantize())
     # We need to increase atol and rtol for float16

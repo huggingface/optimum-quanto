@@ -26,6 +26,7 @@ def test_linear(batch_size, tokens, embeddings, use_bias, dtype, weight_axis, de
         qinputs.dequantize(), qweight.dequantize(), qbias.dequantize() if use_bias else None
     )
     qout = torch.nn.functional.linear(qinputs, qweight, qbias)
+    assert isinstance(qout, QTensor)
     # We need to increase rtol for float16
     rtol = {torch.float32: 1e-5, torch.float16: 1e-2}[dtype]
     q_assert_close(out, qout, rtol)
