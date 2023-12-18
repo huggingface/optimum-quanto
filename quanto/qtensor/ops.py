@@ -131,16 +131,14 @@ def lt(op, input, other):
     return dequantized_op(op, input, other)
 
 
-@register_qtensor_op([torch.ops.aten.addmm])
+@register_qtensor_op(
+    [torch.ops.aten.addmm],
+    qargs=[QArg(index=0, axis=[None, -1]), QArg(index=1, axis=[None]), QArg(index=2, axis=[None, -1])],
+)
 def addmm(op, input, mat1, mat2, beta=1, alpha=1):
-    if (
-        alpha != 1
-        or beta != 1
-        or not ensure_qtensor_inputs(input, mat1, mat2, per_tensor=False)
-        or mat1.axis is not None
-    ):
+    if alpha != 1 or beta != 1:
         return dequantized_op(op, input, mat1, mat2, beta=beta, alpha=alpha)
-    # Do the operation with int8 cast to float32
+    # Do the operation with data cast to float32
     out_data = op(
         input._data.to(torch.float32),
         mat1._data.to(torch.float32),
@@ -174,11 +172,9 @@ def div(op, input, other):
     return QTensor(input._data, op(input._scale, other))
 
 
-@register_qtensor_op([torch.ops.aten.dot])
+@register_qtensor_op([torch.ops.aten.dot], qargs=[QArg(index=0, axis=[None]), QArg(index=1, axis=[None])])
 def dot(op, input, other):
-    if not ensure_qtensor_inputs(input, other):
-        return dequantized_op(op, input, other)
-    # Cast int8 data to float32 and do the operation
+    # Cast data to float32 and do the operation
     out_data = op(input._data.to(torch.float32), other._data.to(torch.float32))
     out_scale = input._scale * other._scale
     return QTensor(out_data.to(torch.int32), out_scale)
@@ -200,12 +196,11 @@ def neg(op, input, *args, **kwargs):
         torch.ops.aten.select,
         torch.ops.aten.slice,
         torch.ops.aten.unsqueeze,
-    ]
+    ],
+    qargs=[QArg(index=0, axis=[None])],
 )
 def unary_type_agnostic_op(op, input, *args, **kwargs):
-    if not ensure_qtensor_inputs(input):
-        return op(input.dequantize(), *args, **kwargs)
-    # These operations can be transparently applied on the underlying integer tensor,
+    # When quantization is per-tensor, rhese operations can be transparently applied
     # without modifying the scale.
     out_data = op(input._data, *args, **kwargs)
     return QTensor(out_data, input._scale)
@@ -252,11 +247,8 @@ def bmm(op, input, other):
     return QTensor(out_data.to(torch.int32), out_scale)
 
 
-@register_qtensor_op([torch.ops.aten.mm])
+@register_qtensor_op([torch.ops.aten.mm], qargs=[QArg(index=0, axis=[None]), QArg(index=1, axis=[None, -1])])
 def mm(op, input, other):
-    if not ensure_qtensor_inputs(input, other, per_tensor=False) or input.axis is not None:
-        # Matric multiplication is only supported between a per-tensor QTensor and a QTensor
-        return dequantized_op(op, input, other)
     n, m = input.shape
     p = other.shape[-1]
     if (
@@ -338,14 +330,16 @@ def transpose(op, input, *args):
     return QTensor(out_data, out_scale)
 
 
-@register_qtensor_op([torch.ops.aten.view, torch.ops.aten._unsafe_view])
+@register_qtensor_op([torch.ops.aten.view, torch.ops.aten._unsafe_view], qargs=[QArg(index=0, axis=[None, -1])])
 def view(op, input, *shape):
     out_data = op(input._data, *shape)
-    if ensure_qtensor_inputs(input):
+    if input.axis is None:
+        # The view is transparent for QTensor with scalar scales
         return QTensor(out_data, input._scale)
-    # We only support the simple case where the tensor is quantized along the
-    # last axis that is not modified by the view
-    if input.axis == -1 and input._scale.shape[-1] == out_data.shape[-1]:
+    # The tensor is quantized along the last axis
+    assert input.axis == -1
+    # We can only perform the view if the last axis is not modified
+    if input._scale.shape[-1] == out_data.shape[-1]:
         out_scale_shape = (1,) * (out_data.ndim - 1) + (input._scale.shape[-1],)
         out_scale = input._scale.view(out_scale_shape)
         return QTensor(out_data, out_scale)

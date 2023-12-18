@@ -8,6 +8,7 @@ from quanto import QTensor
 def test_to_device(device):
     qa = random_qtensor((32, 32), dtype=torch.float)
     qa = qa.to(device)
+    assert isinstance(qa, QTensor)
     assert qa.device.type == device.type
 
 
@@ -27,6 +28,7 @@ def test_mul(input_shape, device):
     qb = random_qtensor(input_shape, dtype=torch.float32).to(device)
     # Quantized product will have int32 data
     qprod = qa * qb
+    assert isinstance(qprod, QTensor)
     prod = qa.dequantize() * qb.dequantize()
     q_assert_close(prod, qprod)
 
@@ -52,6 +54,7 @@ def test_dot(input_size, device):
     qa = random_qtensor((input_size,), dtype=torch.float32).to(device)
     qb = random_qtensor((input_size,), dtype=torch.float32).to(device)
     qdot = torch.dot(qa, qb)
+    assert isinstance(qdot, QTensor)
     # The outputs should be almost identical if we use the dequantized inputs
     dot = torch.dot(qa.dequantize(), qb.dequantize())
     q_assert_close(dot, qdot)
