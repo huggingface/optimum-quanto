@@ -78,18 +78,6 @@ def _to_copy(op, t, dtype=None, **kwargs):
     return QTensor(out_data, out_scale)
 
 
-@register_qtensor_op([torch.ops.aten.argmax])
-def argmax(op, input, *args, **kwargs):
-    if input.axis is not None:
-        # If we have different scales we need to dequantize first
-        return dequantized_op(op, input, *args, **kwargs)
-    if input.itype.is_floating_point:
-        # Argmax is not supported for float8
-        return dequantized_op(op, input, *args, **kwargs)
-    # We just return the argmax for the data
-    return op(input._data, *args, **kwargs)
-
-
 @register_qtensor_op([torch.ops.aten.detach])
 def detach(op, t):
     # Detach both data and scale
@@ -200,12 +188,6 @@ def is_same_size(op, input, other):
     a = input._data if isinstance(input, QTensor) else input
     b = other._data if isinstance(other, QTensor) else other
     return op(a, b)
-
-
-@register_qtensor_op([torch.ops.aten.gelu, torch.ops.aten.masked_fill, torch.ops.aten.pow, torch.ops.aten.silu])
-def unary_unsupported_op(op, input, *args, **kwargs):
-    # Not supported: dequantize
-    return op(input.dequantize(), *args, **kwargs)
 
 
 @register_qtensor_op([torch.ops.aten.linear])
@@ -333,21 +315,6 @@ def view(op, input, *shape):
         out_scale = input._scale.view(out_scale_shape)
         return QTensor(out_data, out_scale)
     return dequantized_op(op, input, *shape)
-
-
-@register_qtensor_op([torch.ops.aten._softmax_backward_data])
-def _softmax_backward_data(op, grad, output, dim, input_dtype):
-    return op(grad, output.dequantize(), dim, input_dtype)
-
-
-@register_qtensor_op([torch.ops.aten.threshold_backward])
-def threshold_backward(op, grad, output, threshold):
-    return op(grad, output.dequantize(), threshold)
-
-
-@register_qtensor_op([torch.ops.aten.linear_backward])
-def linear_backward(op, *args, **kwargs):
-    return dequantized_op(op, *args, **kwargs)
 
 
 @register_qtensor_op([torch.ops.aten.where])
