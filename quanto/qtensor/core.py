@@ -242,9 +242,8 @@ class QTensor(torch.Tensor):
                         # Incompatible argument detected: fallback
                         return dequantized_op(op, *args, **kwargs)
             return qdispatch.qop(*args, **kwargs)
-        # Identify the types of the args
-        types = [type(arg).__name__ for arg in args]
-        raise ValueError(f"{op} {types} is no supported for QTensor.")
+        # No dispatch available: fallback
+        return dequantized_op(op, *args, **kwargs)
 
     def numpy(self):
         return self.dequantize().cpu().numpy()
