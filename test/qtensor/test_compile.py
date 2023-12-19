@@ -13,7 +13,7 @@ def compile_for_device(f, device):
     return torch.compile(f, backend=backend)
 
 
-@torch_min_version("2.1.2")
+@torch_min_version("2.2.0")
 @pytest.mark.parametrize("input_shape", [(2, 10), (10, 32, 32)])
 @pytest.mark.parametrize("itype", [torch.int8], ids=["int8"])
 @pytest.mark.parametrize("axis", [None, 0, -1], ids=["per-tensor", "first-axis", "last-axis"])
@@ -36,7 +36,7 @@ def test_compile_quantize_tensor(input_shape, itype, axis, dtype, device):
     assert qa.axis == expected_axis
 
 
-@torch_min_version("2.1.2")
+@torch_min_version("2.2.0")
 @pytest.mark.parametrize("qtensor_input", [True, False], ids=["qtensor-input", "tensor-input"])
 def test_compile_qtensor_to(qtensor_input, device):
     input_shape = (10, 32, 32)
