@@ -51,7 +51,7 @@ def test_quantize_scale(input_shape, axis, dtype, itype, device):
             # Quantization is actually per-tensor as the axis dim is 1
             assert qa.axis is None
         else:
-            assert qa.axis is not None
+            assert qa.axis == axis
     assert isinstance(qa, QTensor)
     assert qa.itype == itype
     assert qa._scale.dtype == dtype

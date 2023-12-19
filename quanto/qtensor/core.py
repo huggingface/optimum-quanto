@@ -153,6 +153,9 @@ class QTensor(torch.Tensor):
             if self._axis is None:
                 # All dims are 1: the scale is actually a scalar
                 scale = torch.squeeze(scale)
+            elif self._axis == scale.ndim - 1:
+                # Align on the general convention to index the last dimension
+                self._axis = -1
         self._data = data
         self._scale = scale
 

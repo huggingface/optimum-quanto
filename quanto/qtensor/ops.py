@@ -341,7 +341,7 @@ def view(op, input, *shape):
         return QTensor(out_data, input._scale)
     # We only support the simple case where the tensor is quantized along the
     # last axis that is not modified by the view
-    if input.axis == input._scale.ndim - 1 and input._scale.shape[-1] == out_data.shape[-1]:
+    if input.axis == -1 and input._scale.shape[-1] == out_data.shape[-1]:
         out_scale_shape = (1,) * (out_data.ndim - 1) + (input._scale.shape[-1],)
         out_scale = input._scale.view(out_scale_shape)
         return QTensor(out_data, out_scale)
