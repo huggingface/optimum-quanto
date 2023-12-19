@@ -98,17 +98,6 @@ def detach(op, t):
     return QTensor(out_data, out_scale)
 
 
-@register_qtensor_op([torch.ops.aten.add])
-def add(op, input, other):
-    # Only quantized tensors with identical scales cannot be added
-    if isinstance(input, QTensor) and isinstance(other, QTensor) and torch.equal(input._scale, other._scale):
-        # We need to perform the operation in int16 because it might overflow
-        out_data = op(input._data.to(torch.int16), other._data.to(torch.int16))
-        out_scale = input._scale
-        return QTensor(out_data, out_scale)
-    return dequantized_op(op, input, other)
-
-
 @register_qtensor_op([torch.ops.aten.cat])
 def cat(op, inputs, dim=0):
     if len(inputs) == 2:

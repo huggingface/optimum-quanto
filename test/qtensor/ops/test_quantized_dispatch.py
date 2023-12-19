@@ -13,16 +13,6 @@ def test_to_device(device):
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
-def test_add(input_shape, device):
-    qa = random_qtensor(input_shape, dtype=torch.float32).to(device)
-    # Quantized sum will have int16 data
-    qsum = qa + qa
-    a = qa.dequantize()
-    sum = a + a
-    q_assert_close(sum, qsum)
-
-
-@pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 def test_mul(input_shape, device):
     qa = random_qtensor(input_shape, dtype=torch.float32).to(device)
     qb = random_qtensor(input_shape, dtype=torch.float32).to(device)
