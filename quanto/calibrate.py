@@ -30,11 +30,13 @@ class Calibration(TorchFunctionMode):
 
     Args:
         momentum (`float`): the momentum to use when updating scales.
+        debug (`bool`): provide very verbose feedback on the console during calibration.
     """
 
-    def __init__(self, *args, momentum: float = 0.9, **kwargs):
+    def __init__(self, *args, momentum: float = 0.9, debug=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.momentum = momentum
+        self.debug = debug
 
     def __torch_function__(self, func, types, args=(), kwargs=None):
         kwargs = kwargs if kwargs is not None else {}
@@ -78,3 +80,13 @@ class Calibration(TorchFunctionMode):
             module.output_scale = _updated_scale(module.output_scale, output_scale, self.momentum)
             # Reevaluate output with the correct output scale
             return module.forward(input[0])
+        elif self.debug:
+            for name, child in module.named_children():
+                if isinstance(child, QModuleMixin):
+                    classname = child.__class__.__name__
+                    trace = f"{name}({classname}) activations are"
+                    if child.activations is None:
+                        trace += " not quantized."
+                    else:
+                        trace += f" quantized to {child.activations} with scale {child.output_scale}."
+                    print(trace)
