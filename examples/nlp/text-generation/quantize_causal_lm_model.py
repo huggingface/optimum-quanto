@@ -80,6 +80,14 @@ def main():
         help="One of none, int8, fp8_e5m2, fp8_e4m3.",
     )
     parser.add_argument("--device", type=str, default=None, help="The device to use for generation.")
+    parser.add_argument(
+        "--no-streamline",
+        action="store_false",
+        help="Do not remove consecutive quantize/dequantize (not recommended).",
+    )
+    parser.add_argument(
+        "--debug", action="store_true", help="Provide detailed feedback on the console during calibration."
+    )
     parser.add_argument("--skip_float", action="store_true", help="Do not run comparison with float model.")
     parser.add_argument("--skip_generation", action="store_true", help="Do not generate outputs.")
     args = parser.parse_args()
@@ -96,7 +104,9 @@ def main():
     else:
         device = torch.device(args.device)
 
-    model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype="auto", low_cpu_mem_usage=True).to(device)
+    model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float16, low_cpu_mem_usage=True).to(
+        device
+    )
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     tokenizer.pad_token_id = tokenizer.eos_token_id
     tokenizer.padding_side = "left"
@@ -114,7 +124,7 @@ def main():
     if activations is not None:
         print("Calibrating ...")
         cal_dataset.shuffle(args.seed)
-        with Calibration():
+        with Calibration(streamline=args.no_streamline, debug=args.debug):
             cal_samples = args.batch_size * args.validation_batch
             evaluate_model(model, tokenizer, cal_dataset, device, args.batch_size, samples=cal_samples, log=False)
     freeze(model)
