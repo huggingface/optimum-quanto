@@ -28,7 +28,35 @@ def generate(model, tokenizer, device, prompt):
     print(f"Generated '{generated_text}' in [{end - start:.2f} s]")
 
 
-def timing_cuda(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512, iterations=10):
+def timing(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512, iterations=10):
+    def synchronize(device):
+        if device.type == "cuda":
+            torch.cuda.synchronize()
+        elif device.type == "mps":
+            torch.mps.synchronize()
+        else:
+            torch.cpu.synchronize()
+
+    def timing_event(device):
+        if device.type == "cuda":
+            return torch.cuda.Event(enable_timing=True)
+        elif device.type == "mps":
+            return torch.mps.Event(enable_timing=True)
+
+        class CPUEvent:
+            def __init__(self):
+                self.time = None
+
+            def record(self):
+                self.time = time.time()
+
+            def elapsed_time(self, other):
+                assert self.time is not None
+                assert other.time is not None
+                return (other.time - self.time) * 1000
+
+        return CPUEvent()
+
     generation_config = GenerationConfig(
         max_new_tokens=nb_tokens,
         min_new_tokens=nb_tokens,
@@ -40,7 +68,7 @@ def timing_cuda(model, tokenizer, device, batch_size=1, prompt_length=512, nb_to
     )
     model.generation_config.eos_token_id = None  # greedy_search falls back on this eos_token_id that we need to set to None as well for min_new_tokens to have an effect.
 
-    torch.cuda.synchronize()
+    synchronize(device)
 
     latencies = []
     input_ids = torch.randint(1, model.config.vocab_size - 1, size=(batch_size, prompt_length)).to(device)
@@ -48,14 +76,14 @@ def timing_cuda(model, tokenizer, device, batch_size=1, prompt_length=512, nb_to
 
     # mean over 10 batches
     for _ in tqdm(range(iterations)):
-        start_event = torch.cuda.Event(enable_timing=True)
-        end_event = torch.cuda.Event(enable_timing=True)
-        torch.cuda.synchronize()
+        start_event = timing_event(device)
+        end_event = timing_event(device)
+        synchronize(device)
         start_event.record()
 
         _ = model.generate(input_ids, attention_mask=masks, generation_config=generation_config)
         end_event.record()
-        torch.cuda.synchronize()
+        synchronize(device)
 
         latency_ms = start_event.elapsed_time(end_event)
         print(f"\nLatency per token: {latency_ms / generation_config.min_new_tokens:.3f} ms")
@@ -64,32 +92,53 @@ def timing_cuda(model, tokenizer, device, batch_size=1, prompt_length=512, nb_to
     return np.mean(latencies)
 
 
+def get_device_memory(device):
+    gc.collect()
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
+        return torch.cuda.memory_allocated()
+    elif device.type == "mps":
+        torch.mps.empty_cache()
+        return torch.mps.current_allocated_memory()
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate bechmark")
     parser.add_argument(
         "--model", type=str, default="princeton-nlp/Sheared-LLaMA-1.3B", help="The model to use for benchmark"
     )
+    parser.add_argument("--device", type=str, default=None, help="The device to use for benchmark.")
     parser.add_argument("--it", type=int, default=10, help="The number of benchmark iterations")
     parser.add_argument("--quanto", action="store_true", help="Quantization using Quanto (W8A16)")
     parser.add_argument("--bnb_4bit", action="store_true", help="Quantization using bitandbytes 4bit")
     parser.add_argument("--bnb_8bit", action="store_true", help="Quantization using bitandbytes 8bit")
     args = parser.parse_args()
-    device = 0
+    if args.device is None:
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+        elif torch.backends.mps.is_available():
+            device = torch.device("mps")
+        else:
+            device = torch.device("cpu")
+    else:
+        device = torch.device(args.device)
+    dtype = torch.float32 if device.type == "cpu" else torch.float16
     quantization_config = None
     if args.bnb_4bit:
         quantization_config = BitsAndBytesConfig(
-            load_in_4bit=True, bnb_4bit_quant_type="fp4", bnb_4bit_compute_dtype=torch.float16
+            load_in_4bit=True, bnb_4bit_quant_type="fp4", bnb_4bit_compute_dtype=dtype
         )
     elif args.bnb_8bit:
         quantization_config = BitsAndBytesConfig(load_in_8bit=True)
     if quantization_config is not None:
+        if device.type != "cuda":
+            raise ValueError("BnB requires a CUDA device")
         model = AutoModelForCausalLM.from_pretrained(
-            args.model, torch_dtype=torch.float16, quantization_config=quantization_config, device_map="cuda:0"
+            args.model, torch_dtype=dtype, quantization_config=quantization_config, device_map="cuda:0"
         )
     else:
-        model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float16, low_cpu_mem_usage=True).to(
-            device
-        )
+        model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=dtype, low_cpu_mem_usage=True).to(device)
 
         if args.quanto:
             print("quantizing")
@@ -98,17 +147,16 @@ def main():
             freeze(model)
             print(f"Finished: {time.time()-start}")
 
-    torch.cuda.empty_cache()
-    gc.collect()
-    gb_memory = torch.cuda.memory_allocated() / (2**30)
-    print(f"CUDA device memory: {gb_memory:.4f} GB")
+    memory = get_device_memory(device)
+    if memory is not None:
+        print(f"Device memory: {memory / (2 ** 30):.4f} GB")
 
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     tokenizer.pad_token_id = tokenizer.eos_token_id
     tokenizer.padding_side = "left"
     prompt = "One of my fondest memory is"
     generate(model, tokenizer, device, prompt)
-    timing_cuda(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512, iterations=args.it)
+    timing(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512, iterations=args.it)
 
 
 if __name__ == "__main__":
