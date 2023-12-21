@@ -28,7 +28,7 @@ def generate(model, tokenizer, device, prompt):
     print(f"Generated '{generated_text}' in [{end - start:.2f} s]")
 
 
-def timing_cuda(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512):
+def timing_cuda(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512, iterations=10):
     generation_config = GenerationConfig(
         max_new_tokens=nb_tokens,
         min_new_tokens=nb_tokens,
@@ -47,7 +47,7 @@ def timing_cuda(model, tokenizer, device, batch_size=1, prompt_length=512, nb_to
     masks = torch.ones(batch_size, prompt_length, dtype=torch.int32).to(device)
 
     # mean over 10 batches
-    for _ in tqdm(range(10)):
+    for _ in tqdm(range(iterations)):
         start_event = torch.cuda.Event(enable_timing=True)
         end_event = torch.cuda.Event(enable_timing=True)
         torch.cuda.synchronize()
@@ -69,6 +69,7 @@ def main():
     parser.add_argument(
         "--model", type=str, default="princeton-nlp/Sheared-LLaMA-1.3B", help="The model to use for benchmark"
     )
+    parser.add_argument("--it", type=int, default=10, help="The number of benchmark iterations")
     parser.add_argument("--quanto", action="store_true", help="Quantization using Quanto (W8A16)")
     parser.add_argument("--bnb_4bit", action="store_true", help="Quantization using bitandbytes 4bit")
     parser.add_argument("--bnb_8bit", action="store_true", help="Quantization using bitandbytes 8bit")
@@ -95,16 +96,19 @@ def main():
             start = time.time()
             quantize(model, weights=torch.int8, activations=None)
             freeze(model)
-            torch.cuda.empty_cache()
-            gc.collect()
             print(f"Finished: {time.time()-start}")
+
+    torch.cuda.empty_cache()
+    gc.collect()
+    gb_memory = torch.cuda.memory_allocated() / (2**30)
+    print(f"CUDA device memory: {gb_memory:.4f} GB")
 
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     tokenizer.pad_token_id = tokenizer.eos_token_id
     tokenizer.padding_side = "left"
     prompt = "One of my fondest memory is"
     generate(model, tokenizer, device, prompt)
-    timing_cuda(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512)
+    timing_cuda(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512, iterations=args.it)
 
 
 if __name__ == "__main__":
