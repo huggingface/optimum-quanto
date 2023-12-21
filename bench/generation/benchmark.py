@@ -66,6 +66,9 @@ def timing_cuda(model, tokenizer, device, batch_size=1, prompt_length=512, nb_to
 
 def main():
     parser = argparse.ArgumentParser(description="Generate bechmark")
+    parser.add_argument(
+        "--model", type=str, default="princeton-nlp/Sheared-LLaMA-1.3B", help="The model to use for benchmark"
+    )
     parser.add_argument("--quanto", action="store_true", help="Quantization using Quanto (W8A16)")
     parser.add_argument("--bnb_4bit", action="store_true", help="Quantization using bitandbytes 4bit")
     parser.add_argument("--bnb_8bit", action="store_true", help="Quantization using bitandbytes 8bit")
@@ -80,15 +83,12 @@ def main():
         quantization_config = BitsAndBytesConfig(load_in_8bit=True)
     if quantization_config is not None:
         model = AutoModelForCausalLM.from_pretrained(
-            "meta-llama/Llama-2-13b-chat-hf",
-            torch_dtype=torch.float16,
-            quantization_config=quantization_config,
-            device_map="cuda:0",
+            args.model, torch_dtype=torch.float16, quantization_config=quantization_config, device_map="cuda:0"
         )
     else:
-        model = AutoModelForCausalLM.from_pretrained(
-            "meta-llama/Llama-2-13b-chat-hf", torch_dtype=torch.float16, low_cpu_mem_usage=True
-        ).to(device)
+        model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float16, low_cpu_mem_usage=True).to(
+            device
+        )
 
         if args.quanto:
             print("quantizing")
@@ -99,7 +99,7 @@ def main():
             gc.collect()
             print(f"Finished: {time.time()-start}")
 
-    tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-13b-chat-hf")
+    tokenizer = AutoTokenizer.from_pretrained(args.model)
     tokenizer.pad_token_id = tokenizer.eos_token_id
     tokenizer.padding_side = "left"
     prompt = "One of my fondest memory is"
