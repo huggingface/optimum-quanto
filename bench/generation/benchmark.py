@@ -7,7 +7,23 @@ import torch
 from tqdm.auto import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, GenerationConfig
 
-from quanto import freeze, quantize
+from quanto import Calibration, freeze, quantize
+
+
+CALIBRATION_PROMPT = "It was a bright cold day in April, and the clocks were striking thirteen."
+"Winston Smith, his chin nuzzled into his breast in an effort to escape the vile wind, slipped"
+" quickly through the glass doors of Victory Mansions, though not quickly enough to prevent a"
+" swirl of gritty dust from entering along with him."
+"The hallway smelt of boiled cabbage and old rag mats. At one end of it a coloured poster, too"
+" large for indoor display, had been tacked to the wall. It depicted simply an enormous face, more"
+" than a metre wide: the face of a man of about forty-five, with a heavy black moustache and ruggedly"
+" handsome features. Winston made for the stairs. It was no use trying the lift. Even at the best of"
+" times it was seldom working, and at present the electric current was cut off during daylight hours."
+"It was part of the economy drive in preparation for Hate Week. The flat was seven flights up, and"
+" Winston, who was thirty-nine and had a varicose ulcer above his right ankle, went slowly, resting"
+" several times on the way. On each landing, opposite the lift-shaft, the poster with the enormous"
+" face gazed from the wall. It was one of those pictures which are so contrived that the eyes follow"
+" you about when you move. BIG BROTHER IS WATCHING YOU, the caption beneath it ran."
 
 
 @torch.no_grad()
@@ -25,7 +41,7 @@ def generate(model, tokenizer, device, prompt):
     )
     end = time.time()
     generated_text = tokenizer.decode(outputs[0])
-    print(f"Generated '{generated_text}' in [{end - start:.2f} s]")
+    return generated_text, (end - start)
 
 
 def timing(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512, iterations=10):
@@ -86,10 +102,9 @@ def timing(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=
         synchronize(device)
 
         latency_ms = start_event.elapsed_time(end_event)
-        print(f"\nLatency per token: {latency_ms / generation_config.min_new_tokens:.3f} ms")
         latencies.append(latency_ms)
 
-    return np.mean(latencies)
+    return np.mean(latencies) / generation_config.min_new_tokens
 
 
 def get_device_memory(device):
@@ -110,9 +125,13 @@ def main():
     )
     parser.add_argument("--device", type=str, default=None, help="The device to use for benchmark.")
     parser.add_argument("--it", type=int, default=10, help="The number of benchmark iterations")
-    parser.add_argument("--quanto", action="store_true", help="Quantization using Quanto (W8A16)")
-    parser.add_argument("--bnb_4bit", action="store_true", help="Quantization using bitandbytes 4bit")
-    parser.add_argument("--bnb_8bit", action="store_true", help="Quantization using bitandbytes 8bit")
+    parser.add_argument(
+        "--quantization",
+        type=str,
+        default="none",
+        choices=["bnb_4bit", "bnb_8bit", "w8a16", "w8a8"],
+        help="One of none, bnb_4bit, bnb_8bit, w8a16, w8a8.",
+    )
     args = parser.parse_args()
     if args.device is None:
         if torch.cuda.is_available():
@@ -124,12 +143,15 @@ def main():
     else:
         device = torch.device(args.device)
     dtype = torch.float32 if device.type == "cpu" else torch.float16
+    tokenizer = AutoTokenizer.from_pretrained(args.model)
+    tokenizer.pad_token_id = tokenizer.eos_token_id
+    tokenizer.padding_side = "left"
     quantization_config = None
-    if args.bnb_4bit:
+    if args.quantization == "bnb_4bit":
         quantization_config = BitsAndBytesConfig(
             load_in_4bit=True, bnb_4bit_quant_type="fp4", bnb_4bit_compute_dtype=dtype
         )
-    elif args.bnb_8bit:
+    elif args.quantization == "bnb_8bit":
         quantization_config = BitsAndBytesConfig(load_in_8bit=True)
     if quantization_config is not None:
         if device.type != "cuda":
@@ -140,10 +162,17 @@ def main():
     else:
         model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=dtype, low_cpu_mem_usage=True).to(device)
 
-        if args.quanto:
+        if args.quantization in ("w8a8", "w8a16"):
             print("quantizing")
             start = time.time()
-            quantize(model, weights=torch.int8, activations=None)
+            weights = torch.int8
+            activations = None if "a16" in args.quantization else torch.int8
+            quantize(model, weights=weights, activations=activations)
+            if activations is not None:
+                print("Calibrating")
+                # Very simple calibration to avoid completely off results
+                with Calibration():
+                    generate(model, tokenizer, device, prompt=CALIBRATION_PROMPT)
             freeze(model)
             print(f"Finished: {time.time()-start}")
 
@@ -151,12 +180,11 @@ def main():
     if memory is not None:
         print(f"Device memory: {memory / (2 ** 30):.4f} GB")
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model)
-    tokenizer.pad_token_id = tokenizer.eos_token_id
-    tokenizer.padding_side = "left"
     prompt = "One of my fondest memory is"
-    generate(model, tokenizer, device, prompt)
-    timing(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512, iterations=args.it)
+    output, latency = generate(model, tokenizer, device, prompt)
+    print(f"Sample generation for sanity check: '{output}' in [{latency:.2f} s]")
+    mean_latency = timing(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512, iterations=args.it)
+    print(f"\nLatency per token: {mean_latency:.3f} ms")
 
 
 if __name__ == "__main__":
