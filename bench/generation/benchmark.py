@@ -183,8 +183,13 @@ def main():
     prompt = "One of my fondest memory is"
     output, latency = generate(model, tokenizer, device, prompt)
     print(f"Sample generation for sanity check: '{output}' in [{latency:.2f} s]")
+    if device.type == 'cuda':
+        torch.cuda.reset_peak_memory_stats()
     mean_latency = timing(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512, iterations=args.it)
     print(f"\nLatency per token: {mean_latency:.3f} ms")
+    if device.type == 'cuda':
+        peak_memory = torch.cuda.max_memory_allocated()
+        print(f"Peak memory during benchmark: {peak_memory / (2 ** 30):.4f} GB")
 
 
 if __name__ == "__main__":
