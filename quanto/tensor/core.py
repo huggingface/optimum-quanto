@@ -5,12 +5,21 @@ from torch.autograd import Function
 from torch.utils import _pytree as pytree
 
 
-__all__ = ["absmax_scale", "qfallback", "dtype_info", "QTensor"]
+__all__ = ["absmax_scale", "qfallback", "dtype_info", "QBitsTensor", "QTensor"]
 
 
 def dtype_info(dtype):
     info = torch.finfo if dtype.is_floating_point else torch.iinfo
     return info(dtype)
+
+
+def axis_to_dim(t, axis):
+    dim = list(range(t.ndim))
+    if axis == -1:
+        dim = dim[:-1]
+    else:
+        dim.remove(axis)
+    return dim
 
 
 def absmax_scale(
@@ -36,11 +45,7 @@ def absmax_scale(
     if axis is None:
         qranges = torch.max(abs_base)
     else:
-        dim = list(range(base.ndim))
-        if axis == -1:
-            dim = dim[:-1]
-        else:
-            dim.remove(axis)
+        dim = axis_to_dim(abs_base, axis)
         qranges = torch.amax(torch.abs(base), dim=dim, keepdim=True)
     info = dtype_info(itype)
     return qranges / info.max
@@ -208,3 +213,90 @@ class QTensor(torch.Tensor):
 
     def numpy(self):
         return self.dequantize().cpu().numpy()
+
+
+class AffineQuantizer(Function):
+    """A standard affine quantizer."""
+
+    @staticmethod
+    def forward(ctx, base, bits=4, axis=None):
+        assert bits > 1 and bits < 8
+        if axis is None:
+            rmin = torch.min(base)
+            rmax = torch.max(base)
+        else:
+            dim = axis_to_dim(base, axis)
+            rmin = torch.amin(base, dim=dim, keepdim=True)
+            rmax = torch.amax(base, dim=dim, keepdim=True)
+        qmin = -(2 ** (bits - 1))
+        qmax = 2 ** (bits - 1) - 1
+        scale = (rmax - rmin) / (qmax - qmin)
+        zeropoint = torch.round(-rmin / scale).to(torch.int8)
+        data = torch.clamp(torch.round((base - rmin) / scale), min=0, max=2**bits - 1).to(torch.int8)
+        return QBitsTensor(data, scale, zeropoint)
+
+    @staticmethod
+    def backward(ctx, gO):
+        # For autograd, quantization is a no-op
+        return gO, None, None
+
+
+class QBitsToQTensor(Function):
+    @staticmethod
+    def forward(ctx, t):
+        int8_data = t._data.to(torch.int8) - t._zeropoint.to(torch.int8)
+        return QTensor(int8_data, t._scale)
+
+    @staticmethod
+    def backward(ctx, gO):
+        return gO
+
+
+class QBitsTensor(QTensor):
+    @staticmethod
+    def __new__(cls, data, scale, zeropoint, requires_grad=False):
+        assert data.device == scale.device
+        assert data.device == zeropoint.device
+        return torch.Tensor._make_wrapper_subclass(
+            cls, data.size(), strides=data.stride(), dtype=scale.dtype, device=data.device, requires_grad=requires_grad
+        )
+
+    def __init__(self, data, scale, zeropoint, requires_grad=False):
+        super().__init__(data, scale, requires_grad=requires_grad)
+        self._zeropoint = zeropoint
+
+    def __repr__(self):
+        autograd_info = (
+            f", grad_fn={self.grad_fn}" if self.grad_fn else ", requires_grad=True" if self.requires_grad else ""
+        )
+        return f"QBitsTensor({self._data}, scale={self._scale}, zeropoint={self._zeropoint}, dtype={self.dtype}{autograd_info})"
+
+    @classmethod
+    def quantize(cls, base, bits=4, axis=None):
+        """Differentiable quantization function"""
+        return AffineQuantizer.apply(base, bits, axis)
+
+    def qtensor(self):
+        return QBitsToQTensor.apply(self)
+
+    def dequantize(self):
+        return self.qtensor().dequantize()
+
+    @property
+    def itype(self):
+        return self._data.dtype
+
+    def __tensor_flatten__(self):
+        return ["_data", "_scale", "_zeropoint"], None
+
+    @staticmethod
+    def __tensor_unflatten__(inner_tensors, meta, outer_size, outer_stride):
+        assert len(inner_tensors) == 3
+        assert meta is None
+        data, scale, zeropoint = inner_tensors["_data"], inner_tensors["_scale"], inner_tensors["_zeropoint"]
+        return QTensor(data, scale, zeropoint)
+
+    @classmethod
+    def __torch_dispatch__(cls, op, types, args, kwargs=None):
+        args, kwargs = pytree.tree_map_only(QBitsTensor, lambda x: x.qtensor(), (args, kwargs or {}))
+        return op(*args, **kwargs)
