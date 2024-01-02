@@ -4,7 +4,7 @@ from typing import Any, Mapping, Optional
 
 import torch
 
-from ..qtensor import QTensor
+from ..tensor import QTensor
 
 
 __all__ = ["QModuleMixin", "register_qmodule", "quantize_module"]

@@ -6,7 +6,7 @@ from torch.nn.modules.module import (
 from torch.overrides import TorchFunctionMode
 
 from .nn import QModuleMixin
-from .qtensor import QTensor, absmax_scale
+from .tensor import QTensor, absmax_scale
 
 
 __all__ = ["Calibration"]

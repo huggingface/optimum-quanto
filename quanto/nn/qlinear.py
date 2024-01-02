@@ -2,7 +2,7 @@ from typing import Optional
 
 import torch
 
-from ..qtensor import QTensor, absmax_scale
+from ..tensor import QTensor, absmax_scale
 from .qmodule import QModuleMixin, register_qmodule
 
 
