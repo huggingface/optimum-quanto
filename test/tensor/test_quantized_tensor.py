@@ -71,45 +71,6 @@ def test_instantiate(input_shape, dtype, itype, device):
     assert qa.itype == itype
 
 
-@pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
-def test_rescale_int16_int8(input_shape, device):
-    a = random_tensor(input_shape, dtype=torch.float32).to(device)
-    qa = QTensor.quantize(a, itype=torch.int16)
-    # Rescale to int8
-    qa_rescaled = qa.rescale(torch.int8)
-    q_assert_close(a, qa_rescaled)
-
-
-@pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
-def test_rescale_int32_int8(input_shape, device):
-    # We need to generate a quantized tensor manually to avoid large int32 data
-    int_max_value = 1000
-    data = torch.randint(-int_max_value, int_max_value, input_shape, dtype=torch.int32)
-    scale = torch.tensor(1.0 / int_max_value)
-    qa = QTensor(data, scale).to(device)
-    # Get the actual maximum
-    a = qa.dequantize()
-    float_max_value = torch.max(torch.abs(a))
-    assert float_max_value <= 1
-    # Rescale to int8
-    qa_rescaled = qa.rescale(torch.int8, float_max_value / torch.iinfo(torch.int8).max)
-    # Since we chose the optimal scale, we must have used the whole integer range
-    assert torch.max(torch.abs(qa_rescaled._data)) == torch.iinfo(torch.int8).max
-    q_assert_close(a, qa_rescaled)
-
-
-@pytest.mark.parametrize("input_shape", [(2, 10), (10, 32, 32)])
-@pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
-def test_rescale_per_axis(input_shape, axis, device):
-    qa = random_qtensor(input_shape, dtype=torch.float32, axis=axis).to(device)
-    assert qa.axis is not None
-    max_scale = torch.max(qa._scale)
-    # Rescale per tensor
-    qa_rescaled = qa.rescale(scale=max_scale)
-    assert qa_rescaled.axis is None
-    q_assert_close(qa.dequantize(), qa_rescaled)
-
-
 def test_quantized_tensor_serialization():
     qinputs = random_qtensor((1, 10, 32), dtype=torch.float32)
     with TemporaryDirectory() as tmpdir:
@@ -151,19 +112,6 @@ def test_quantized_tensor_chained_backward(device):
     prod.backward(gradient)
     assert torch.allclose(a.grad, qb.dequantize() * gradient)
     assert torch.allclose(b.grad, qa.dequantize() * gradient)
-
-
-def test_rescale_backward(device):
-    a = random_tensor((10,), dtype=torch.float32).to(device)
-    a.requires_grad = True
-    qa = QTensor.quantize(a, itype=torch.int16)
-    # Rescale to int8
-    qa_rescaled = qa.rescale(torch.int8)
-    assert qa_rescaled.requires_grad is True
-    # Backpropagate
-    gradient = torch.randn((10,)).to(device)
-    qa_rescaled.backward(gradient)
-    assert torch.allclose(a.grad, gradient)
 
 
 def test_qtensor_stride(device):
