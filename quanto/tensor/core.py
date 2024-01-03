@@ -2,9 +2,10 @@ from typing import Optional
 
 import torch
 from torch.autograd import Function
+from torch.utils import _pytree as pytree
 
 
-__all__ = ["absmax_scale", "dequantized_op", "dtype_info", "QTensor"]
+__all__ = ["absmax_scale", "qfallback", "dtype_info", "QTensor"]
 
 
 def dtype_info(dtype):
@@ -45,19 +46,15 @@ def absmax_scale(
     return qranges / info.max
 
 
-def dequantized_op(func, *args, **kwargs):
-    def dequantize(x):
-        if isinstance(x, list):
-            return [dequantize(y) for y in x]
-        if isinstance(x, tuple):
-            return (dequantize(y) for y in x)
-        return x.dequantize() if isinstance(x, QTensor) else x
+def qfallback(callable, *args, **kwargs):
+    """Fallback method for QTensor inputs
 
-    dq_args = [dequantize(arg) for arg in args]
-    dq_kwargs = {}
-    for name, kwarg in kwargs.items():
-        dq_kwargs[name] = dequantize(kwarg)
-    return func(*dq_args, **dq_kwargs)
+    When a torch function or an aten operation is not supported for the specified
+    QTensor arguments, each QTensor arg or kwarg is dequantized to a torch.Tensor
+     before calling the target function or op.
+    """
+    args, kwargs = pytree.tree_map_only(QTensor, lambda x: x.dequantize(), (args, kwargs or {}))
+    return callable(*args, **kwargs)
 
 
 class Quantizer(Function):
@@ -203,11 +200,11 @@ class QTensor(torch.Tensor):
                 for qarg in qdispatch.qargs:
                     arg = args[qarg.index]
                     if not isinstance(arg, QTensor) or arg.axis not in qarg.axis:
-                        # Incompatible argument detected: fallback
-                        return dequantized_op(op, *args, **kwargs)
+                        # Incompatible argument detected: qfallback
+                        return qfallback(op, *args, **kwargs)
             return qdispatch.qop(*args, **kwargs)
-        # No dispatch available: fallback
-        return dequantized_op(op, *args, **kwargs)
+        # No dispatch available: qfallback
+        return qfallback(op, *args, **kwargs)
 
     def numpy(self):
         return self.dequantize().cpu().numpy()
