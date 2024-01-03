@@ -5,7 +5,7 @@ from typing import Any, Callable, List, Optional
 
 import torch
 
-from . import QTensor, dequantized_op, dtype_info
+from . import QTensor, dtype_info, qfallback
 
 
 __all__ = ["get_qtensor_op_dispatch", "register_qtensor_op"]
@@ -93,11 +93,11 @@ def cat(op, inputs, dim=0):
         if isinstance(t1, QTensor) and isinstance(t2, QTensor) and torch.equal(t1._scale, t2._scale):
             if t1.itype.is_floating_point or t2.itype.is_floating_point:
                 # Cat is not supported for float8
-                return dequantized_op(op, inputs, dim)
+                return qfallback(op, inputs, dim)
             # Only quantized tensors with identical scales can be concatenated
             out_data = op([t1._data, t2._data], dim)
             return QTensor(out_data, t1._scale)
-    return dequantized_op(op, inputs, dim)
+    return qfallback(op, inputs, dim)
 
 
 @register_qtensor_op([torch.ops.aten.lt])
@@ -105,7 +105,7 @@ def lt(op, input, other):
     # Only quantized tensors with identical scales can be compared
     if isinstance(input, QTensor) and isinstance(other, QTensor) and torch.equal(input._scale, other._scale):
         return op(input._data, other._data)
-    return dequantized_op(op, input, other)
+    return qfallback(op, input, other)
 
 
 @register_qtensor_op(
@@ -114,7 +114,7 @@ def lt(op, input, other):
 )
 def addmm(op, input, mat1, mat2, beta=1, alpha=1):
     if alpha != 1 or beta != 1:
-        return dequantized_op(op, input, mat1, mat2, beta=beta, alpha=alpha)
+        return qfallback(op, input, mat1, mat2, beta=beta, alpha=alpha)
     # Do the operation with data cast to float32
     out_data = op(
         input._data.to(torch.float32),
@@ -198,7 +198,7 @@ def linear(op, input, weight, bias=None):
         or not isinstance(weight, QTensor)
         or (bias is not None and not isinstance(bias, QTensor))
     ):
-        return dequantized_op(op, input, weight, bias=bias)
+        return qfallback(op, input, weight, bias=bias)
     # Cast int8 data to float32 and do the operation
     bias_data = bias._data.to(torch.float32) if bias is not None else None
     out_data = op(input._data.to(torch.float32), weight._data.to(torch.float32), bias_data)
@@ -248,7 +248,7 @@ def mul(op, input, other):
     if is_scalar(other):
         return QTensor(input._data, other * input._scale)
     if not isinstance(input, QTensor) or not isinstance(other, QTensor):
-        return dequantized_op(op, input, other)
+        return qfallback(op, input, other)
     # Cast int8 data to int32 and do the operation
     out_data = op(input._data.to(torch.int32), other._data.to(torch.int32))
     out_scale = input._scale * other._scale
@@ -259,7 +259,7 @@ def mul(op, input, other):
 def relu(op, input):
     if input.itype.is_floating_point:
         # Relu is not supported for float8 types
-        return dequantized_op(op, input)
+        return qfallback(op, input)
     out_data = op(input._data)
     return QTensor(out_data, input._scale)
 
@@ -282,7 +282,7 @@ def stack(op, inputs, dim=0):
             # Only quantized tensors with identical scales can be stacked
             out_data = op([t1._data, t2._data], dim)
             return QTensor(out_data, t1._scale)
-    return dequantized_op(inputs, dim)
+    return qfallback(inputs, dim)
 
 
 @register_qtensor_op([torch.ops.aten.split])
@@ -314,7 +314,7 @@ def view(op, input, *shape):
         out_scale_shape = (1,) * (out_data.ndim - 1) + (input._scale.shape[-1],)
         out_scale = input._scale.view(out_scale_shape)
         return QTensor(out_data, out_scale)
-    return dequantized_op(op, input, *shape)
+    return qfallback(op, input, *shape)
 
 
 @register_qtensor_op([torch.ops.aten.where])

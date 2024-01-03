@@ -2,7 +2,7 @@ from functools import partial
 
 import torch
 
-from .core import QTensor
+from .core import QTensor, qfallback
 
 
 __all__ = ["get_qtensor_func", "register_qtensor_func"]
@@ -33,18 +33,17 @@ def get_qtensor_func(func):
     return _QTENSOR_FUNC_TABLE.get(func, None)
 
 
-def dequantize(*args):
-    return [arg.dequantize() if isinstance(arg, QTensor) else arg for arg in args]
-
-
-@register_qtensor_func([torch.nn.functional.log_softmax, torch.topk, torch.nn.functional.layer_norm])
-def unary_unsupported_op(func, t, *args, **kwargs):
-    return func(t.dequantize(), *args, **kwargs)
-
-
-@register_qtensor_func([torch.nn.functional.cross_entropy, torch.nn.functional.cosine_similarity])
-def plurary_unsupported_op(func, *args, **kwargs):
-    return func(*dequantize(*args), **kwargs)
+@register_qtensor_func(
+    [
+        torch.nn.functional.cross_entropy,
+        torch.nn.functional.cosine_similarity,
+        torch.nn.functional.layer_norm,
+        torch.nn.functional.log_softmax,
+        torch.topk,
+    ]
+)
+def unsupported_op(func, *args, **kwargs):
+    return qfallback(func, *args, **kwargs)
 
 
 @register_qtensor_func([torch.nn.functional.linear])
