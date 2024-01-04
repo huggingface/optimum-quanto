@@ -314,5 +314,11 @@ class QBitsTensor(QTensor):
 
     @classmethod
     def __torch_dispatch__(cls, op, types, args, kwargs=None):
+        if op.overloadpacket is torch.ops.aten.detach:
+            t = args[0]
+            data = op(t._data)
+            scale = op(t._scale)
+            zeropoint = op(t._zeropoint)
+            return QBitsTensor(data, scale, zeropoint)
         args, kwargs = pytree.tree_map_only(QBitsTensor, lambda x: x.qtensor(), (args, kwargs or {}))
         return op(*args, **kwargs)
