@@ -6,7 +6,7 @@ from torch.autograd import Function
 from torch.utils import _pytree as pytree
 
 
-__all__ = ["absmax_scale", "int2", "int4", "qfallback", "dtype_info", "QBitsTensor", "QTensor"]
+__all__ = ["absmax_scale", "int2", "int4", "qbitsdtype", "qfallback", "dtype_info", "QBitsTensor", "QTensor"]
 
 
 @dataclass
