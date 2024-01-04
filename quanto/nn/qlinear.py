@@ -2,7 +2,7 @@ from typing import Optional
 
 import torch
 
-from ..tensor import QTensor, absmax_scale
+from ..tensor import QBitsTensor, QTensor, absmax_scale, qbitsdtype
 from .qmodule import QModuleMixin, register_qmodule
 
 
@@ -35,8 +35,12 @@ class QLinear(QModuleMixin, torch.nn.Linear):
         if isinstance(self.weight, QTensor):
             return self.weight
         # Quantize the weights per-axis
-        wscale = absmax_scale(self.weight, axis=0)
-        return QTensor.quantize(self.weight, itype=self.weights, scale=wscale)
+        if isinstance(self.weights, torch.dtype):
+            wscale = absmax_scale(self.weight, axis=0)
+            return QTensor.quantize(self.weight, itype=self.weights, scale=wscale)
+        elif isinstance(self.weights, qbitsdtype):
+            return QBitsTensor.quantize(self.weight, itype=self.weights, axis=0)
+        raise ValueError("Invalid quantized weights type")
 
     def qforward(self, input: torch.Tensor) -> torch.Tensor:
         if self.activations is not None and not isinstance(input, QTensor):
