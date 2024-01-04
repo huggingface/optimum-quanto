@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torchvision import datasets, transforms
 from transformers import AutoModel
 
-from quanto import Calibration, QTensor, freeze, quantize
+from quanto import Calibration, QTensor, freeze, int4, quantize
 
 
 def test(model, device, test_loader):
@@ -60,7 +60,7 @@ def train(log_interval, model, device, train_loader, optimizer, epoch):
 
 
 def keyword_to_itype(k):
-    return {"none": None, "int8": torch.int8}[k]
+    return {"none": None, "int4": int4, "int8": torch.int8}[k]
 
 
 def main():
@@ -71,7 +71,7 @@ def main():
     )
     parser.add_argument("--seed", type=int, default=1, metavar="S", help="random seed (default: 1)")
     parser.add_argument("--model", type=str, default="dacorvo/mnist-mlp", help="The name of the trained Model.")
-    parser.add_argument("--weights", type=str, default="int8", choices=["int8"], help="Only int8 is supported.")
+    parser.add_argument("--weights", type=str, default="int8", choices=["int4", "int8"], help="One of int4, int8.")
     parser.add_argument("--activations", type=str, default="int8", choices=["none", "int8"], help="One of none, int8.")
     parser.add_argument("--device", type=str, default=None, help="The device to use for evaluation.")
     args = parser.parse_args()
