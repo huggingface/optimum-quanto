@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Optional
 
 import torch
@@ -5,7 +6,20 @@ from torch.autograd import Function
 from torch.utils import _pytree as pytree
 
 
-__all__ = ["absmax_scale", "qfallback", "dtype_info", "QBitsTensor", "QTensor"]
+__all__ = ["absmax_scale", "int2", "int4", "qfallback", "dtype_info", "QBitsTensor", "QTensor"]
+
+
+@dataclass
+class qbitsdtype:
+    """A dtype class mimicking torch dtype"""
+
+    is_complex: bool
+    is_floating_point: bool
+    bits: int
+
+
+int2 = qbitsdtype(is_complex=False, is_floating_point=False, bits=2)
+int4 = qbitsdtype(is_complex=False, is_floating_point=False, bits=4)
 
 
 def dtype_info(dtype):
@@ -219,8 +233,9 @@ class AffineQuantizer(Function):
     """A standard affine quantizer."""
 
     @staticmethod
-    def forward(ctx, base, bits=4, axis=None):
-        assert bits > 1 and bits < 8
+    def forward(ctx, base, itype, axis=None):
+        assert isinstance(itype, qbitsdtype)
+        bits = itype.bits
         if axis is None:
             rmin = torch.min(base)
             rmax = torch.max(base)
@@ -233,6 +248,7 @@ class AffineQuantizer(Function):
         scale = (rmax - rmin) / (qmax - qmin)
         zeropoint = torch.round(-rmin / scale).to(torch.int8)
         data = torch.clamp(torch.round((base - rmin) / scale), min=0, max=2**bits - 1).to(torch.int8)
+        data.itype = itype
         return QBitsTensor(data, scale, zeropoint)
 
     @staticmethod
@@ -272,9 +288,9 @@ class QBitsTensor(QTensor):
         return f"QBitsTensor({self._data}, scale={self._scale}, zeropoint={self._zeropoint}, dtype={self.dtype}{autograd_info})"
 
     @classmethod
-    def quantize(cls, base, bits=4, axis=None):
+    def quantize(cls, base, itype=int4, axis=None):
         """Differentiable quantization function"""
-        return AffineQuantizer.apply(base, bits, axis)
+        return AffineQuantizer.apply(base, itype, axis)
 
     def qtensor(self):
         return QBitsToQTensor.apply(self)
@@ -284,7 +300,7 @@ class QBitsTensor(QTensor):
 
     @property
     def itype(self):
-        return self._data.dtype
+        return self._data.itype
 
     def __tensor_flatten__(self):
         return ["_data", "_scale", "_zeropoint"], None
