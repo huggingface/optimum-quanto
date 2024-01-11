@@ -1,6 +1,6 @@
 # Quanto
 
-**DISCLAIMER**: this package is still an early prototype (pre-beta version), and not (yet) an HuggingFace product. Expect breaking changes and drastic modifications in scope and features.
+**DISCLAIMER**: This package is still an early prototype (pre-beta version), and not (yet) an HuggingFace product. Expect breaking changes and drastic modifications in scope and features.
 
 🤗 Quanto is a python quantization toolkit that provides several features that are either not supported or limited by the base [pytorch quantization tools](https://pytorch.org/docs/stable/quantization.html):
 
@@ -9,7 +9,7 @@
 - automatically inserts quantization and dequantization stubs,
 - automatically inserts quantized functional operations,
 - automatically inserts quantized modules (see below the list of supported modules),
-- provides a seamless workflow from float model to dynamic to static quantized model,
+- provides a seamless workflow from a float model to a dynamic to a static quantized model,
 - supports quantized model serialization as a `state_dict`,
 - uses integer matrix multiplications (`mm`) on CUDA devices,
 - supports float8 activations.
@@ -56,10 +56,10 @@ The goal of the projection is to increase the accuracy of the conversion by mini
 - saturated values (i.e. mapped to the destination type min/max),
 - zeroed values (because they are below the smallest number that can be represented by the destination type)
 
-The projection is symmetric (affine) i.e it does not use a zero-point. This makes quantized Tensors
+The projection is symmetric (affine), i.e it does not use a zero-point. This makes quantized Tensors
 compatible with many operations.
 
-One of the benefit of using a lower-bitwidth representation is indeed to be able to take advantage of accelerated operations
+One of the benefit of using a lower-bitwidth representation is that you will be able to take advantage of accelerated operations
 for the destination type, which are typically faster than their higher precision equivalents.
 
 The current implementation however falls back to `float32` operations for a lot of operations because of a lack of dedicated kernels
@@ -72,9 +72,9 @@ Quanto does not support the conversion of a Tensor using mixed destination types
 
 ### Modules
 
-Quanto provides a generic mechanismm to replace modules by quanto modules able to process quanto tensors.
+Quanto provides a generic mechanism to replace torch modules by quanto modules that are able to process quanto tensors.
 
-Quanto modules dynamically convert their weights until a model is frozen: this slows down inference a bit, but is
+Quanto modules dynamically convert their weights until a model is frozen, which slows down inference a bit but is
 required if the model needs to be tuned.
 
 Biases are not converted because to preserve the accuracy of a typical `addmm` operation, they must be converted with a
@@ -82,18 +82,17 @@ scale that is equal to the product of the input and weight scales, which leads t
 requires a very high bitwidth to avoid clipping. Typically, with `int8` inputs and weights, biases would need to be quantized
 with at least `12` bits, i.e in `int16`. Since most biases ar today `float16`, this is a waste of time.
 
-Activations are dynamically quantized using static scales (defaults to the range [-1, 1]).
-The model needs to be calibrated to evaluate the best activation scales (using a momentum).
+Activations are dynamically quantized using static scales (defaults to the range `[-1, 1]`). The model needs to be calibrated to evaluate the best activation scales (using a momentum).
 
 ## Performances
 
-**DISCLAIMER**: these are preliminary observations gathered from a panel of models, and not an actual performance report.
+**DISCLAIMER**: These are preliminary observations gathered from a panel of models, and not an actual performance report.
 
 In terms of accuracy:
 
 - models using only int8 weights do not seem to suffer any drop in accuracy,
 - models using also int8 activations do suffer from moderate to severe accuracy drops,
-- using float8 activations can help getting a better accuracy.
+- using float8 activations can help in getting a better accuracy.
 
 In terms of speed:
 
@@ -122,21 +121,21 @@ but their weights can later be "frozen" to integer values.
 
 A typical quantization workflow would consist in the following steps:
 
-1. Quantize
+**1. Quantize**
 
 The first step converts a standard float model into a dynamically quantized model.
 
-```
+```python
 quantize(model, weights=torch.int8, activations=torch.int8)
 ```
 
 At this stage, only the inference of the model is modified to dynamically quantize the weights.
 
-2. Calibrate (optional)
+**2. Calibrate (optional)**
 
 Quanto supports a calibration mode that allows to record the activation ranges while passing representative samples through the quantized model.
 
-```
+```python
 with calibration(momentum=0.9):
     model(samples)
 ```
@@ -144,11 +143,11 @@ with calibration(momentum=0.9):
 This automatically activates the quantization of the activations in the quantized modules.
 
 
-3. Tune, aka Quantization-Aware-Training (optional)
+**3. Tune, aka Quantization-Aware-Training (optional)**
 
-If the performances of the model are too degraded, one can tune it for a few epochs to recover the float model performances.
+If the performance of the model degrades too much, one can tune it for a few epochs to recover the float model performance.
 
-```
+```python
 model.train()
 for batch_idx, (data, target) in enumerate(train_loader):
     data, target = data.to(device), target.to(device)
@@ -159,11 +158,11 @@ for batch_idx, (data, target) in enumerate(train_loader):
     optimizer.step()
 ```
 
-4. Freeze integer weights
+**4. Freeze integer weights**
 
 When freezing a model, its float weights are replaced by quantized integer weights.
 
-```
+```python
 freeze(model)
 ```
 
@@ -171,21 +170,17 @@ Please refer to the [examples](https://github.com/huggingface/quanto/tree/main/e
 
 ## Per-axis versus per-tensor
 
-Activations are always quantized per-tensor because most linear algebra operations in a model graph are not compatible with per-axis inputs:
-you simply cannot add numbers that are not expressed in the same base (`you cannot add apples and oranges`).
+Activations are always quantized per-tensor because most linear algebra operations in a model graph are not compatible with per-axis inputs: you simply cannot add numbers that are not expressed in the same base (`you cannot add apples and oranges`).
 
-Weights involved in matrix multiplications are in the contrary always quantized along their fist axis, because all output features are evaluated
-independently from one another.
+Weights involved in matrix multiplications are, in the contrary, always quantized along their first axis, because all output features are evaluated independently from one another.
 
 The outputs of a quantized matrix multiplication will anyway always be dequantized, even if activations are quantized, because:
 
-- the resulting integer values are expressed with a much higher bitwidth (typically `int32`) than the activation bitwidth (tpyically `int8`),
+- the resulting integer values are expressed with a much higher bitwidth (typically `int32`) than the activation bitwidth (typically `int8`),
 - they might be combined with a `float` bias.
 
-Quantizing activations per-tensor can lead to serious quantization errors if the corresponding tensors contain large outlier values: typically,
-this will lead to quantized tensors with most values set to zero (except the outliers).
+Quantizing activations per-tensor can lead to serious quantization errors if the corresponding tensors contain large outlier values. Typically, this will lead to quantized tensors with most values set to zero (except the outliers).
 
-A possible solution to work around that issue is to 'smooth' the activations statically as illustrated by [SmoothQuant](https://github.com/mit-han-lab/smoothquant).
-You can find a script to smooth some model architectures under [external/smoothquant](external/smoothquant).
+A possible solution to work around that issue is to 'smooth' the activations statically as illustrated by [SmoothQuant](https://github.com/mit-han-lab/smoothquant). You can find a script to smooth some model architectures under [external/smoothquant](external/smoothquant).
 
 A better option is often to represent activations using `float8` instead of `int8`.

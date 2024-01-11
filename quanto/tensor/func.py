@@ -13,7 +13,7 @@ _QTENSOR_FUNC_TABLE = {}
 
 def register_qtensor_func(funcs):
     """
-    Used for registering a new __torch_dispatch__ function to QTensor
+    Used for registering a new __torch_dispatch__ function to QTensor.
 
     The code to register a new function looks like:
 
