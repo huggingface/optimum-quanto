@@ -66,11 +66,11 @@ def absmax_scale(
 
 
 def qfallback(callable, *args, **kwargs):
-    """Fallback method for QTensor inputs
+    """Fallback method for QTensor inputs.
 
     When a torch function or an aten operation is not supported for the specified
     QTensor arguments, each QTensor arg or kwarg is dequantized to a torch.Tensor
-     before calling the target function or op.
+    before calling the target function or op.
     """
     args, kwargs = pytree.tree_map_only(QTensor, lambda x: x.dequantize(), (args, kwargs or {}))
     return callable(*args, **kwargs)

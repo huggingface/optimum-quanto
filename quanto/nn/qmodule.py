@@ -15,7 +15,7 @@ _QMODULE_TABLE = {}
 
 def register_qmodule(module_cls):
     """
-    Used for registering a new quantized module
+    Used for registering a new quantized module.
 
     The code to register a new module looks like:
 

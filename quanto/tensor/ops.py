@@ -13,7 +13,7 @@ __all__ = ["get_qtensor_op_dispatch", "register_qtensor_op"]
 
 @dataclass
 class QArg:
-    """A simple class to describe the expected QTensor type of an argument"""
+    """A simple class to describe the expected QTensor type of an argument."""
 
     index: int = 0
     axis: List[Any] = field(default_factory=[None])
@@ -36,7 +36,7 @@ _QTENSOR_OP_TABLE = {}
 
 def register_qtensor_op(aten_ops: List[Callable], qargs: Optional[List[QArg]] = []):
     """
-    Used for registering a new __torch_dispatch__ aten operation to QTensor
+    Used for registering a new __torch_dispatch__ aten operation to QTensor.
 
     The code to register a new operation looks like:
 
