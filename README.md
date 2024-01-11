@@ -183,4 +183,4 @@ Quantizing activations per-tensor can lead to serious quantization errors if the
 
 A possible solution to work around that issue is to 'smooth' the activations statically as illustrated by [SmoothQuant](https://github.com/mit-han-lab/smoothquant). You can find a script to smooth some model architectures under [external/smoothquant](external/smoothquant).
 
-A better option is often to represent activations using `float8` instead of `int8`.
+A better option, often, is to represent activations using `float8` instead of `int8`.
