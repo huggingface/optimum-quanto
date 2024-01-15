@@ -16,7 +16,7 @@ classifiers = [
 keywords = ['torch', 'quantization']
 requires-python = '>=3.8.0'
 authors = [{ name = 'David Corvoysier', email = 'david@huggingface.co' }]
-dependencies = ['torch>=2.1.1']
+dependencies = ['torch>=2.1.1', 'ninja']
 license = { text = 'Apache-2.0' }
 dynamic = ['readme', 'version']
 
