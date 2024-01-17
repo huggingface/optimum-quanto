@@ -58,33 +58,21 @@ def pack_weights(intweights: torch.Tensor, bitsdtype: qbitsdtype) -> torch.Tenso
             The desired `bitsdtype` - can be `quanto.int2`, `quanto.int4`
     """
     bits = bitsdtype.bits
-    intweights = intweights.contiguous()
-    # TODO: write a C++ version of this? It seems for autogptq & autoawq they all do it
-    # in pure python
-    # We need to first cast into uint32 in numpy then cast it back to torch int32.
-    i = 0
-    row = 0
-
     original_shape = intweights.shape
-    row_dim = (original_shape[0] * bits) // 8
+    values_per_item = 8 // bits
+    row_dim = original_shape[0] // values_per_item
 
     if len(original_shape) == 1:
         packed_tensor_shape = (row_dim,)
     else:
         packed_tensor_shape = (row_dim, *original_shape[1:])
 
-    qweight = torch.zeros(packed_tensor_shape, device=intweights.device, dtype=torch.uint8)
+    packed = torch.zeros(packed_tensor_shape, device=intweights.device, dtype=torch.uint8)
+    unpacked = intweights.to(torch.uint8)
+    for i in range(values_per_item):
+        packed |= unpacked[i * row_dim : (i + 1) * row_dim] << (bits * i)
 
-    # Inspired from: https://github.com/PanQiWei/AutoGPTQ/blob/d2662b18bb91e1864b29e4e05862712382b8a076/auto_gptq/nn_modules/qlinear/qlinear_cuda_old.py#L132
-    while row < qweight.shape[0]:
-        for j in range(i, i + (8 // bits)):
-            qweight[row] |= intweights[j] << (bits * (j - i))
-        i += 8 // bits
-        row += 1
-
-    qweight.itype = bitsdtype
-
-    return qweight
+    return packed
 
 
 def unpack_weights(uint8weights: torch.Tensor, bitsdtype: qbitsdtype) -> torch.Tensor:
@@ -106,29 +94,14 @@ def unpack_weights(uint8weights: torch.Tensor, bitsdtype: qbitsdtype) -> torch.T
             The desired `bitsdtype` - can be `quanto.int2`, `quanto.int4`
     """
     bits = bitsdtype.bits
-
-    num_values = uint8weights.shape[0] * 8 // bits
-    unpacked_shape = (num_values,)
-
-    if len(uint8weights.shape) > 1:
-        unpacked_shape += uint8weights.shape[1:]
-
-    weights = torch.zeros(unpacked_shape, dtype=torch.int8, device=uint8weights.device)
-    row = 0
-    j = 0
-
-    # Mask out the first bits//2 bits
-    mask = bits**2 - 1
-
-    while row < uint8weights.shape[0]:
-        for i in range(0, 8 // bits):
-            weights[j] = uint8weights[row] >> (bits * i)
-            j += 1
-        row += 1
-
-    # Mask out the first bits // 2 bits
-    weights &= mask
-    return weights
+    unpacked = []
+    values_per_item = 8 // bits
+    # Unpack each set of values independently
+    for i in range(values_per_item):
+        mask = 2 ** (bits * (i + 1)) - 1
+        unpacked.append((uint8weights & mask) >> (bits * i))
+    # Return the concatenated unpacked tensors
+    return torch.cat(unpacked).to(torch.int8)
 
 
 def absmax_scale(
