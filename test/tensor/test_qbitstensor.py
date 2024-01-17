@@ -26,7 +26,7 @@ def test_quantize_integer_tensor(dtype, itype, device, pack):
     assert torch.equal(a, qa.dequantize())
 
 
-@pytest.mark.parametrize("input_shape", [(10,), (10, 10), (32, 32)])
+@pytest.mark.parametrize("input_shape", [(10,), (12,), (10, 10), (12, 10), (32, 32)])
 @pytest.mark.parametrize("itype", [int2, int4], ids=["int2", "int4"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("zp", [-1, 0, 1], ids=["neg", "centered", "pos"])
@@ -37,6 +37,8 @@ def test_quantize_per_tensor(input_shape, itype, dtype, zp, device):
     assert qa.dtype == dtype
     assert qa.itype == itype
     assert device_eq(qa.device, device)
+    if input_shape[0] % (8 // itype.bits) == 0:
+        assert qa.packed
     q_assert_close(a, qa)
 
 
