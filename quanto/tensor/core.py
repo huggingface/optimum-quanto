@@ -60,6 +60,9 @@ def pack_weights(intweights: torch.Tensor, bitsdtype: qbitsdtype) -> torch.Tenso
     bits = bitsdtype.bits
     original_shape = intweights.shape
     values_per_item = 8 // bits
+    if original_shape[0] % values_per_item != 0:
+        # We cannot pack: return the original tensor
+        return intweights
     row_dim = original_shape[0] // values_per_item
 
     if len(original_shape) == 1:
