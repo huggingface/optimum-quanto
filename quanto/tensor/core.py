@@ -72,8 +72,15 @@ def pack_weights(intweights: torch.Tensor, bitsdtype: qbitsdtype) -> torch.Tenso
 
     packed = torch.zeros(packed_tensor_shape, device=intweights.device, dtype=torch.uint8)
     unpacked = intweights.to(torch.uint8)
+
+    def lshift(t: torch.Tensor, bits: int):
+        if t.device.type == "mps":
+            # lshift is not supported on MPS device
+            return t * (2**bits)
+        return t << bits
+
     for i in range(values_per_item):
-        packed |= unpacked[i * row_dim : (i + 1) * row_dim] << (bits * i)
+        packed |= lshift(unpacked[i * row_dim : (i + 1) * row_dim], bits * i)
 
     return packed
 
@@ -99,10 +106,17 @@ def unpack_weights(uint8weights: torch.Tensor, bitsdtype: qbitsdtype) -> torch.T
     bits = bitsdtype.bits
     unpacked = []
     values_per_item = 8 // bits
+
+    def rshift(t: torch.Tensor, bits: int):
+        if t.device.type == "mps":
+            # rshift is not supported on MPS device
+            return t // (2**bits)
+        return t >> bits
+
     # Unpack each set of values independently
     for i in range(values_per_item):
         mask = 2 ** (bits * (i + 1)) - 1
-        unpacked.append((uint8weights & mask) >> (bits * i))
+        unpacked.append(rshift(uint8weights & mask, bits * i))
     # Return the concatenated unpacked tensors
     return torch.cat(unpacked).to(torch.int8)
 
