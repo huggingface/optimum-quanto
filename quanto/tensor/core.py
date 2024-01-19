@@ -417,6 +417,8 @@ class QBitsTensor(QTensor):
         if op.overloadpacket is torch.ops.aten.detach:
             t = args[0]
             data = op(t._data)
+            # Fixme: we should not do this manually, and use a dedicated subclass
+            data.itype = t._data.itype
             scale = op(t._scale)
             zeropoint = op(t._zeropoint)
             return QBitsTensor(data, scale, zeropoint)
