@@ -1,4 +1,4 @@
-__version__ = "0.0.11dev"
+__version__ = "0.0.11"
 
 from .calibrate import *
 from .nn import *
