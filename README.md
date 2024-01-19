@@ -5,14 +5,15 @@
 🤗 Quanto is a python quantization toolkit that provides several features that are either not supported or limited by the base [pytorch quantization tools](https://pytorch.org/docs/stable/quantization.html):
 
 - all features are available in eager mode (works with non-traceable models),
-- quantized models can be placed on any device (including CUDA),
+- quantized models can be placed on any device (including CUDA and MPS),
 - automatically inserts quantization and dequantization stubs,
 - automatically inserts quantized functional operations,
 - automatically inserts quantized modules (see below the list of supported modules),
 - provides a seamless workflow from a float model to a dynamic to a static quantized model,
 - supports quantized model serialization as a `state_dict`,
 - uses integer matrix multiplications (`mm`) on CUDA devices,
-- supports float8 activations.
+- supports not only int8 weights, but also int2 and int4,
+- supports not only int8 activations, but also float8.
 
 Features yet to be implemented:
 
@@ -21,7 +22,6 @@ Features yet to be implemented:
 - integer batched matrix multiplications (`bmm`) on CUDA devices,
 - integer matrix multiplications for CPU and MPS devices,
 - quantized operators fusion (`mm` followed by dequantization is the most common use case),
-- support `int4` weights,
 - compatibility with [torch compiler](https://pytorch.org/docs/stable/torch.compiler.html) (aka dynamo).
 
 ## Quantized modules
@@ -101,10 +101,10 @@ In terms of speed:
 - models using int8 activations are significantly slower on CPU and MPS devices, where fallbacks are triggered.
 - models using float8 activations are significantly slower on CUDA devices, where fallbacks are triggered.
 
-The weight storage and on-device memory usage should:
+The disk space and on-device memory to store weights is:
 
-- be equivalent for a model with dynamic weights,
-- lower for a model with static weights.
+- equivalent for a model with dynamic weights (weights are stored with full precision and quantized dynamically),
+- approximately divided by float bits / integer bits for a model with static weights.
 
 ## Installation
 
