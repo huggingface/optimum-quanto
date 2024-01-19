@@ -367,8 +367,13 @@ class QBitsTensor(QTensor):
     def __new__(cls, data, scale, zeropoint, requires_grad=False):
         assert data.device == scale.device
         assert data.device == zeropoint.device
+        packed = data.dtype == torch.uint8
+        size = data.size()
+        if packed:
+            # Fixme: create a PackedIntTensor subclass to store the packed / shape info
+            size = (size[0] * (8 // data.itype.bits), *size[1:])
         return torch.Tensor._make_wrapper_subclass(
-            cls, data.size(), strides=data.stride(), dtype=scale.dtype, device=data.device, requires_grad=requires_grad
+            cls, size, strides=data.stride(), dtype=scale.dtype, device=data.device, requires_grad=requires_grad
         )
 
     def __init__(self, data, scale, zeropoint, requires_grad=False):
