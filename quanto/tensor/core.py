@@ -36,6 +36,101 @@ def axis_to_dim(t, axis):
     return dim
 
 
+def pack_weights(intweights: torch.Tensor, bitsdtype: qbitsdtype) -> torch.Tensor:
+    """
+    Pack int4 / int2 weights in a unint8 tensor
+
+    What packing means? Assume we have 4 values that are in 2bit but encoded in 8bit
+    (because torch does not have native support for 2-bit datatypes)
+
+    > 0000 0011 | 0000 0010 | 0000 0001 | 0000 0000
+
+    We can pack them in a single 8-bit uint value
+
+    > 1110 0100
+
+    Therefore instead of saving 4 values in 8-bit precision we save a single value of 8-bit precision saving 24 bits in total.
+
+    Args:
+        intweights (`torch.Tensor`):
+            The un-packed tensor in `torch.int8` precision
+        bitsdtype (`quanto.qbitsdtype`):
+            The desired `bitsdtype` - can be `quanto.int2`, `quanto.int4`
+    """
+    bits = bitsdtype.bits
+    intweights = intweights.contiguous()
+    # TODO: write a C++ version of this? It seems for autogptq & autoawq they all do it
+    # in pure python
+    # We need to first cast into uint32 in numpy then cast it back to torch int32.
+    i = 0
+    row = 0
+
+    original_shape = intweights.shape
+    row_dim = (original_shape[0] * bits) // 8
+
+    if len(original_shape) == 1:
+        packed_tensor_shape = (row_dim,)
+    else:
+        packed_tensor_shape = (row_dim, *original_shape[1:])
+
+    qweight = torch.zeros(packed_tensor_shape, device=intweights.device, dtype=torch.uint8)
+
+    # Inspired from: https://github.com/PanQiWei/AutoGPTQ/blob/d2662b18bb91e1864b29e4e05862712382b8a076/auto_gptq/nn_modules/qlinear/qlinear_cuda_old.py#L132
+    while row < qweight.shape[0]:
+        for j in range(i, i + (8 // bits)):
+            qweight[row] |= intweights[j] << (bits * (j - i))
+        i += 8 // bits
+        row += 1
+
+    qweight.itype = bitsdtype
+
+    return qweight
+
+
+def unpack_weights(uint8weights: torch.Tensor, bitsdtype: qbitsdtype) -> torch.Tensor:
+    """
+    Un-Pack int4 / int2 weights (packed in a uint8) into a torch.int8 tensor
+    What un-packing means? Assume we have packed 4 2-bit values in 8-bit
+    (because torch does not have native support for 2-bit datatypes)
+
+    > 1110 0100
+
+    Unpacking them means retrieving the original 4 2-bit values:
+
+    > 0000 0011 | 0000 0010 | 0000 0001 | 0000 0000
+
+    Args:
+        uint8weights (`torch.Tensor`):
+            The packed tensor in `torch.uint8` precision
+        bitsdtype (`quanto.qbitsdtype`):
+            The desired `bitsdtype` - can be `quanto.int2`, `quanto.int4`
+    """
+    bits = bitsdtype.bits
+
+    num_values = uint8weights.shape[0] * 8 // bits
+    unpacked_shape = (num_values,)
+
+    if len(uint8weights.shape) > 1:
+        unpacked_shape += uint8weights.shape[1:]
+
+    weights = torch.zeros(unpacked_shape, dtype=torch.int8, device=uint8weights.device)
+    row = 0
+    j = 0
+
+    # Mask out the first bits//2 bits
+    mask = bits**2 - 1
+
+    while row < uint8weights.shape[0]:
+        for i in range(0, 8 // bits):
+            weights[j] = uint8weights[row] >> (bits * i)
+            j += 1
+        row += 1
+
+    # Mask out the first bits // 2 bits
+    weights &= mask
+    return weights
+
+
 def absmax_scale(
     base: torch.Tensor, itype: torch.Tensor.dtype = torch.int8, axis: Optional[int] = None
 ) -> torch.Tensor:
@@ -233,7 +328,7 @@ class AffineQuantizer(Function):
     """A standard affine quantizer."""
 
     @staticmethod
-    def forward(ctx, base, itype, axis=None):
+    def forward(ctx, base, itype, axis=None, pack=False):
         assert isinstance(itype, qbitsdtype)
         bits = itype.bits
         if axis is None:
@@ -248,19 +343,28 @@ class AffineQuantizer(Function):
         scale = (rmax - rmin) / (qmax - qmin)
         zeropoint = torch.round(-rmin / scale).to(torch.int8)
         data = torch.clamp(torch.round((base - rmin) / scale), min=0, max=2**bits - 1).to(torch.int8)
+
+        if pack and data.dtype == torch.int8:
+            data = pack_weights(data, itype)
+
         data.itype = itype
+
         return QBitsTensor(data, scale, zeropoint)
 
     @staticmethod
     def backward(ctx, gO):
         # For autograd, quantization is a no-op
-        return gO, None, None
+        return gO, None, None, None
 
 
 class QBitsToQTensor(Function):
     @staticmethod
     def forward(ctx, t):
-        int8_data = t._data.to(torch.int8) - t._zeropoint.to(torch.int8)
+        if t.packed:
+            unpacked_data = unpack_weights(t._data, t.itype)
+        else:
+            unpacked_data = t._data
+        int8_data = unpacked_data.to(torch.int8) - t._zeropoint.to(torch.int8)
         return QTensor(int8_data, t._scale)
 
     @staticmethod
@@ -280,6 +384,7 @@ class QBitsTensor(QTensor):
     def __init__(self, data, scale, zeropoint, requires_grad=False):
         super().__init__(data, scale, requires_grad=requires_grad)
         self._zeropoint = zeropoint
+        self.packed = data.dtype == torch.uint8
 
     def __repr__(self):
         autograd_info = (
@@ -288,9 +393,9 @@ class QBitsTensor(QTensor):
         return f"QBitsTensor({self._data}, scale={self._scale}, zeropoint={self._zeropoint}, dtype={self.dtype}{autograd_info})"
 
     @classmethod
-    def quantize(cls, base, itype=int4, axis=None):
+    def quantize(cls, base, itype=int4, axis=None, pack=True):
         """Differentiable quantization function"""
-        return AffineQuantizer.apply(base, itype, axis)
+        return AffineQuantizer.apply(base, itype, axis, pack)
 
     def qtensor(self):
         return QBitsToQTensor.apply(self)
