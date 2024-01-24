@@ -15,5 +15,6 @@ cpu_lib = load(name="quanto_cpu", sources=[f"{module_path}/unpack.cpp"], extra_c
 
 
 @impl(quanto_ops, "unpack", "CPU")
+@impl(quanto_ops, "unpack", "CUDA")
 def unpack_cpu(t: torch.Tensor, bits: int):
     return cpu_lib.unpack(t, bits)
