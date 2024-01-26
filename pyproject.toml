@@ -23,6 +23,9 @@ dynamic = ['readme', 'version']
 [project.urls]
 homepage = 'https://github.com/huggingface/quanto'
 
+[project.optional-dependencies]
+dev = ['pytest', 'ruff', 'black']
+
 [tool.setuptools.dynamic]
 version = {attr = "quanto.__version__"}
 
