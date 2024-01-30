@@ -10,10 +10,18 @@ from ..ops import quanto_ops
 __all__ = []
 
 
-module_path = os.path.dirname(__file__)
-mps_lib = load(name="quanto_mps", sources=[f"{module_path}/unpack.mm"], extra_cflags=["-std=c++17"])
+_backend = None
+
+
+def backend():
+    """Helper to load the MPS backend only when it is required"""
+    global _backend
+    if _backend is None:
+        module_path = os.path.dirname(__file__)
+        _backend = load(name="quanto_mps", sources=[f"{module_path}/unpack.mm"], extra_cflags=["-std=c++17"])
+    return _backend
 
 
 @impl(quanto_ops, "unpack", "MPS")
 def unpack_mps(t: torch.Tensor, bits: int):
-    return mps_lib.unpack(t, bits)
+    return backend().unpack(t, bits)
