@@ -95,7 +95,9 @@ def main():
         get_bench_functions = GET_BENCH_FUNCTIONS[kernel]
         torch_ms, kernel_ms = timing(get_bench_functions, device, iterations=args.it)
         ratio = torch_ms / kernel_ms
-        print(f"\n{kernel}[{device.type}]: torch = {torch_ms:.3f} ms, kernel = {kernel_ms:.3f} ms, ratio = {ratio:.1f}x")
+        print(
+            f"\n{kernel}[{device.type}]: torch = {torch_ms:.3f} ms, kernel = {kernel_ms:.3f} ms, ratio = {ratio:.1f}x"
+        )
 
 
 if __name__ == "__main__":
