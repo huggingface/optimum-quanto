@@ -53,4 +53,5 @@ def define(name, schema):
         return getattr(torch.ops.quanto_py, name)(*args, **kwargs)
 
 
+define("quantize_symmetric", "(Tensor self, Tensor scale, ScalarType dtype) -> Tensor")
 define("unpack", "(Tensor self, int bits) -> Tensor")
