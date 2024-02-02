@@ -18,7 +18,14 @@ def backend():
     global _backend
     if _backend is None:
         module_path = os.path.dirname(__file__)
-        _backend = load(name="quanto_cpu", sources=[f"{module_path}/unpack.cpp"], extra_cflags=["-O3"])
+        _backend = load(
+            name="quanto_cpu",
+            sources=[
+                f"{module_path}/unpack.cpp",
+                f"{module_path}/pybind_module.cpp",
+            ],
+            extra_cflags=["-O3"],
+        )
     return _backend
 
 

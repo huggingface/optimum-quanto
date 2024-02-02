@@ -1,3 +1,4 @@
+#include "unpack.h"
 #include <torch/extension.h>
 
 #import <Foundation/Foundation.h>
@@ -92,7 +93,7 @@ torch::Tensor& mask_and_shift(const torch::Tensor& input, torch::Tensor& output,
     return output;
 }
 
-torch::Tensor unpack_bytes_4bit(const torch::Tensor &input) {
+torch::Tensor unpack_4bit(const torch::Tensor &input) {
 
     torch::Tensor output = torch::empty_like(input);
     mask_and_shift(input, output, 0x0F, 0);
@@ -101,7 +102,7 @@ torch::Tensor unpack_bytes_4bit(const torch::Tensor &input) {
     return torch::cat({output, output1}, 0);
 }
 
-torch::Tensor unpack_bytes_2bit(const torch::Tensor &input) {
+torch::Tensor unpack_2bit(const torch::Tensor &input) {
 
     torch::Tensor output = torch::empty_like(input);
     mask_and_shift(input, output, 0x03, 0);
@@ -115,7 +116,7 @@ torch::Tensor unpack_bytes_2bit(const torch::Tensor &input) {
 }
 
 // C++ op dispatching the Metal unpack operation.
-torch::Tensor unpack_bytes(const torch::Tensor &input, int bits) {
+torch::Tensor unpack(const torch::Tensor &input, int bits) {
     // Check whether the input tensor resides on the MPS device and whether it's contiguous.
     TORCH_CHECK(input.device().is_mps(), "input must be a MPS tensor");
     TORCH_CHECK(input.is_contiguous(), "input must be contiguous");
@@ -125,15 +126,10 @@ torch::Tensor unpack_bytes(const torch::Tensor &input, int bits) {
 
     switch(bits) {
       case 4:
-        return unpack_bytes_4bit(input);
+        return unpack_4bit(input);
       case 2:
-        return unpack_bytes_2bit(input);
+        return unpack_2bit(input);
       default:
         throw std::invalid_argument("Can only unpack 2-bit or 4-bit tensors.");
     }
-}
-
-// Create Python bindings for the Objective-C++ code.
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("unpack", &unpack_bytes, "unpack");
 }
