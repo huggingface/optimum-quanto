@@ -1,6 +1,6 @@
 import torch
 
-from .cpu import *
+from .cpp import *
 from .ops import *
 
 
