@@ -8,22 +8,22 @@ from torch.utils.cpp_extension import load
 __all__ = []
 
 
-_backend = None
+_ext = None
 
 
-def backend():
-    """Helper to load the MPS backend only when it is required"""
-    global _backend
-    if _backend is None:
+def ext():
+    """Helper to load the MPS extension only when it is required"""
+    global _ext
+    if _ext is None:
         module_path = os.path.dirname(__file__)
-        _backend = load(
+        _ext = load(
             name="quanto_mps",
             sources=[f"{module_path}/unpack.mm", f"{module_path}/pybind_module.cpp"],
             extra_cflags=["-std=c++17"],
         )
-    return _backend
+    return _ext
 
 
-@impl("quanto::unpack", "MPS")
+@impl("quanto_ext::unpack", "MPS")
 def unpack_mps(t: torch.Tensor, bits: int):
-    return backend().unpack(t, bits)
+    return ext().unpack(t, bits)

@@ -8,15 +8,15 @@ from torch.utils.cpp_extension import load
 __all__ = []
 
 
-_backend = None
+_ext = None
 
 
-def backend():
-    """Helper to load the CPU backend only when it is required"""
-    global _backend
-    if _backend is None:
+def ext():
+    """Helper to load the CPU ext only when it is required"""
+    global _ext
+    if _ext is None:
         module_path = os.path.dirname(__file__)
-        _backend = load(
+        _ext = load(
             name="quanto_cpp",
             sources=[
                 f"{module_path}/unpack.cpp",
@@ -24,9 +24,9 @@ def backend():
             ],
             extra_cflags=["-O3"],
         )
-    return _backend
+    return _ext
 
 
-@impl("quanto::unpack", ["CPU", "CUDA"])
+@impl("quanto_ext::unpack", ["CPU", "CUDA"])
 def unpack_cpp(t: torch.Tensor, bits: int):
-    return backend().unpack(t, bits)
+    return ext().unpack(t, bits)
