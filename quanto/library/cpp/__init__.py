@@ -4,8 +4,6 @@ import torch
 from torch.library import impl
 from torch.utils.cpp_extension import load
 
-from ..ops import quanto_ops
-
 
 __all__ = []
 
@@ -19,7 +17,7 @@ def backend():
     if _backend is None:
         module_path = os.path.dirname(__file__)
         _backend = load(
-            name="quanto_cpu",
+            name="quanto_cpp",
             sources=[
                 f"{module_path}/unpack.cpp",
                 f"{module_path}/pybind_module.cpp",
@@ -29,7 +27,6 @@ def backend():
     return _backend
 
 
-@impl(quanto_ops, "unpack", "CPU")
-@impl(quanto_ops, "unpack", "CUDA")
-def unpack_cpu(t: torch.Tensor, bits: int):
+@impl("quanto::unpack", ["CPU", "CUDA"])
+def unpack_cpp(t: torch.Tensor, bits: int):
     return backend().unpack(t, bits)
