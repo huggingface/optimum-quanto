@@ -1,7 +1,6 @@
-from torch.library import Library
+from torch.library import define
 
 
 # This file contains the definitions of all operations under torch.ops.quanto
-quanto_ops = Library("quanto", "DEF")
 
-quanto_ops.define("unpack(Tensor self, int bits) -> Tensor")
+define("quanto::unpack", "(Tensor self, int bits) -> Tensor")
