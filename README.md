@@ -131,7 +131,7 @@ quantize(model, weights=torch.int8, activations=torch.int8)
 
 At this stage, only the inference of the model is modified to dynamically quantize the weights.
 
-**2. Calibrate (optional)**
+**2. Calibrate (optional if activations are not quantized)**
 
 Quanto supports a calibration mode that allows to record the activation ranges while passing representative samples through the quantized model.
 

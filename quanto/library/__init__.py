@@ -1,8 +1,3 @@
-import torch
-
-from .cpu import *
+from .ext import *
 from .ops import *
-
-
-if torch.backends.mps.is_available():
-    from .mps import *
+from .python import *
