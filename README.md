@@ -50,17 +50,17 @@ At the heart of quanto is a Tensor subclass that corresponds to:
 
 For floating-point destination types, the mapping is done by the native pytorch cast (i.e. `Tensor.to()`).
 
-For integer destination types, the mapping is a simple rouding opeation (i.e. `torch.round()`).
+For integer destination types, the mapping is a simple rounding operation (i.e. `torch.round()`).
 
 The goal of the projection is to increase the accuracy of the conversion by minimizing the number of:
 - saturated values (i.e. mapped to the destination type min/max),
 - zeroed values (because they are below the smallest number that can be represented by the destination type)
 
-The projection is symmetric (affine), i.e it does not use a zero-point. This makes quantized Tensors
+The projection is symmetric (affine), i.e. it does not use a zero-point. This makes quantized Tensors
 compatible with many operations.
 
-One of the benefit of using a lower-bitwidth representation is that you will be able to take advantage of accelerated operations
-for the destination type, which are typically faster than their higher precision equivalents.
+One of the benefits of using a lower-bitwidth representation is that you will be able to take advantage of accelerated operations
+for the destination type, which is typically faster than their higher precision equivalents.
 
 The current implementation however falls back to `float32` operations for a lot of operations because of a lack of dedicated kernels
 (only `int8` matrix multiplication is available).
@@ -80,7 +80,7 @@ required if the model needs to be tuned.
 Biases are not converted because to preserve the accuracy of a typical `addmm` operation, they must be converted with a
 scale that is equal to the product of the input and weight scales, which leads to a ridiculously small scale, and conversely
 requires a very high bitwidth to avoid clipping. Typically, with `int8` inputs and weights, biases would need to be quantized
-with at least `12` bits, i.e in `int16`. Since most biases ar today `float16`, this is a waste of time.
+with at least `12` bits, i.e. in `int16`. Since most biases are today `float16`, this is a waste of time.
 
 Activations are dynamically quantized using static scales (defaults to the range `[-1, 1]`). The model needs to be calibrated to evaluate the best activation scales (using a momentum).
 
@@ -110,7 +110,7 @@ The disk space and on-device memory to store weights is:
 
 Quanto is available as a pip package.
 
-```
+```sh
 pip install quanto
 ```
 
@@ -119,7 +119,7 @@ pip install quanto
 Quanto does not make a clear distinction between dynamic and static quantization: models are always dynamically quantized,
 but their weights can later be "frozen" to integer values.
 
-A typical quantization workflow would consist in the following steps:
+A typical quantization workflow would consist of the following steps:
 
 **1. Quantize**
 
@@ -172,7 +172,7 @@ Please refer to the [examples](https://github.com/huggingface/quanto/tree/main/e
 
 Activations are always quantized per-tensor because most linear algebra operations in a model graph are not compatible with per-axis inputs: you simply cannot add numbers that are not expressed in the same base (`you cannot add apples and oranges`).
 
-Weights involved in matrix multiplications are, in the contrary, always quantized along their first axis, because all output features are evaluated independently from one another.
+Weights involved in matrix multiplications are, on the contrary, always quantized along their first axis, because all output features are evaluated independently from one another.
 
 The outputs of a quantized matrix multiplication will anyway always be dequantized, even if activations are quantized, because:
 
