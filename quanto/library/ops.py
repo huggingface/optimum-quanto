@@ -38,17 +38,18 @@ def define(name, schema):
     for libname in ["quanto", "quanto_py", "quanto_ext"]:
         torch.library.define(f"{libname}::{name}", schema)
 
-    # Provide the inplementation for all dispatch key in the main library
+    # Provide the inplementation for all dispatch keys in the main library
     @torch.library.impl(f"quanto::{name}", "default")
     def impl(*args, **kwargs):
         if _ext_enabled:
             try:
                 return getattr(torch.ops.quanto_ext, name)(*args, **kwargs)
             except Exception as e:
-                warnings.warn(
-                    f"A {type(e)} exception occured while calling the optimized kernel for quanto::{name}."
-                    "Falling back to default implementation."
-                )
+                if isinstance(e, NotImplementedError):
+                    message = f"No optimized kernel found for quanto::{name}."
+                else:
+                    message = f"An exception was raised while calling the optimized kernel for quanto::{name}: {e}"
+                warnings.warn(message + " Falling back to default implementation.")
         return getattr(torch.ops.quanto_py, name)(*args, **kwargs)
 
 
