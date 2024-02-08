@@ -38,7 +38,7 @@ def define(name, schema):
         torch.library.define(f"{libname}::{name}", schema)
 
     # Provide the inplementation for all dispatch key in the main library
-    @torch.library.impl("quanto::unpack", "default")
+    @torch.library.impl(f"quanto::{name}", "default")
     def impl(*args, **kwargs):
         if _ext_enabled:
             return getattr(torch.ops.quanto_ext, name)(*args, **kwargs)
