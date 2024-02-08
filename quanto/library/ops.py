@@ -1,3 +1,4 @@
+import warnings
 from contextlib import contextmanager
 
 import torch
@@ -41,7 +42,13 @@ def define(name, schema):
     @torch.library.impl(f"quanto::{name}", "default")
     def impl(*args, **kwargs):
         if _ext_enabled:
-            return getattr(torch.ops.quanto_ext, name)(*args, **kwargs)
+            try:
+                return getattr(torch.ops.quanto_ext, name)(*args, **kwargs)
+            except Exception as e:
+                warnings.warn(
+                    f"A {type(e)} exception occured while calling the optimized kernel for quanto::{name}."
+                    "Falling back to default implementation."
+                )
         return getattr(torch.ops.quanto_py, name)(*args, **kwargs)
 
 
