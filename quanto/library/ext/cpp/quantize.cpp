@@ -12,7 +12,7 @@ torch::Tensor quantize_symmetric_per_tensor(const torch::Tensor& input, const to
     float inv_scale = float_scale == 0 ? 1.0f : 1.0f / float_scale;
     for (const auto i : c10::irange(numel)) {
         int64_t qvalue = lrintf(std::nearbyint(data[i] * inv_scale));
-        qvalue = std::max(-127LL, std::min(qvalue, 127LL));
+        qvalue = std::max<int64_t>(-127LL, std::min<int64_t>(qvalue, 127LL));
         qdata[i] = static_cast<int8_t>(qvalue);
     }
     return output;
