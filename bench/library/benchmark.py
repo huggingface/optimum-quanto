@@ -9,6 +9,17 @@ from tqdm.auto import tqdm
 from quanto.library import disable_extensions
 
 
+def get_quantize_symmetric_bench(src_dtype, dst_dtype, per_axis, device):
+    a = torch.rand([10240, 10240], dtype=src_dtype).to(device)
+    scale = torch.fill((10240,), 0.5) if per_axis else torch.tensor(0.5)
+    scale = scale.to(src_dtype).to(device)
+
+    def bench_fn():
+        return torch.ops.quanto.quantize_symmetric(a, scale, dst_dtype)
+
+    return bench_fn
+
+
 def get_unpack_bench(bits, device):
     qmax = 2**bits
     a = torch.randint(0, qmax, [10240, 10240], dtype=torch.uint8).to(device)
@@ -69,6 +80,9 @@ def timing(get_bench_func, device, iterations=10):
 
 
 GET_BENCH_FUNCTIONS = {
+    "quantize_symmetric_fp32_int8_per_tensor": lambda device: get_quantize_symmetric_bench(
+        torch.float32, torch.int8, False, device
+    ),
     "unpack_2bit": lambda device: get_unpack_bench(2, device),
     "unpack_4bit": lambda device: get_unpack_bench(4, device),
 }
@@ -89,7 +103,7 @@ def main():
             device = torch.device("cpu")
     else:
         device = torch.device(args.device)
-    all_kernels = ["unpack_2bit", "unpack_4bit"]
+    all_kernels = GET_BENCH_FUNCTIONS.keys()
     kernels = all_kernels if args.kernel is None else [args.kernel]
     for kernel in kernels:
         get_bench_fn = GET_BENCH_FUNCTIONS[kernel]
