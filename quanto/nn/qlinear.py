@@ -24,6 +24,7 @@ class QLinear(QModuleMixin, torch.nn.Linear):
             dtype=module.weight.dtype,
             weights=weights,
             activations=activations,
+            device=module.weight.device,
         )
         with torch.no_grad():
             qmodule.weight.copy_(module.weight)
