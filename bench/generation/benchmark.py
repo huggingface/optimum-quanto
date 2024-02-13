@@ -173,8 +173,9 @@ def main():
                 # Very simple calibration to avoid completely off results
                 with Calibration():
                     generate(model, tokenizer, device, prompt=CALIBRATION_PROMPT)
+            print("Freezing")
             freeze(model)
-            print(f"Finished: {time.time()-start}")
+            print(f"Finished: {time.time()-start:.2f}")
 
     memory = get_device_memory(device)
     if memory is not None:
