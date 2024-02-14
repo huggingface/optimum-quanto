@@ -14,7 +14,7 @@ The operations are defined in `library/ops.py`.
 
 To provide an implementation for specific device types, use the following syntax:
 
-```
+```python
 @torch.library.impl("quanto_ext::unpack", ["CPU", "CUDA"])
 def unpack(packed: torch.Tensor, bits: int) -> torch.Tensor:
     return ext().unpack(t, bits)

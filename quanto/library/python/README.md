@@ -8,7 +8,7 @@ The operations are defined in `library/ops.py`.
 
 To provide an implementation for an operation, use the following syntax:
 
-```
+```python
 @torch.library.impl("quanto_py::unpack", "default")
 def unpack(packed: torch.Tensor, bits: int) -> torch.Tensor:
     ...
