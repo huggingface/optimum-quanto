@@ -27,10 +27,10 @@ def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, act
     assert_similar(out, qout, atol=atol)
 
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
-@pytest.mark.parametrize("weights", [qint4, torch.int8], ids=["w-int4", "w-int8"])
+@pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-int4", "w-int8"])
 @pytest.mark.parametrize(
     "activations",
-    [None, torch.float8_e5m2, torch.float8_e4m3fn],
+    [None, qfloat8_e5m2, qfloat8_e4m3fn],
     ids=["None","a-float8-e5m2", "a-float8-e4m3"],
 )
 def test_move_qlinear(use_bias ,weights, activations, device):
