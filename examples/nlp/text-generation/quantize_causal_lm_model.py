@@ -5,7 +5,7 @@ import torch
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from quanto import Calibration, freeze, quantize
+from quanto import Calibration, freeze, qfloat8_e4m3fn, qfloat8_e5m2, qint8, quantize
 
 
 @torch.no_grad()
@@ -51,7 +51,7 @@ def evaluate_model(model, tokenizer, dataset, device, batch_size, samples=None, 
 
 
 def keyword_to_itype(k):
-    return {"none": None, "int8": torch.int8, "fp8_e5m2": torch.float8_e5m2, "fp8_e4m3": torch.float8_e4m3fn}[k]
+    return {"none": None, "int8": qint8, "fp8_e5m2": qfloat8_e5m2, "fp8_e4m3": qfloat8_e4m3fn}[k]
 
 
 def main():

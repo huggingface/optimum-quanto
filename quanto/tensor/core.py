@@ -1,25 +1,13 @@
-from dataclasses import dataclass
 from typing import Optional
 
 import torch
 from torch.autograd import Function
 from torch.utils import _pytree as pytree
 
-
-__all__ = ["absmax_scale", "int2", "int4", "qbitsdtype", "qfallback", "dtype_info", "QBitsTensor", "QTensor"]
-
-
-@dataclass
-class qbitsdtype:
-    """A dtype class mimicking torch dtype"""
-
-    is_complex: bool
-    is_floating_point: bool
-    bits: int
+from .qtype import qint2, qint4, qint8, qtype
 
 
-int2 = qbitsdtype(is_complex=False, is_floating_point=False, bits=2)
-int4 = qbitsdtype(is_complex=False, is_floating_point=False, bits=4)
+__all__ = ["absmax_scale", "qfallback", "dtype_info", "QBitsTensor", "QTensor"]
 
 
 def dtype_info(dtype):
@@ -36,7 +24,7 @@ def axis_to_dim(t, axis):
     return dim
 
 
-def pack_weights(intweights: torch.Tensor, bitsdtype: qbitsdtype) -> torch.Tensor:
+def pack_weights(intweights: torch.Tensor, qtype: qtype) -> torch.Tensor:
     """
     Pack int4 / int2 weights in a unint8 tensor
 
@@ -54,10 +42,10 @@ def pack_weights(intweights: torch.Tensor, bitsdtype: qbitsdtype) -> torch.Tenso
     Args:
         intweights (`torch.Tensor`):
             The un-packed tensor in `torch.int8` precision
-        bitsdtype (`quanto.qbitsdtype`):
-            The desired `bitsdtype` - can be `quanto.int2`, `quanto.int4`
+        qtype (`quanto.qtype`):
+            The desired `qtype` - can be `quanto.int2`, `quanto.int4`
     """
-    bits = bitsdtype.bits
+    bits = qtype.bits
     original_shape = intweights.shape
     values_per_item = 8 // bits
     if original_shape[0] % values_per_item != 0:
@@ -85,7 +73,7 @@ def pack_weights(intweights: torch.Tensor, bitsdtype: qbitsdtype) -> torch.Tenso
     return packed
 
 
-def unpack_weights(uint8weights: torch.Tensor, bitsdtype: qbitsdtype) -> torch.Tensor:
+def unpack_weights(uint8weights: torch.Tensor, qtype: qtype) -> torch.Tensor:
     """
     Un-Pack int4 / int2 weights (packed in a uint8) into a torch.int8 tensor
     What un-packing means? Assume we have packed 4 2-bit values in 8-bit
@@ -100,10 +88,10 @@ def unpack_weights(uint8weights: torch.Tensor, bitsdtype: qbitsdtype) -> torch.T
     Args:
         uint8weights (`torch.Tensor`):
             The packed tensor in `torch.uint8` precision
-        bitsdtype (`quanto.qbitsdtype`):
-            The desired `bitsdtype` - can be `quanto.int2`, `quanto.int4`
+        qtype (`quanto.qbitsdtype`):
+            The desired `qtype` - can be `quanto.int2`, `quanto.int4`
     """
-    bits = bitsdtype.bits
+    bits = qtype.bits
     unpacked = []
     values_per_item = 8 // bits
 
@@ -121,9 +109,7 @@ def unpack_weights(uint8weights: torch.Tensor, bitsdtype: qbitsdtype) -> torch.T
     return torch.cat(unpacked).to(torch.int8)
 
 
-def absmax_scale(
-    base: torch.Tensor, itype: torch.Tensor.dtype = torch.int8, axis: Optional[int] = None
-) -> torch.Tensor:
+def absmax_scale(base: torch.Tensor, qtype: qtype = qint8, axis: Optional[int] = None) -> torch.Tensor:
     """Evaluate the quantization scale using the absmax algorithm.
 
     The Absolute Maximum quantization algorithm is a symmetrical quantization
@@ -133,7 +119,7 @@ def absmax_scale(
 
     Args:
         base (`torch.Tensor`): the base tensor on which the scale will be applied.
-        itype (`torch.Tensor.dtype`): the target internal dtype for quantization.
+        qtype (`quanto.qtype`): the target qtype for quantization.
         axis (`int`): the index of the axis to preserve, or -1 for the last one.
             Defaults to None to reduce all axis.
 
@@ -146,7 +132,7 @@ def absmax_scale(
     else:
         dim = axis_to_dim(abs_base, axis)
         qranges = torch.amax(torch.abs(base), dim=dim, keepdim=True)
-    info = dtype_info(itype)
+    info = dtype_info(qtype.dtype)
     return qranges / info.max
 
 
@@ -168,10 +154,10 @@ class Quantizer(Function):
     """
 
     @staticmethod
-    def forward(ctx, base, itype: torch.Tensor.dtype = torch.int8, scale=None):
-        info = dtype_info(itype)
+    def forward(ctx, base, qtype: qtype = qint8, scale=None):
+        info = dtype_info(qtype.dtype)
         if scale is None:
-            scale = absmax_scale(base, itype)
+            scale = absmax_scale(base, qtype)
         elif scale.ndim > 0:
             if torch.squeeze(scale).ndim > 1:
                 raise ValueError("Quantizing along multiple axis is not supported")
@@ -180,12 +166,12 @@ class Quantizer(Function):
                     "When quantizing per-axis, the scale must be broadcastable to the base (Tip: try to add missing dims of length zero)."
                 )
         data = base / scale
-        if not itype.is_floating_point:
+        if not qtype.is_floating_point:
             data = torch.round(data)
-        data = torch.clamp(data, min=info.min, max=info.max).to(itype)
+        data = torch.clamp(data, min=info.min, max=info.max).to(qtype.dtype)
         # The instantiation of the quantized tensor must happen within the context of the Function
         # for the autograd magic to work.
-        return QTensor(data, scale)
+        return QTensor(qtype, data, scale)
 
     @staticmethod
     def backward(ctx, gO):
@@ -196,11 +182,11 @@ class Quantizer(Function):
 class Dequantizer(Function):
     @staticmethod
     def forward(ctx, t):
-        if t.itype == torch.int32:
+        if t.qtype == torch.int32:
             # The dequantization operation requires data to be cast to the scale float type before multiplication
             # by the scale, but this might actually overflow for float16/bfloat16
             return (t._scale.to(torch.float32) * t._data).to(t._scale.dtype)
-        elif t.itype.is_floating_point:
+        elif t.qtype.is_floating_point:
             # Upcast explicitly to the scale dtype
             return t._scale * t._data.to(t._scale.dtype)
         return t._scale * t._data
@@ -213,7 +199,7 @@ class Dequantizer(Function):
 
 class QTensor(torch.Tensor):
     @staticmethod
-    def __new__(cls, data, scale, requires_grad=False):
+    def __new__(cls, qtype, data, scale, requires_grad=False):
         assert data.device == scale.device
         # This constructor can ONLY create leaf Tensors wrt autograd.
         # Use QTensor.from_tensor(t) to get a non-leaf Tensor wrt autograd.
@@ -221,7 +207,8 @@ class QTensor(torch.Tensor):
             cls, data.size(), strides=data.stride(), dtype=scale.dtype, device=data.device, requires_grad=requires_grad
         )
 
-    def __init__(self, data, scale, requires_grad=False):
+    def __init__(self, qtype, data, scale, requires_grad=False):
+        self._qtype = qtype
         self._axis = None
         if scale.ndim > 0:
             if torch.squeeze(scale).ndim > 1:
@@ -250,9 +237,9 @@ class QTensor(torch.Tensor):
         return f"QTensor({self._data}, scale={self._scale}, public_dtype={self.dtype}{autograd_info})"
 
     @classmethod
-    def quantize(cls, base, itype=torch.int8, scale=None):
+    def quantize(cls, base, qtype=qint8, scale=None):
         """Differentiable quantization function"""
-        return Quantizer.apply(base, itype, scale)
+        return Quantizer.apply(base, qtype, scale)
 
     def dequantize(self):
         """Differentiable dequantization function"""
@@ -263,8 +250,8 @@ class QTensor(torch.Tensor):
         return self._axis
 
     @property
-    def itype(self):
-        return self._data.dtype
+    def qtype(self):
+        return self._qtype
 
     def __tensor_flatten__(self):
         return ["_data", "_scale"], None
@@ -322,9 +309,9 @@ class AffineQuantizer(Function):
     """A standard affine quantizer."""
 
     @staticmethod
-    def forward(ctx, base, itype, axis=None, pack=False):
-        assert isinstance(itype, qbitsdtype)
-        bits = itype.bits
+    def forward(ctx, base, qtype: qtype, axis=None, pack=False):
+        assert qtype in (qint2, qint4)
+        bits = qtype.bits
         if axis is None:
             rmin = torch.min(base)
             rmax = torch.max(base)
@@ -339,11 +326,9 @@ class AffineQuantizer(Function):
         data = torch.clamp(torch.round((base - rmin) / scale), min=0, max=2**bits - 1).to(torch.int8)
 
         if pack and data.dtype == torch.int8:
-            data = pack_weights(data, itype)
+            data = pack_weights(data, qtype)
 
-        data.itype = itype
-
-        return QBitsTensor(data, scale, zeropoint)
+        return QBitsTensor(qtype, data, scale, zeropoint)
 
     @staticmethod
     def backward(ctx, gO):
@@ -355,11 +340,11 @@ class QBitsToQTensor(Function):
     @staticmethod
     def forward(ctx, t):
         if t.packed:
-            unpacked_data = unpack_weights(t._data, t.itype)
+            unpacked_data = unpack_weights(t._data, t.qtype)
         else:
             unpacked_data = t._data
         int8_data = unpacked_data.to(torch.int8) - t._zeropoint.to(torch.int8)
-        return QTensor(int8_data, t._scale)
+        return QTensor(qint8, int8_data, t._scale)
 
     @staticmethod
     def backward(ctx, gO):
@@ -368,20 +353,20 @@ class QBitsToQTensor(Function):
 
 class QBitsTensor(QTensor):
     @staticmethod
-    def __new__(cls, data, scale, zeropoint, requires_grad=False):
+    def __new__(cls, qtype, data, scale, zeropoint, requires_grad=False):
         assert data.device == scale.device
         assert data.device == zeropoint.device
         packed = data.dtype == torch.uint8
         size = data.size()
         if packed:
             # Fixme: create a PackedIntTensor subclass to store the packed / shape info
-            size = (size[0] * (8 // data.itype.bits), *size[1:])
+            size = (size[0] * (8 // qtype.bits), *size[1:])
         return torch.Tensor._make_wrapper_subclass(
             cls, size, strides=data.stride(), dtype=scale.dtype, device=data.device, requires_grad=requires_grad
         )
 
-    def __init__(self, data, scale, zeropoint, requires_grad=False):
-        super().__init__(data, scale, requires_grad=requires_grad)
+    def __init__(self, qtype, data, scale, zeropoint, requires_grad=False):
+        super().__init__(qtype, data, scale, requires_grad=requires_grad)
         self._zeropoint = zeropoint
         self.packed = data.dtype == torch.uint8
 
@@ -392,9 +377,9 @@ class QBitsTensor(QTensor):
         return f"QBitsTensor({self._data}, scale={self._scale}, zeropoint={self._zeropoint}, dtype={self.dtype}{autograd_info})"
 
     @classmethod
-    def quantize(cls, base, itype=int4, axis=None, pack=True):
+    def quantize(cls, base, qtype=qint4, axis=None, pack=True):
         """Differentiable quantization function"""
-        return AffineQuantizer.apply(base, itype, axis, pack)
+        return AffineQuantizer.apply(base, qtype, axis, pack)
 
     def qtensor(self):
         return QBitsToQTensor.apply(self)
@@ -403,8 +388,8 @@ class QBitsTensor(QTensor):
         return self.qtensor().dequantize()
 
     @property
-    def itype(self):
-        return self._data.itype
+    def qtype(self):
+        return self._qtype
 
     def __tensor_flatten__(self):
         return ["_data", "_scale", "_zeropoint"], None
@@ -421,11 +406,9 @@ class QBitsTensor(QTensor):
         if op.overloadpacket is torch.ops.aten.detach:
             t = args[0]
             data = op(t._data)
-            # Fixme: we should not do this manually, and use a dedicated subclass
-            data.itype = t._data.itype
             scale = op(t._scale)
             zeropoint = op(t._zeropoint)
-            return QBitsTensor(data, scale, zeropoint)
+            return QBitsTensor(t._qtype, data, scale, zeropoint)
         args, kwargs = pytree.tree_map_only(QBitsTensor, lambda x: x.qtensor(), (args, kwargs or {}))
         return op(*args, **kwargs)
 

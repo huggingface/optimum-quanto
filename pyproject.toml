@@ -16,18 +16,21 @@ classifiers = [
 keywords = ['torch', 'quantization']
 requires-python = '>=3.8.0'
 authors = [{ name = 'David Corvoysier', email = 'david@huggingface.co' }]
-dependencies = ['torch>=2.1.1']
+dependencies = ['torch>=2.2.0', 'ninja']
 license = { text = 'Apache-2.0' }
 dynamic = ['readme', 'version']
 
 [project.urls]
 homepage = 'https://github.com/huggingface/quanto'
 
+[project.optional-dependencies]
+dev = ['pytest', 'ruff', 'black']
+
 [tool.setuptools.dynamic]
 version = {attr = "quanto.__version__"}
 
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=61", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
 
 [tool.black]

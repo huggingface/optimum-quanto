@@ -1,2 +1,2 @@
 from .core import *
-from .ops import *
+from .qtype import *

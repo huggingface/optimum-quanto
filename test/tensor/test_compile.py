@@ -13,6 +13,7 @@ def compile_for_device(f, device):
     return torch.compile(f, backend=backend)
 
 
+@pytest.mark.skip("Fails with missing numpy requirement.")
 @torch_min_version("2.2.0")
 @pytest.mark.parametrize("input_shape", [(2, 10), (10, 32, 32)])
 @pytest.mark.parametrize("itype", [torch.int8], ids=["int8"])
@@ -36,6 +37,7 @@ def test_compile_quantize_tensor(input_shape, itype, axis, dtype, device):
     assert qa.axis == expected_axis
 
 
+@pytest.mark.skip("Fails with missing numpy requirement.")
 @torch_min_version("2.2.0")
 @pytest.mark.parametrize("qtensor_input", [True, False], ids=["qtensor-input", "tensor-input"])
 def test_compile_qtensor_to(qtensor_input, device):

@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from quanto import QTensor
+from quanto import QTensor, qint8
 from quanto.nn import QLinear
 
 
@@ -20,12 +20,12 @@ def test_qmodule_freeze(in_features, out_features, use_bias, dtype):
     qweight = qlinear.qweight()
     assert isinstance(qweight, QTensor)
     assert qweight.dtype == dtype
-    assert qweight.itype == torch.int8
+    assert qweight.qtype == qint8
     qlinear.freeze()
     assert qlinear.frozen
     assert isinstance(qlinear.weight, QTensor)
     assert qlinear.weight.dtype == dtype
-    assert qlinear.weight.itype == torch.int8
+    assert qlinear.weight.qtype == qint8
     if use_bias:
         assert not isinstance(qlinear.bias, QTensor)
         assert qlinear.bias.dtype == dtype

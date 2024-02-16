@@ -94,9 +94,9 @@ class QModuleMixin(ABC):
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         def maybe_requantize(t, scale):
-            if t.itype == self.activations and t.axis is None:
+            if t.qtype == self.activations and t.axis is None:
                 return t
-            return QTensor.quantize(t.dequantize(), itype=self.activations, scale=scale)
+            return QTensor.quantize(t.dequantize(), qtype=self.activations, scale=scale)
 
         if self.activations is not None and isinstance(input, QTensor):
             input = maybe_requantize(input, self.input_scale)

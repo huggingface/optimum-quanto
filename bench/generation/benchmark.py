@@ -7,7 +7,7 @@ import torch
 from tqdm.auto import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, GenerationConfig
 
-from quanto import Calibration, freeze, quantize
+from quanto import Calibration, freeze, qint8, quantize
 
 
 CALIBRATION_PROMPT = "It was a bright cold day in April, and the clocks were striking thirteen."
@@ -165,16 +165,17 @@ def main():
         if args.quantization in ("w8a8", "w8a16"):
             print("quantizing")
             start = time.time()
-            weights = torch.int8
-            activations = None if "a16" in args.quantization else torch.int8
+            weights = qint8
+            activations = None if "a16" in args.quantization else qint8
             quantize(model, weights=weights, activations=activations)
             if activations is not None:
                 print("Calibrating")
                 # Very simple calibration to avoid completely off results
                 with Calibration():
                     generate(model, tokenizer, device, prompt=CALIBRATION_PROMPT)
+            print("Freezing")
             freeze(model)
-            print(f"Finished: {time.time()-start}")
+            print(f"Finished: {time.time()-start:.2f}")
 
     memory = get_device_memory(device)
     if memory is not None:

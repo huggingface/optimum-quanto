@@ -1,0 +1,37 @@
+name: Python quality
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "bench/**"
+      - "examples/**"
+      - "quanto/**"
+      - "test/**"
+      - "setup.py"
+  pull_request:
+    types: [assigned, opened, synchronize, reopened]
+    paths:
+      - "bench/**"
+      - "examples/**"
+      - "quanto/**"
+      - "test/**"
+      - "setup.py"
+
+jobs:
+  check_code_quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install .[dev]
+      - run: black --check bench examples quanto test
+      - run: ruff quanto bench examples quanto test

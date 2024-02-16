@@ -2,7 +2,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_qtensor
 
-from quanto import Calibration, QLinear, QTensor, freeze, quantize
+from quanto import Calibration, QLinear, QTensor, freeze, qfloat8_e4m3fn, qfloat8_e5m2, qint8, quantize
 
 
 class MLP(torch.nn.Module):
@@ -48,24 +48,24 @@ def _test_quantize_mlp(weights, activations, frozen, device):
     assert_similar(output, qoutput, atol=1e-2)
 
 
-@pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
+@pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
 def test_quantize_mlp_weights_only(weights, frozen, device):
     _test_quantize_mlp(weights, None, frozen, device)
 
 
-@pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
+@pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
 @pytest.mark.skip_device("mps")
 def test_quantize_mlp_int8_activations(weights, frozen, device):
-    _test_quantize_mlp(weights, torch.int8, frozen, device)
+    _test_quantize_mlp(weights, qint8, frozen, device)
 
 
-@pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
+@pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize(
     "activations",
-    [None, torch.int8, torch.float8_e5m2, torch.float8_e4m3fn],
-    ids=["a-float", "a-int8", "a-float8-e5m2", "a-float8-e4m3"],
+    [None, qint8, qfloat8_e5m2, qfloat8_e4m3fn],
+    ids=["a-float", "a-qint8", "a-qfloat8-e5m2", "a-qfloat8-e4m3"],
 )
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
 @pytest.mark.skip_device("mps")
