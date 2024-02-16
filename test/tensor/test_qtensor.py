@@ -15,6 +15,7 @@ def test_qtensor_move(device):
     assert qa._data.device.type == device.type
     assert qa._scale.device.type == device.type
 
+
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("qtype", [qint8], ids=["qint8"])

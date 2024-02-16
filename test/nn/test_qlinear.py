@@ -26,27 +26,29 @@ def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, act
     atol = {None: dtype_atol, qint8: dtype_atol, qfloat8_e5m2: 5e-3, qfloat8_e4m3fn: 5e-3}[activations]
     assert_similar(out, qout, atol=atol)
 
+
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-int4", "w-int8"])
 @pytest.mark.parametrize(
     "activations",
     [None, qfloat8_e5m2, qfloat8_e4m3fn],
-    ids=["None","a-float8-e5m2", "a-float8-e4m3"],
+    ids=["None", "a-float8-e5m2", "a-float8-e4m3"],
 )
-def test_move_qlinear(use_bias ,weights, activations, device):
+def test_move_qlinear(use_bias, weights, activations, device):
     linear = torch.nn.Linear(32, 32, bias=use_bias)
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
     # QAT optional for weight only quantization
-    qinputs = random_qtensor((1,32, 32))
+    qinputs = random_qtensor((1, 32, 32))
     with torch.no_grad(), Calibration():
         qlinear(qinputs)
     qlinear.freeze()
     qlinear.to(device)
-    if isinstance(qlinear.weight,QTensor):
+    if isinstance(qlinear.weight, QTensor):
         assert qlinear.weight._data.device.type == device.type
         assert qlinear.weight._scale.device.type == device.type
-    if isinstance(qlinear.weight,QBitsTensor):
+    if isinstance(qlinear.weight, QBitsTensor):
         assert qlinear.weight._zeropoint.device.type == device.type
+
 
 @pytest.mark.parametrize("batch_size", [1, 10])
 @pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])

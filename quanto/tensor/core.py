@@ -305,6 +305,7 @@ class QTensor(torch.Tensor):
         self._scale = self._scale.to(*args, **kwargs)
         return self
 
+
 class AffineQuantizer(Function):
     """A standard affine quantizer."""
 
