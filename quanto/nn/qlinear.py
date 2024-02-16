@@ -2,7 +2,7 @@ from typing import Optional
 
 import torch
 
-from ..tensor import QBitsTensor, QTensor, absmax_scale, qbitsdtype
+from ..tensor import QBitsTensor, QTensor, absmax_scale, qint2, qint4, qint8, qtype
 from .qmodule import QModuleMixin, register_qmodule
 
 
@@ -11,12 +11,12 @@ __all__ = ["QLinear"]
 
 @register_qmodule(torch.nn.Linear)
 class QLinear(QModuleMixin, torch.nn.Linear):
-    def __init__(self, *args, weights: torch.dtype = torch.int8, **kwargs):
+    def __init__(self, *args, weights: qtype = qint8, **kwargs):
         super().__init__(*args, **kwargs)
         self.weights = weights
 
     @classmethod
-    def from_module(cls, module, weights=torch.int8, activations: Optional[torch.dtype] = None):
+    def from_module(cls, module, weights=qint8, activations: Optional[qtype] = None):
         qmodule = cls(
             module.in_features,
             module.out_features,
@@ -36,12 +36,12 @@ class QLinear(QModuleMixin, torch.nn.Linear):
         if isinstance(self.weight, QTensor):
             return self.weight
         # Quantize the weights per-axis
-        if isinstance(self.weights, torch.dtype):
+        if self.weights == qint8:
             wscale = absmax_scale(self.weight, axis=0)
-            return QTensor.quantize(self.weight, itype=self.weights, scale=wscale)
-        elif isinstance(self.weights, qbitsdtype):
-            return QBitsTensor.quantize(self.weight, itype=self.weights, axis=0)
-        raise ValueError("Invalid quantized weights type")
+            return QTensor.quantize(self.weight, qtype=self.weights, scale=wscale)
+        elif self.weights in (qint2, qint4):
+            return QBitsTensor.quantize(self.weight, qtype=self.weights, axis=0)
+        raise ValueError(f"Invalid quantized weights type {self.weights}")
 
     def qforward(self, input: torch.Tensor) -> torch.Tensor:
         if self.activations is not None and not isinstance(input, QTensor):

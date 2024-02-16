@@ -4,32 +4,37 @@ import pytest
 import torch
 from helpers import random_qtensor, random_tensor
 
-from quanto import Calibration, QTensor, absmax_scale, freeze, quantize
+from quanto import Calibration, QTensor, absmax_scale, freeze, qfloat8, qint8, quantize
 from quanto.nn import QLinear, QModuleMixin
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (2, 10), (10, 32, 32)])
-@pytest.mark.parametrize("itype", [torch.int8], ids=["int8"])
+@pytest.mark.parametrize("qtype", [qint8, qfloat8], ids=["qint8", "qfloat8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("axis", [None, 0, -1], ids=["per-tensor", "first-axis", "last-axis"])
-def test_quantized_tensor_serialization(input_shape, itype, dtype, axis):
+def test_quantized_tensor_serialization(input_shape, qtype, dtype, axis):
     inputs = random_tensor(input_shape, dtype=dtype)
-    scale = absmax_scale(inputs, itype, axis)
-    qinputs = QTensor.quantize(inputs, itype, scale)
+    scale = absmax_scale(inputs, qtype, axis)
+    qinputs = QTensor.quantize(inputs, qtype, scale)
     b = io.BytesIO()
     torch.save(qinputs, b)
     b.seek(0)
     qinputs_reloaded = torch.load(b)
-    assert torch.equal(qinputs_reloaded._data, qinputs._data)
+    assert qinputs_reloaded.qtype == qtype
     assert torch.equal(qinputs_reloaded._scale, qinputs._scale)
-    # We cannot test dtype directly, as it is not set correctly by torch.load
+    if qtype.is_floating_point:
+        # Equality is not supported for float8
+        assert torch.equal(qinputs_reloaded._data.to(torch.float32), qinputs._data.to(torch.float32))
+    else:
+        assert torch.equal(qinputs_reloaded._data, qinputs._data)
+    # We cannot test dtype directly as it is not correctly set by torch.load
     assert qinputs_reloaded._scale.dtype == dtype
     assert qinputs_reloaded.axis == qinputs.axis
 
 
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
-@pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
-@pytest.mark.parametrize("activations", [None, torch.int8], ids=["a-float", "a-int8"])
+@pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
+@pytest.mark.parametrize("activations", [None, qint8], ids=["a-float", "a-qint8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 def test_qlinear_serialization(use_bias, activations, weights, dtype, device):
     if dtype == torch.float16 and device.type == "cpu":
@@ -51,6 +56,7 @@ def test_qlinear_serialization(use_bias, activations, weights, dtype, device):
     qlinear_reloaded.load_state_dict(state_dict, assign=True)
     w = qlinear.weight
     w_reloaded = qlinear_reloaded.weight
+    assert w.qtype == w_reloaded.qtype
     assert torch.equal(w._data, w_reloaded._data)
     assert torch.equal(w._scale, w_reloaded._scale)
     assert w_reloaded.dtype == dtype
@@ -75,7 +81,7 @@ class MLP(torch.nn.Module):
         return torch.nn.functional.softmax(self.output_layer(x), dim=-1)
 
 
-@pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
+@pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 def test_serialize_quantized_mlp(weights, dtype, device):
     if dtype == torch.float16 and device.type == "cpu":
