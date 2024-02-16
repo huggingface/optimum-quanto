@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torchvision import datasets, transforms
 from transformers import AutoModel
 
-from quanto import Calibration, QTensor, freeze, int4, quantize
+from quanto import Calibration, QTensor, freeze, qint4, qint8, quantize
 
 
 def test(model, device, test_loader):
@@ -60,7 +60,7 @@ def train(log_interval, model, device, train_loader, optimizer, epoch):
 
 
 def keyword_to_itype(k):
-    return {"none": None, "int4": int4, "int8": torch.int8}[k]
+    return {"none": None, "int4": qint4, "int8": qint8}[k]
 
 
 def main():

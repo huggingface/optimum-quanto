@@ -8,7 +8,7 @@ from datasets import load_dataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
 from transformers.pipelines.pt_utils import KeyDataset
 
-from quanto import Calibration, freeze, quantize
+from quanto import Calibration, freeze, qint8, quantize
 
 
 def evaluate_model(model, tokenizer, dataset, device, batch_size):
@@ -22,7 +22,7 @@ def evaluate_model(model, tokenizer, dataset, device, batch_size):
 
 
 def keyword_to_itype(k):
-    return {"none": None, "int8": torch.int8}[k]
+    return {"none": None, "int8": qint8}[k]
 
 
 def main():

@@ -5,44 +5,44 @@ import pytest
 import torch
 from helpers import assert_similar, device_eq, q_assert_close, random_qtensor, random_tensor
 
-from quanto import QTensor, absmax_scale
+from quanto import QTensor, absmax_scale, qfloat8_e4m3fn, qfloat8_e5m2, qint8, qint16, qint32
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
-@pytest.mark.parametrize("itype", [torch.int8], ids=["int8"])
-def test_quantize_integer(input_shape, dtype, itype, device):
+@pytest.mark.parametrize("qtype", [qint8], ids=["qint8"])
+def test_quantize_integer(input_shape, dtype, qtype, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
-    qa = QTensor.quantize(a, itype)
+    qa = QTensor.quantize(a, qtype)
     assert isinstance(qa, QTensor)
     assert qa.dtype == dtype
-    assert qa.itype == itype
+    assert qa.qtype == qtype
     assert device_eq(qa.device, device)
     q_assert_close(a, qa)
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
-@pytest.mark.parametrize("itype", [torch.float8_e5m2, torch.float8_e4m3fn], ids=["float8_e5m2", "float8_e4m3"])
+@pytest.mark.parametrize("qtype", [qfloat8_e5m2, qfloat8_e4m3fn], ids=["qfloat8_e5m2", "qfloat8_e4m3"])
 @pytest.mark.skip_device("mps")
-def test_quantize_float8(input_shape, dtype, itype, device):
+def test_quantize_float8(input_shape, dtype, qtype, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
-    qa = QTensor.quantize(a, itype)
+    qa = QTensor.quantize(a, qtype)
     assert isinstance(qa, QTensor)
     assert qa.dtype == dtype
-    assert qa.itype == itype
+    assert qa.qtype == qtype
     assert device_eq(qa.device, device)
     assert_similar(a, qa, atol=5e-3)
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (2, 10), (10, 32, 32)])
-@pytest.mark.parametrize("itype", [torch.int8], ids=["int8"])
+@pytest.mark.parametrize("qtype", [qint8], ids=["qint8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("axis", [None, 0, -1], ids=["per-tensor", "first-axis", "last-axis"])
-def test_quantize_scale(input_shape, axis, dtype, itype, device):
+def test_quantize_scale(input_shape, axis, dtype, qtype, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
-    scale = absmax_scale(a, itype, axis)
-    qa = QTensor.quantize(a, itype, scale)
+    scale = absmax_scale(a, qtype, axis)
+    qa = QTensor.quantize(a, qtype, scale)
     if axis is not None:
         if a.ndim == 1:
             # Quantization is actually per-tensor since the input tensor is a vector
@@ -53,7 +53,7 @@ def test_quantize_scale(input_shape, axis, dtype, itype, device):
         else:
             assert qa.axis == axis
     assert isinstance(qa, QTensor)
-    assert qa.itype == itype
+    assert qa.qtype == qtype
     assert qa._scale.dtype == dtype
     assert device_eq(qa.device, device)
     q_assert_close(a, qa)
@@ -61,14 +61,14 @@ def test_quantize_scale(input_shape, axis, dtype, itype, device):
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
-@pytest.mark.parametrize("itype", [torch.int8, torch.int16, torch.int32], ids=["int8", "int16", "int32"])
-def test_instantiate(input_shape, dtype, itype, device):
-    max_value = min(1024, torch.iinfo(itype).max)
-    data = torch.randint(-max_value, max_value, input_shape, dtype=itype)
-    qa = QTensor(data, scale=torch.tensor(1.0 / max_value, dtype=dtype)).to(device)
+@pytest.mark.parametrize("qtype", [qint8, qint16, qint32], ids=["qint8", "qint16", "qint32"])
+def test_instantiate(input_shape, dtype, qtype, device):
+    max_value = min(1024, torch.iinfo(qtype.dtype).max)
+    data = torch.randint(-max_value, max_value, input_shape, dtype=qtype.dtype)
+    qa = QTensor(qtype, data, scale=torch.tensor(1.0 / max_value, dtype=dtype)).to(device)
     assert torch.max(torch.abs(qa.dequantize())) <= 1
     assert qa.dtype == dtype
-    assert qa.itype == itype
+    assert qa.qtype == qtype
 
 
 def test_quantized_tensor_serialization():

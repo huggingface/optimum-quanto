@@ -2,7 +2,7 @@ import pytest
 import torch
 from helpers import q_assert_close, random_qtensor, random_tensor
 
-from quanto import QTensor
+from quanto import QTensor, qint16
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
@@ -19,7 +19,7 @@ def test_linear(batch_size, tokens, embeddings, use_bias, dtype, weight_axis, de
         bias = random_tensor((embeddings,), dtype=dtype).to(device)
         # Bias must be quantized to int16 with the same scale as the product of the two int8
         prod_scale = torch.squeeze(qinputs._scale * qweight._scale)
-        qbias = QTensor.quantize(bias, torch.int16, prod_scale)
+        qbias = QTensor.quantize(bias, qint16, prod_scale)
     else:
         qbias = None
     out = torch.nn.functional.linear(

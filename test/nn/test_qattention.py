@@ -7,7 +7,7 @@ import torch.utils.checkpoint
 from helpers import assert_similar, random_tensor
 from torch import nn
 
-from quanto import Calibration, quantize
+from quanto import Calibration, qfloat8_e4m3fn, qfloat8_e5m2, qint8, quantize
 
 
 class RotaryEmbedding(nn.Module):
@@ -157,7 +157,7 @@ class Attention(nn.Module):
         return self.o_proj(attn_output)
 
 
-def _test_quantize_attention(device, dtype=torch.float32, weights=torch.int8, activations=None):
+def _test_quantize_attention(device, dtype=torch.float32, weights=qint8, activations=None):
     att = Attention().to(dtype).to(device)
     batch_size = 10
     seq_len = 64
@@ -172,24 +172,24 @@ def _test_quantize_attention(device, dtype=torch.float32, weights=torch.int8, ac
     else:
         with torch.no_grad(), Calibration():
             qoutputs = att(inputs)
-    atol = {None: 1e-4, torch.int8: 1e-3, torch.float8_e5m2: 1e-2, torch.float8_e4m3fn: 1e-2}[activations]
+    atol = {None: 1e-4, qint8: 1e-3, qfloat8_e5m2: 1e-2, qfloat8_e4m3fn: 1e-2}[activations]
     assert_similar(outputs, qoutputs, atol=atol)
 
 
-@pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
+@pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 def test_quantize_attention_weights_only(weights, device):
     _test_quantize_attention(device, weights=weights)
 
 
-@pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
+@pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 def test_quantize_attention_activations_int8(weights, device):
-    _test_quantize_attention(device, weights=weights, activations=torch.int8)
+    _test_quantize_attention(device, weights=weights, activations=qint8)
 
 
-@pytest.mark.parametrize("weights", [torch.int8], ids=["w-int8"])
+@pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize(
     "activations",
-    [torch.float8_e5m2, torch.float8_e4m3fn],
+    [qfloat8_e5m2, qfloat8_e4m3fn],
     ids=["a-float8-e5m2", "a-float8-e4m3"],
 )
 @pytest.mark.skip_device("mps")
