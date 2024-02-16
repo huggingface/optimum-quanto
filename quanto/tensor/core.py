@@ -313,6 +313,10 @@ class QTensor(torch.Tensor):
     def numpy(self):
         return self.dequantize().cpu().numpy()
 
+    def to(self, *args, **kwargs):
+        self._data = self._data.to(*args, **kwargs)
+        self._scale = self._scale.to(*args, **kwargs)
+        return self
 
 class AffineQuantizer(Function):
     """A standard affine quantizer."""
@@ -424,3 +428,7 @@ class QBitsTensor(QTensor):
             return QBitsTensor(data, scale, zeropoint)
         args, kwargs = pytree.tree_map_only(QBitsTensor, lambda x: x.qtensor(), (args, kwargs or {}))
         return op(*args, **kwargs)
+
+    def to(self, *args, **kwargs):
+        self._zeropoint = self._zeropoint.to(*args, **kwargs)
+        return super().to(*args, **kwargs)

@@ -8,6 +8,13 @@ from helpers import assert_similar, device_eq, q_assert_close, random_qtensor, r
 from quanto import QTensor, absmax_scale
 
 
+def test_qtensor_move(device):
+    input_shape = (2, 4, 8)
+    qa = random_qtensor(input_shape, dtype=torch.float32)
+    qa = qa.to(device)
+    assert qa._data.device.type == device.type
+    assert qa._scale.device.type == device.type
+
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("itype", [torch.int8], ids=["int8"])
