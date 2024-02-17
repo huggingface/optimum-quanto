@@ -33,6 +33,8 @@ int get_scale_axis(const torch::Tensor& scale) {
 
 torch::Tensor quantize_symmetric_char(const torch::Tensor& input,
                                       const torch::Tensor& scale) {
+    
+    
     int axis = get_scale_axis(scale);
     if (axis == -1) {
         auto scale_dtype = scale.dtype();

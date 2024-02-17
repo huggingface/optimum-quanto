@@ -254,14 +254,17 @@ class QTensor(torch.Tensor):
         return self._qtype
 
     def __tensor_flatten__(self):
-        return ["_data", "_scale"], None
+        inner_tensors = ["_data", "_scale"]
+        meta = {"qtype": self._qtype}
+        return inner_tensors, meta
 
     @staticmethod
     def __tensor_unflatten__(inner_tensors, meta, outer_size, outer_stride):
         assert len(inner_tensors) == 2
-        assert meta is None
+        assert len(meta) == 1
         data, scale = inner_tensors["_data"], inner_tensors["_scale"]
-        return QTensor(data, scale)
+        qtype = meta["qtype"]
+        return QTensor(qtype, data, scale)
 
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
@@ -388,14 +391,17 @@ class QBitsTensor(QTensor):
         return self._qtype
 
     def __tensor_flatten__(self):
-        return ["_data", "_scale", "_zeropoint"], None
+        inner_tensors = ["_data", "_scale", "_zeropoint"]
+        meta = {"qtype": self._qtype}
+        return inner_tensors, meta
 
     @staticmethod
     def __tensor_unflatten__(inner_tensors, meta, outer_size, outer_stride):
         assert len(inner_tensors) == 3
-        assert meta is None
+        assert len(meta) == 1
         data, scale, zeropoint = inner_tensors["_data"], inner_tensors["_scale"], inner_tensors["_zeropoint"]
-        return QTensor(data, scale, zeropoint)
+        qtype = meta["qtype"]
+        return QTensor(qtype, data, scale, zeropoint)
 
     @classmethod
     def __torch_dispatch__(cls, op, types, args, kwargs=None):
