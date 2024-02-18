@@ -1,0 +1,160 @@
+import torch
+from torch.utils import _pytree as pytree
+
+
+__all__ = ["PackedTensor"]
+
+
+def pack_weights(intweights: torch.Tensor, bits: int) -> torch.Tensor:
+    """
+    Pack int4 / int2 weights in a uint8 tensor
+
+    What packing means? Assume we have 4 values that are in 2bit but encoded in 8bit
+    (because torch does not have native support for 2-bit datatypes)
+
+    > 0000 0011 | 0000 0010 | 0000 0001 | 0000 0000
+
+    We can pack them in a single 8-bit uint value
+
+    > 1110 0100
+
+    Therefore instead of saving 4 values in 8-bit precision we save a single value of 8-bit precision saving 24 bits in total.
+
+    Args:
+        intweights (`torch.Tensor`):
+            The un-packed `torch.uint8` tensor
+        bits (`int`):
+            The actual `bits` - can be 2, 4
+    """
+    original_shape = intweights.shape
+    values_per_item = 8 // bits
+    row_dim = (original_shape[0] + values_per_item - 1) // values_per_item
+
+    if len(original_shape) == 1:
+        packed_tensor_shape = (row_dim,)
+    else:
+        packed_tensor_shape = (row_dim, *original_shape[1:])
+
+    packed = torch.zeros(packed_tensor_shape, device=intweights.device, dtype=torch.uint8)
+    unpacked = intweights.to(torch.uint8)
+
+    def lshift(t: torch.Tensor, bits: int):
+        if t.device.type == "mps":
+            # lshift is not supported on MPS device
+            return t * (2**bits)
+        return t << bits
+
+    it = min(values_per_item, (original_shape[0] // row_dim) + 1)
+    for i in range(it):
+        start = i * row_dim
+        end = min(start + row_dim, original_shape[0])
+        packed[: (end - start)] |= lshift(unpacked[start:end], bits * i)
+
+    return packed
+
+
+def unpack_weights(uint8weights: torch.Tensor, bits: int) -> torch.Tensor:
+    """
+    Un-Pack int4 / int2 weights (packed in a uint8) into an expanded torch.uint8 tensor
+    What un-packing means? Assume we have packed 4 2-bit values in 8-bit
+    (because torch does not have native support for 2-bit datatypes)
+
+    > 1110 0100
+
+    Unpacking them means retrieving the original 4 2-bit values:
+
+    > 0000 0011 | 0000 0010 | 0000 0001 | 0000 0000
+
+    Args:
+        uint8weights (`torch.Tensor`):
+            The packed tensor in `torch.uint8` precision
+        bits (`int`):
+            The actual `bits` - can be 2, 4
+    """
+    unpacked = []
+    values_per_item = 8 // bits
+
+    def rshift(t: torch.Tensor, bits: int):
+        if t.device.type == "mps":
+            # rshift is not supported on MPS device
+            return t // (2**bits)
+        return t >> bits
+
+    # Unpack each set of values independently
+    for i in range(values_per_item):
+        mask = 2 ** (bits * (i + 1)) - 1
+        unpacked.append(rshift(uint8weights & mask, bits * i))
+    # Return the concatenated unpacked tensors
+    return torch.cat(unpacked).to(torch.uint8)
+
+
+class PackedTensor(torch.Tensor):
+    @staticmethod
+    def __new__(cls, data, bits, size, stride, requires_grad=False):
+        # PackedTensor represents uint8 data and can therefore NEVER require gradient
+        assert data.dtype == torch.uint8
+        assert requires_grad is False
+        return torch.Tensor._make_wrapper_subclass(
+            cls, size, strides=stride, dtype=torch.uint8, device=data.device, requires_grad=requires_grad
+        )
+
+    def __init__(self, data, bits, size, stride, requires_grad=False):
+        self._bits = bits
+        self._data = data
+
+    def __repr__(self):
+        autograd_info = (
+            f", grad_fn={self.grad_fn}" if self.grad_fn else ", requires_grad=True" if self.requires_grad else ""
+        )
+        return f"PackedTensor({self._data}, bits={self._bits}, public_dtype={self.dtype}{autograd_info})"
+
+    @classmethod
+    def pack(cls, t, bits=4):
+        assert bits in (2, 4)
+        assert t.dtype == torch.uint8
+        data = pack_weights(t, bits)
+        # We need to store size and stride to make sure the unpacked data has the correct shape
+        return PackedTensor(data, bits, t.size(), t.stride())
+
+    def unpack(self):
+        unpacked_data = unpack_weights(self._data, self._bits)
+        # Adjust the first dimension, as unpacked data may have extra rows if the original shape is not a multiple of 8 // bits
+        return unpacked_data[: self.shape[0]]
+
+    @property
+    def bits(self):
+        return self._bits
+
+    @property
+    def dtype(self):
+        return torch.uint8
+
+    def __tensor_flatten__(self):
+        inner_tensors = ["_data"]
+        meta = {"bits": self.__bits, "size": self.size(), "stride": self.stride()}
+        return inner_tensors, meta
+
+    @staticmethod
+    def __tensor_unflatten__(inner_tensors, meta, outer_size, outer_stride):
+        assert len(inner_tensors) == 1
+        assert len(meta) == 3
+        data = inner_tensors["_data"]
+        bits = meta["bits"]
+        size = meta["size"]
+        stride = meta["stride"]
+        return PackedTensor(data, bits, size, stride)
+
+    __torch_function__ = torch._C._disabled_torch_function_impl
+
+    @classmethod
+    def __torch_dispatch__(cls, op, types, args, kwargs=None):
+        # Convert back to tensor before calling any operation except detach
+        if op.overloadpacket is torch.ops.aten.detach:
+            t = args[0]
+            data = op(t._data)
+            return PackedTensor(data, t._bits, t.size(), t.stride())
+        args, kwargs = pytree.tree_map_only(PackedTensor, lambda x: x.unpack(), (args, kwargs or {}))
+        return op(*args, **kwargs)
+
+    def numpy(self):
+        return self.unpack().cpu().numpy()
