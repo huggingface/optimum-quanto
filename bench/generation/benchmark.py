@@ -7,7 +7,7 @@ import torch
 from tqdm.auto import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, GenerationConfig
 
-from quanto import Calibration, freeze, qint8, quantize
+from quanto import Calibration, freeze, qint4, qint8, quantize
 
 
 CALIBRATION_PROMPT = "It was a bright cold day in April, and the clocks were striking thirteen."
@@ -129,7 +129,7 @@ def main():
         "--quantization",
         type=str,
         default="none",
-        choices=["bnb_4bit", "bnb_8bit", "w8a16", "w8a8"],
+        choices=["bnb_4bit", "bnb_8bit", "w4a16", "w4a8", "w8a16", "w8a8"],
         help="One of none, bnb_4bit, bnb_8bit, w8a16, w8a8.",
     )
     args = parser.parse_args()
@@ -162,10 +162,10 @@ def main():
     else:
         model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=dtype, low_cpu_mem_usage=True).to(device)
 
-        if args.quantization in ("w8a8", "w8a16"):
+        if args.quantization in ("w4a8", "w4a16", "w8a8", "w8a16"):
             print("quantizing")
             start = time.time()
-            weights = qint8
+            weights = qint8 if "w8" in args.quantization else qint4
             activations = None if "a16" in args.quantization else qint8
             quantize(model, weights=weights, activations=activations)
             if activations is not None:
