@@ -9,16 +9,15 @@ from quanto import QBitsTensor, qint2, qint4
 
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["qint2", "qint4"])
-@pytest.mark.parametrize("pack", [True, False], ids=["pack", "not-packed"])
-def test_quantize_integer_tensor(dtype, qtype, device, pack):
+def test_quantize_integer_tensor(dtype, qtype, device):
     """This test verifies that an integer tensor in the correct range is preserved."""
     bits = qtype.bits
     qmin = -(2 ** (bits - 1))
     qmax = 2 ** (bits - 1) - 1
     a = torch.tensor(range(qmin, qmax + 1), dtype=dtype).to(device)
-    qa = QBitsTensor.quantize(a, qtype=qtype, pack=pack)
+    qa = QBitsTensor.quantize(a, qtype=qtype)
 
-    assert qa._data.dtype == torch.uint8 if pack else torch.int8
+    assert qa._data.dtype == torch.uint8
     assert isinstance(qa, QBitsTensor)
     assert qa.dtype == dtype
     assert qa.qtype == qtype
@@ -37,8 +36,6 @@ def test_quantize_per_tensor(input_shape, qtype, dtype, zp, device):
     assert qa.dtype == dtype
     assert qa.qtype == qtype
     assert device_eq(qa.device, device)
-    if input_shape[0] % (8 // qtype.bits) == 0:
-        assert qa.packed
     q_assert_close(a, qa)
 
 

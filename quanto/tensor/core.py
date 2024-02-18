@@ -4,6 +4,7 @@ import torch
 from torch.autograd import Function
 from torch.utils import _pytree as pytree
 
+from .packed import PackedTensor
 from .qtype import qint2, qint4, qint8, qtype
 
 
@@ -22,91 +23,6 @@ def axis_to_dim(t, axis):
     else:
         dim.remove(axis)
     return dim
-
-
-def pack_weights(intweights: torch.Tensor, qtype: qtype) -> torch.Tensor:
-    """
-    Pack int4 / int2 weights in a unint8 tensor
-
-    What packing means? Assume we have 4 values that are in 2bit but encoded in 8bit
-    (because torch does not have native support for 2-bit datatypes)
-
-    > 0000 0011 | 0000 0010 | 0000 0001 | 0000 0000
-
-    We can pack them in a single 8-bit uint value
-
-    > 1110 0100
-
-    Therefore instead of saving 4 values in 8-bit precision we save a single value of 8-bit precision saving 24 bits in total.
-
-    Args:
-        intweights (`torch.Tensor`):
-            The un-packed tensor in `torch.int8` precision
-        qtype (`quanto.qtype`):
-            The desired `qtype` - can be `quanto.int2`, `quanto.int4`
-    """
-    bits = qtype.bits
-    original_shape = intweights.shape
-    values_per_item = 8 // bits
-    if original_shape[0] % values_per_item != 0:
-        # We cannot pack: return the original tensor
-        return intweights
-    row_dim = original_shape[0] // values_per_item
-
-    if len(original_shape) == 1:
-        packed_tensor_shape = (row_dim,)
-    else:
-        packed_tensor_shape = (row_dim, *original_shape[1:])
-
-    packed = torch.zeros(packed_tensor_shape, device=intweights.device, dtype=torch.uint8)
-    unpacked = intweights.to(torch.uint8)
-
-    def lshift(t: torch.Tensor, bits: int):
-        if t.device.type == "mps":
-            # lshift is not supported on MPS device
-            return t * (2**bits)
-        return t << bits
-
-    for i in range(values_per_item):
-        packed |= lshift(unpacked[i * row_dim : (i + 1) * row_dim], bits * i)
-
-    return packed
-
-
-def unpack_weights(uint8weights: torch.Tensor, qtype: qtype) -> torch.Tensor:
-    """
-    Un-Pack int4 / int2 weights (packed in a uint8) into a torch.int8 tensor
-    What un-packing means? Assume we have packed 4 2-bit values in 8-bit
-    (because torch does not have native support for 2-bit datatypes)
-
-    > 1110 0100
-
-    Unpacking them means retrieving the original 4 2-bit values:
-
-    > 0000 0011 | 0000 0010 | 0000 0001 | 0000 0000
-
-    Args:
-        uint8weights (`torch.Tensor`):
-            The packed tensor in `torch.uint8` precision
-        qtype (`quanto.qbitsdtype`):
-            The desired `qtype` - can be `quanto.int2`, `quanto.int4`
-    """
-    bits = qtype.bits
-    unpacked = []
-    values_per_item = 8 // bits
-
-    def rshift(t: torch.Tensor, bits: int):
-        if t.device.type == "mps":
-            # rshift is not supported on MPS device
-            return t // (2**bits)
-        return t >> bits
-
-    # Unpack each set of values independently
-    for i in range(values_per_item):
-        mask = 2 ** (bits * (i + 1)) - 1
-        unpacked.append(rshift(uint8weights & mask, bits * i))
-    # Return the concatenated unpacked tensors
-    return torch.cat(unpacked).to(torch.int8)
 
 
 def absmax_scale(base: torch.Tensor, qtype: qtype = qint8, axis: Optional[int] = None) -> torch.Tensor:
@@ -322,12 +238,10 @@ class AffineQuantizer(Function):
         qmax = 2 ** (bits - 1) - 1
         scale = (rmax - rmin) / (qmax - qmin)
         zeropoint = torch.round(-rmin / scale).to(torch.int8)
-        data = torch.clamp(torch.round((base - rmin) / scale), min=0, max=2**bits - 1).to(torch.int8)
+        data = torch.clamp(torch.round((base - rmin) / scale), min=0, max=2**bits - 1).to(torch.uint8)
+        packed = PackedTensor.pack(data, bits)
 
-        if pack and data.dtype == torch.int8:
-            data = pack_weights(data, qtype)
-
-        return QBitsTensor(qtype, data, scale, zeropoint)
+        return QBitsTensor(qtype, packed, scale, zeropoint)
 
     @staticmethod
     def backward(ctx, gO):
@@ -338,11 +252,8 @@ class AffineQuantizer(Function):
 class QBitsToQTensor(Function):
     @staticmethod
     def forward(ctx, t):
-        if t.packed:
-            unpacked_data = unpack_weights(t._data, t.qtype)
-        else:
-            unpacked_data = t._data
-        int8_data = unpacked_data.to(torch.int8) - t._zeropoint.to(torch.int8)
+        unpacked = t._data.unpack()
+        int8_data = unpacked.to(torch.int8) - t._zeropoint.to(torch.int8)
         return QTensor(qint8, int8_data, t._scale)
 
     @staticmethod
@@ -353,13 +264,10 @@ class QBitsToQTensor(Function):
 class QBitsTensor(QTensor):
     @staticmethod
     def __new__(cls, qtype, data, scale, zeropoint, requires_grad=False):
+        assert isinstance(data, PackedTensor)
         assert data.device == scale.device
         assert data.device == zeropoint.device
-        packed = data.dtype == torch.uint8
         size = data.size()
-        if packed:
-            # Fixme: create a PackedIntTensor subclass to store the packed / shape info
-            size = (size[0] * (8 // qtype.bits), *size[1:])
         return torch.Tensor._make_wrapper_subclass(
             cls, size, strides=data.stride(), dtype=scale.dtype, device=data.device, requires_grad=requires_grad
         )
@@ -367,7 +275,6 @@ class QBitsTensor(QTensor):
     def __init__(self, qtype, data, scale, zeropoint, requires_grad=False):
         super().__init__(qtype, data, scale, requires_grad=requires_grad)
         self._zeropoint = zeropoint
-        self.packed = data.dtype == torch.uint8
 
     def __repr__(self):
         autograd_info = (
@@ -376,9 +283,9 @@ class QBitsTensor(QTensor):
         return f"QBitsTensor({self._data}, scale={self._scale}, zeropoint={self._zeropoint}, dtype={self.dtype}{autograd_info})"
 
     @classmethod
-    def quantize(cls, base, qtype=qint4, axis=None, pack=True):
+    def quantize(cls, base, qtype=qint4, axis=None):
         """Differentiable quantization function"""
-        return AffineQuantizer.apply(base, qtype, axis, pack)
+        return AffineQuantizer.apply(base, qtype, axis)
 
     def qtensor(self):
         return QBitsToQTensor.apply(self)
