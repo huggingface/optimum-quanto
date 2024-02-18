@@ -18,4 +18,5 @@ def test_unpack(bits, shape, use_ext, device):
     context = nullcontext() if use_ext else disable_extensions()
     with context:
         unpacked_a = torch.ops.quanto.unpack(packed_a, bits)
+    assert unpacked_a.dtype == torch.uint8
     assert torch.equal(unpacked_a, a)

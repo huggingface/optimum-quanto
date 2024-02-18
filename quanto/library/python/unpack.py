@@ -4,7 +4,7 @@ import torch
 @torch.library.impl("quanto_py::unpack", "default")
 def unpack(packed: torch.Tensor, bits: int) -> torch.Tensor:
     """
-    Un-Pack int4 / int2 weights (packed in a uint8) into a torch.int8 tensor
+    Un-Pack int4 / int2 weights (packed in a uint8) into a torch.uint8 tensor
     What un-packing means? Assume we have packed 4 2-bit values in 8-bit
     (because torch does not have native support for 2-bit datatypes)
 
@@ -34,4 +34,4 @@ def unpack(packed: torch.Tensor, bits: int) -> torch.Tensor:
         mask = 2 ** (bits * (i + 1)) - 1
         unpacked.append(rshift(packed & mask, bits * i))
     # Return the concatenated unpacked tensors
-    return torch.cat(unpacked).to(torch.int8)
+    return torch.cat(unpacked).to(torch.uint8)
