@@ -10,7 +10,7 @@ from quanto.nn import QLinear
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16], ids=["fp32", "fp16"])
 def test_qmodule_freeze(in_features, out_features, use_bias, dtype):
-    qlinear = QLinear(in_features, out_features, bias=use_bias).to(dtype)
+    qlinear = QLinear(in_features, out_features, bias=use_bias, weights=qint8).to(dtype)
     assert not qlinear.frozen
     assert not isinstance(qlinear.weight, QTensor)
     assert qlinear.weight.dtype == dtype

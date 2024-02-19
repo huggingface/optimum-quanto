@@ -4,7 +4,7 @@ from typing import Any, Mapping, Optional
 
 import torch
 
-from ..tensor import QTensor
+from ..tensor import QBitsTensor, QTensor, absmax_scale, qint2, qint4, qtype
 
 
 __all__ = ["QModuleMixin", "register_qmodule", "quantize_module"]
@@ -17,11 +17,29 @@ def register_qmodule(module_cls):
     """
     Used for registering a new quantized module.
 
+    The QModule must implement two abstract methods:
+
+    - qcreate: class method to instantiate a new QModule from an nn.Module, without copying its weights,
+    - qforward: instance method for quantized inference.
+
     The code to register a new module looks like:
 
+    ```
     @register_qmodule(<base torch.nn.Module>)
     class MyQModule(QModuleMixin, <base torch.nn.Module>):
         <implementation>
+
+        @classmethod
+        def qcreate(cls,
+                    module: torch.nn.Module,
+                    weights: Optional[qtype],
+                    activations: Optional[qtype] = None):
+            ...
+
+        def qforward(self, input: torch.Tensor) -> torch.Tensor:
+            ...
+    ```
+
     """
 
     def wrapper(cls):
@@ -54,7 +72,7 @@ def quantize_module(module, **kwargs):
 
 
 class QModuleMixin(ABC):
-    def __init__(self, *args, activations: Optional[torch.dtype] = None, **kwargs):
+    def __init__(self, *args, weights: Optional[qtype] = None, activations: Optional[qtype] = None, **kwargs):
         # The tests below are meant to help people writing their own quantized Module class
         mro = self.__class__.__mro__
         if torch.nn.Module not in mro:
@@ -65,6 +83,7 @@ class QModuleMixin(ABC):
             )
         # This will setup the torch.nn.Module
         super().__init__(*args, **kwargs)
+        self.weights = weights
         self.activations = activations
         self.register_buffer("input_scale", torch.ones(()))
         self.register_buffer("output_scale", torch.ones(()))
@@ -82,12 +101,36 @@ class QModuleMixin(ABC):
             init_scale_from_dict(state_dict, prefix, scale_attr)
 
     @classmethod
-    def from_module(cls, module: torch.nn.Module, activations: Optional[torch.dtype] = None):
+    def from_module(
+        cls, module: torch.nn.Module, weights: Optional[qtype] = None, activations: Optional[qtype] = None
+    ):
+        qmodule = cls.qcreate(module, weights, activations)
+        if qmodule is None:
+            return None
+        with torch.no_grad():
+            qmodule.weight.copy_(module.weight)
+            if module.bias is not None:
+                qmodule.bias.copy_(module.bias)
+        return qmodule.to(module.weight.device)
+
+    @classmethod
+    def qcreate(cls, module: torch.nn.Module, weights: Optional[qtype], activations: Optional[qtype] = None):
         raise NotImplementedError
 
     def qweight(self):
-        # Default implementation for QModules that do not quantize their weights
-        return None
+        if self.weights is None:
+            # QModule that does not quantize its weights
+            return None
+        if isinstance(self.weight, QTensor):
+            # Frozen QModule
+            return self.weight
+        # Quantize dynamically the weights per-axis
+        if self.weights in (qint2, qint4):
+            return QBitsTensor.quantize(self.weight, qtype=self.weights, axis=0)
+        elif isinstance(self.weights, qtype):
+            wscale = absmax_scale(self.weight, axis=0)
+            return QTensor.quantize(self.weight, qtype=self.weights, scale=wscale)
+        raise ValueError(f"Invalid quantized weights type {self.weights}")
 
     def qforward(self, input: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
