@@ -32,13 +32,11 @@ tensors insertion points are actually required.
 The following modules can be quantized:
 
 - [Linear](https://pytorch.org/docs/stable/generated/torch.nn.Linear.html) (QLinear).
-Weights are quantized to `int8`, and biases are not quantized. Inputs and outputs can be quantized to `int8`.
+Weights are always quantized, and biases are not quantized. Inputs and outputs can be quantized.
+- [Conv2d](https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html) (QConv2D).
+Weights are always quantized, and biases are not quantized. Inputs and outputs can be quantized.
 - [LayerNorm](https://pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html),
-Weights and biases are __not__ quantized. Outputs can be quantized to `int8`.
-
-The next modules to be implemented are:
-
-- Conv2D.
+Weights and biases are __not__ quantized. Outputs can be quantized.
 
 ## Limitations and design choices
 
@@ -126,7 +124,7 @@ A typical quantization workflow would consist of the following steps:
 The first step converts a standard float model into a dynamically quantized model.
 
 ```python
-quantize(model, weights=torch.int8, activations=torch.int8)
+quantize(model, weights=quanto.qint8, activations=quanto.qint8)
 ```
 
 At this stage, only the inference of the model is modified to dynamically quantize the weights.
