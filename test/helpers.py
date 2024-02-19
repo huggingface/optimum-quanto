@@ -4,7 +4,7 @@ import pytest
 import torch
 from packaging import version
 
-from quanto import QTensor, absmax_scale, qint8
+from quanto import QBitsTensor, QTensor, absmax_scale, qint4, qint8
 
 
 def torch_min_version(v):
@@ -37,6 +37,11 @@ def random_qtensor(shape, qtype=qint8, dtype=torch.float32, axis=None):
     t = random_tensor(shape, dtype)
     scale = absmax_scale(t, qtype=qtype, axis=axis)
     return QTensor.quantize(t, qtype=qtype, scale=scale)
+
+
+def random_qbitstensor(shape, qtype=qint4, dtype=torch.float32, axis=None):
+    t = random_tensor(shape, dtype)
+    return QBitsTensor.quantize(t, qtype=qtype, axis=axis)
 
 
 def q_assert_close(x: torch.Tensor, xq: QTensor, atol: float = None, rtol: float = None):
