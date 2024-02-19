@@ -8,7 +8,7 @@ from quanto.nn import QLinear
 
 def _test_calibrate_qlinear(batch_size, tokens, embeddings, use_bias, activations, device):
     linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(device)
-    qlinear = QLinear.from_module(linear, activations=activations)
+    qlinear = QLinear.from_module(linear, weights=qint8, activations=activations)
     qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
     # Run a first inference without Calibration
     with torch.no_grad():
@@ -57,8 +57,8 @@ def _test_calibrate_custom_module(activations, device):
             return self.linear2(self.linear1(input))
 
     model = TwoLinearModel(embeddings).to(device)
-    model.linear1 = QLinear.from_module(model.linear1, activations=activations)
-    model.linear2 = QLinear.from_module(model.linear2, activations=activations)
+    model.linear1 = QLinear.from_module(model.linear1, weights=qint8, activations=activations)
+    model.linear2 = QLinear.from_module(model.linear2, weights=qint8, activations=activations)
     qinputs = random_qtensor((1,) + (tokens, embeddings), dtype=torch.float32).to(device)
     with torch.no_grad(), Calibration():
         qout = model(qinputs)
