@@ -33,6 +33,12 @@ def get_qtensor_func(func):
     return _QTENSOR_FUNC_TABLE.get(func, None)
 
 
+@register_qtensor_func([torch._has_compatible_shallow_copy_type])
+def has_compatible_shallow_copy_type(func, input: torch.Tensor, from_: torch.Tensor):
+    # Prevent torch from trying to shallow copy one QTensor to another
+    return False
+
+
 @register_qtensor_func(
     [
         torch.nn.functional.cross_entropy,
