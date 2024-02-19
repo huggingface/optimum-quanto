@@ -10,6 +10,8 @@ def test_to_device(device):
     qa = qa.to(device)
     assert isinstance(qa, QTensor)
     assert qa.device.type == device.type
+    assert qa._data.device.type == device.type
+    assert qa._scale.device.type == device.type
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
