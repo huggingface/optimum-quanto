@@ -1,3 +1,4 @@
+from copy import copy
 from typing import Optional
 
 import torch
@@ -313,10 +314,23 @@ class QBitsTensor(QTensor):
     @classmethod
     def __torch_dispatch__(cls, op, types, args, kwargs=None):
         if op.overloadpacket is torch.ops.aten.detach:
+            # Detach is required when copying and deserializing
             t = args[0]
             data = op(t._data)
             scale = op(t._scale)
             zeropoint = op(t._zeropoint)
+            return QBitsTensor(t._qtype, data, scale, zeropoint)
+        elif op.overloadpacket is torch.ops.aten._to_copy:
+            t = args[0]
+            # Copy scale
+            scale = op(t._scale, **kwargs)
+            # Move data and zeropoint, ignoring dtype (it only applies to scale)
+            data_kwargs = copy(kwargs)
+            data_kwargs["dtype"] = torch.uint8
+            data = op(t._data, **data_kwargs)
+            zeropoint_kwargs = copy(kwargs)
+            zeropoint_kwargs["dtype"] = torch.int8
+            zeropoint = op(t._data, **data_kwargs)
             return QBitsTensor(t._qtype, data, scale, zeropoint)
         args, kwargs = pytree.tree_map_only(QBitsTensor, lambda x: x.qtensor(), (args, kwargs or {}))
         return op(*args, **kwargs)

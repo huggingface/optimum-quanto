@@ -153,6 +153,14 @@ class PackedTensor(torch.Tensor):
             t = args[0]
             data = op(t._data)
             return PackedTensor(data, t._bits, t.size(), t.stride())
+        elif op.overloadpacket is torch.ops.aten._to_copy:
+            t = args[0]
+            dtype = kwargs.get("dtype", torch.uint8)
+            if dtype != torch.uint8:
+                raise ValueError(f"PackedTensor are torch.uint8 only and cannot be moved to {dtype}.")
+            # Move data
+            data = op(t._data, **kwargs)
+            return PackedTensor(data, t._bits, t.size(), t.stride())
         args, kwargs = pytree.tree_map_only(PackedTensor, lambda x: x.unpack(), (args, kwargs or {}))
         return op(*args, **kwargs)
 
