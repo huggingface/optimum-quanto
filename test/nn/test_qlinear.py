@@ -2,7 +2,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_qtensor
 
-from quanto import Calibration, QTensor, qfloat8_e4m3fn, qfloat8_e5m2, qint4, qint8
+from quanto import Calibration, QBitsTensor, QTensor, qfloat8_e4m3fn, qfloat8_e5m2, qint4, qint8
 from quanto.nn import QLinear
 
 
@@ -113,3 +113,16 @@ def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
     assert torch.allclose(qlinear.bias.grad, bias_gradient)
     weight_gradient = torch.matmul(gradient.squeeze().t(), qinputs.dequantize().squeeze())
     assert torch.allclose(qlinear.weight.grad, weight_gradient)
+
+
+@pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
+@pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-int4", "w-int8"])
+def test_move_qlinear(use_bias, weights, device):
+    linear = torch.nn.Linear(32, 32, bias=use_bias)
+    qlinear = QLinear.from_module(linear, weights=weights)
+    qlinear.freeze()
+    qlinear.to(device)
+    assert qlinear.weight._data.device.type == device.type
+    assert qlinear.weight._scale.device.type == device.type
+    if isinstance(qlinear.weight, QBitsTensor):
+        assert qlinear.weight._zeropoint.device.type == device.type
