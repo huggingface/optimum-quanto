@@ -106,7 +106,7 @@ def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
     # Run an inference with identical inputs
     qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
     qout = qlinear(qinputs)
-    out = linear(qinputs)
+    out = linear(qinputs.dequantize())
     # Outputs are not identical because of the quantization
     assert not torch.equal(qout, out)
     # Compute gradients and compare
