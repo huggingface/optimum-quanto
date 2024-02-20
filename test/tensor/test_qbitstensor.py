@@ -2,7 +2,7 @@ import io
 
 import pytest
 import torch
-from helpers import device_eq, q_assert_close, random_tensor
+from helpers import assert_close, device_eq, random_tensor
 
 from quanto import QBitsTensor, qint2, qint4
 
@@ -36,7 +36,7 @@ def test_quantize_per_tensor(input_shape, qtype, dtype, zp, device):
     assert qa.dtype == dtype
     assert qa.qtype == qtype
     assert device_eq(qa.device, device)
-    q_assert_close(a, qa)
+    assert_close(a, qa)
 
 
 @pytest.mark.parametrize("axis", [0, 1, -1], ids=["first-axis", "second-axis", "last-axis"])
@@ -50,7 +50,7 @@ def test_quantize_per_axis(axis, qtype, dtype, zp, device):
     assert qa.dtype == dtype
     assert qa.qtype == qtype
     assert device_eq(qa.device, device)
-    q_assert_close(a, qa)
+    assert_close(a, qa)
 
 
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["int2", "int4"])

@@ -1,6 +1,6 @@
 import pytest
 import torch
-from helpers import q_assert_close, random_qtensor, random_tensor
+from helpers import assert_close, random_qtensor, random_tensor
 
 from quanto import QTensor
 
@@ -22,7 +22,7 @@ def test_mul(input_shape, device):
     qprod = qa * qb
     assert isinstance(qprod, QTensor)
     prod = qa.dequantize() * qb.dequantize()
-    q_assert_close(prod, qprod)
+    assert_close(prod, qprod)
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
@@ -34,11 +34,11 @@ def test_mul_scalar(input_shape, scalar, device):
     qprod = qa * scalar
     assert isinstance(qprod, QTensor)
     prod = qa.dequantize() * scalar
-    q_assert_close(prod, qprod)
+    assert_close(prod, qprod)
     qprod = scalar * qa
     assert isinstance(qprod, QTensor)
     prod = scalar * qa.dequantize()
-    q_assert_close(prod, qprod)
+    assert_close(prod, qprod)
 
 
 @pytest.mark.parametrize("input_size", [1, 10, 32])
@@ -49,7 +49,7 @@ def test_dot(input_size, device):
     assert isinstance(qdot, QTensor)
     # The outputs should be almost identical if we use the dequantized inputs
     dot = torch.dot(qa.dequantize(), qb.dequantize())
-    q_assert_close(dot, qdot)
+    assert_close(dot, qdot)
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
@@ -86,7 +86,7 @@ def test_cat(input_shape, device):
     qother = QTensor.quantize(other, qinputs.qtype, qinputs._scale)
     qcat = torch.cat([qinputs, qother])
     assert isinstance(qcat, QTensor)
-    q_assert_close(torch.cat([qinputs.dequantize(), qother.dequantize()]), qcat)
+    assert_close(torch.cat([qinputs.dequantize(), qother.dequantize()]), qcat)
     # Now, verify that with different scales, the output is dequantized
     qother = QTensor.quantize(other, qinputs.qtype)
     qcat = torch.cat([qinputs, qother])
