@@ -98,21 +98,24 @@ def test_quantize_linear_float32_weight_only(batch_size, tokens, embeddings, use
 @pytest.mark.parametrize("activations", [None, qint8], ids=["a-float", "a-qint8"])
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
 def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
-    # We use a batch size of 1 to simplify gradient manual calculations
-    batch_size = 1
+    batch_size = 10
     linear = torch.nn.Linear(embeddings, embeddings).to(device)
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
     assert qlinear.weight.requires_grad is True
     assert qlinear.bias.requires_grad is True
+    # Run an inference with identical inputs
     qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
     qout = qlinear(qinputs)
+    out = linear(qinputs)
+    # Outputs are not identical because of the quantization
+    assert not torch.equal(qout, out)
+    # Compute gradients and compare
     gradient = torch.randn(qout.size()).to(device)
     qout.backward(gradient)
-    # Compute gradients manually and compare
-    bias_gradient = torch.sum(gradient, axis=[0, 1])
-    assert torch.allclose(qlinear.bias.grad, bias_gradient)
-    weight_gradient = torch.matmul(gradient.squeeze().t(), qinputs.dequantize().squeeze())
-    assert torch.allclose(qlinear.weight.grad, weight_gradient)
+    out.backward(gradient)
+    # Gradients are identical because they depend only on the input
+    assert torch.allclose(qlinear.weight.grad, linear.weight.grad)
+    assert torch.allclose(qlinear.bias.grad, linear.bias.grad)
 
 
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
