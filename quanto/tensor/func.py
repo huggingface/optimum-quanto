@@ -2,7 +2,7 @@ from functools import partial
 
 import torch
 
-from .core import QTensor, qfallback
+from .core import qfallback
 
 
 __all__ = ["get_qtensor_func", "register_qtensor_func"]
@@ -54,8 +54,6 @@ def unsupported_op(func, *args, **kwargs):
 
 @register_qtensor_func([torch.nn.functional.linear])
 def linear(func, input, other, bias=None):
-    if isinstance(bias, QTensor):
-        return torch.ops.aten.linear(input, other, bias=bias)
     output = torch.matmul(input, other.t())
     if bias is not None:
         output = output + bias

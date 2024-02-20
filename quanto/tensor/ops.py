@@ -199,28 +199,6 @@ def is_same_size(op, input, other):
     return op(a, b)
 
 
-@register_qtensor_op([torch.ops.aten.linear])
-def linear(op, input, weight, bias=None):
-    if (
-        not isinstance(input, QTensor)
-        or input.axis is not None
-        or not isinstance(weight, QTensor)
-        or input.qtype != qint8
-        or weight.qtype != qint8
-        or (bias is not None and not isinstance(bias, QTensor))
-    ):
-        return qfallback(op, input, weight, bias=bias)
-    # Cast int8 data to float32 and do the operation
-    bias_data = bias._data.to(torch.float32) if bias is not None else None
-    out_data = op(input._data.to(torch.float32), weight._data.to(torch.float32), bias_data)
-    # The scalar input scale is broadcasted along all input dimensions
-    input_scale = input._scale.view((1,) * input.ndim)
-    # Weights are actually transposed inside the operation
-    weight_scale = weight._scale.t()
-    out_scale = input_scale * weight_scale
-    return QTensor(qint32, out_data.to(torch.int32), out_scale)
-
-
 @register_qtensor_op([torch.ops.aten.bmm], qargs=[QArg(index=0, axis=[None]), QArg(index=1, axis=[None, -1])])
 def bmm(op, input, other):
     if input.qtype != qint8 or other.qtype != qint8:
