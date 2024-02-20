@@ -1,6 +1,6 @@
 import pytest
 import torch
-from helpers import q_assert_close, random_qtensor, random_tensor
+from helpers import assert_close, random_qtensor, random_tensor
 
 from quanto import QTensor, qint16
 
@@ -29,4 +29,4 @@ def test_linear(batch_size, tokens, embeddings, use_bias, dtype, weight_axis, de
     assert isinstance(qout, QTensor)
     # We need to increase rtol for float16
     rtol = {torch.float32: 1e-5, torch.float16: 1e-2}[dtype]
-    q_assert_close(out, qout, rtol)
+    assert_close(out, qout, rtol)

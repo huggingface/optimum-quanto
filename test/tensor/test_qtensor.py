@@ -3,7 +3,7 @@ from tempfile import TemporaryDirectory
 
 import pytest
 import torch
-from helpers import assert_similar, device_eq, q_assert_close, random_qtensor, random_tensor
+from helpers import assert_close, assert_similar, device_eq, random_qtensor, random_tensor
 
 from quanto import QTensor, absmax_scale, qfloat8_e4m3fn, qfloat8_e5m2, qint8, qint16, qint32
 
@@ -18,7 +18,7 @@ def test_quantize_integer(input_shape, dtype, qtype, device):
     assert qa.dtype == dtype
     assert qa.qtype == qtype
     assert device_eq(qa.device, device)
-    q_assert_close(a, qa)
+    assert_close(a, qa)
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
@@ -56,7 +56,7 @@ def test_quantize_scale(input_shape, axis, dtype, qtype, device):
     assert qa.qtype == qtype
     assert qa._scale.dtype == dtype
     assert device_eq(qa.device, device)
-    q_assert_close(a, qa)
+    assert_close(a, qa)
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])

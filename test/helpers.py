@@ -44,29 +44,34 @@ def random_qbitstensor(shape, qtype=qint4, dtype=torch.float32, axis=None):
     return QBitsTensor.quantize(t, qtype=qtype, axis=axis)
 
 
-def q_assert_close(x: torch.Tensor, xq: QTensor, atol: float = None, rtol: float = None):
+def assert_close(a: torch.Tensor, b: torch.Tensor, atol: float = None, rtol: float = None):
     # Please refer to that discussion for default rtol values based on the float type:
     # https://scicomp.stackexchange.com/questions/43111/float-equality-tolerance-for-single-and-half-precision
-    dtype = x.dtype
+    assert a.dtype == b.dtype
     if atol is None:
         # We use torch finfo resolution
-        atol = torch.finfo(x.dtype).resolution
-    # We cannot expect an absolute error lower than the quantization scale
-    atol = torch.maximum(xq._scale, torch.tensor(atol))
+        atol = torch.finfo(a.dtype).resolution
+    atol = torch.tensor(atol)
+    # We cannot expect an absolute error lower than the quantization scales
+    if isinstance(a, QTensor):
+        atol = torch.maximum(a._scale, atol)
+        a = a.dequantize()
+    if isinstance(b, QTensor):
+        atol = torch.maximum(b._scale, atol)
+        b = b.dequantize()
     if rtol is None:
         # Please refer to that discussion for default rtol values based on the float type:
         # https://scicomp.stackexchange.com/questions/43111/float-equality-tolerance-for-single-and-half-precision
-        rtol = {torch.float32: 1e-5, torch.float16: 1e-3, torch.bfloat16: 1e-1}[dtype]
-    xdq = xq.dequantize()
-    abs_error = torch.abs(x - xdq)
-    closeness = atol + rtol * torch.abs(x)
+        rtol = {torch.float32: 1e-5, torch.float16: 1e-3, torch.bfloat16: 1e-1}[a.dtype]
+    abs_error = torch.abs(a - b)
+    closeness = atol + rtol * torch.abs(a)
     if not torch.all(abs_error <= closeness):
         max_error_index = torch.argmax(abs_error - closeness)
-        max_error_x = x.flatten()[max_error_index]
-        max_rel_error = abs_error.flatten()[max_error_index] / torch.abs(max_error_x) * 100
-        max_error_xdq = xdq.flatten()[max_error_index]
+        max_error_a = a.flatten()[max_error_index]
+        max_rel_error = abs_error.flatten()[max_error_index] / torch.abs(max_error_a) * 100
+        max_error_b = b.flatten()[max_error_index]
         raise ValueError(
-            f"Error exceeds tolerance (max: {max_error_xdq:.8f} instead of {max_error_x:.8f} ({max_rel_error:.4f} %)."
+            f"Error exceeds tolerance (max: {max_error_b:.8f} instead of {max_error_a:.8f} ({max_rel_error:.4f} %)."
         )
 
 
