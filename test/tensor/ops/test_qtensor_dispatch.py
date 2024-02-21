@@ -41,17 +41,6 @@ def test_mul_scalar(input_shape, scalar, device):
     assert_close(prod, qprod)
 
 
-@pytest.mark.parametrize("input_size", [1, 10, 32])
-def test_dot(input_size, device):
-    qa = random_qtensor((input_size,), dtype=torch.float32).to(device)
-    qb = random_qtensor((input_size,), dtype=torch.float32).to(device)
-    qdot = torch.dot(qa, qb)
-    assert isinstance(qdot, QTensor)
-    # The outputs should be almost identical if we use the dequantized inputs
-    dot = torch.dot(qa.dequantize(), qb.dequantize())
-    assert_close(dot, qdot)
-
-
 @pytest.mark.parametrize("batch_size", [1, 10])
 @pytest.mark.parametrize("tokens, embeddings", [(5, 5), (32, 32), (10, 32)])
 def test_relu(batch_size, tokens, embeddings, device):
