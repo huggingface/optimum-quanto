@@ -230,17 +230,7 @@ def mul(op, input, other):
         return QTensor(other.qtype, other._data, input * other._scale)
     if is_scalar(other):
         return QTensor(input.qtype, input._data, other * input._scale)
-    if (
-        not isinstance(input, QTensor)
-        or not isinstance(other, QTensor)
-        or input.qtype != qint8
-        or other.qtype != qint8
-    ):
-        return qfallback(op, input, other)
-    # Cast int8 data to int32 and do the operation
-    out_data = op(input._data.to(torch.int32), other._data.to(torch.int32))
-    out_scale = input._scale * other._scale
-    return QTensor(qint32, out_data, out_scale)
+    return qfallback(op, input, other)
 
 
 @register_qtensor_op([torch.ops.aten.relu])
