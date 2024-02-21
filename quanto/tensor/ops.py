@@ -170,8 +170,12 @@ def is_same_size(op, input, other):
     return op(a, b)
 
 
-@register_qtensor_op([torch.ops.aten.bmm], qargs=[QArg(index=0, axis=[None]), QArg(index=1, axis=[None, -1])])
+@register_qtensor_op([torch.ops.aten.bmm])
 def bmm(op, input, other):
+    if not isinstance(input, QTensor):
+        return op(input, other.dequantize())
+    if not isinstance(other, QTensor) or input.axis is not None:
+        return op(input.dequantize(), other)
     if input.qtype != qint8 or other.qtype != qint8:
         return qfallback(op, input, other)
     # Cast data to float32 and do the operation
@@ -180,8 +184,12 @@ def bmm(op, input, other):
     return (out_data * out_scale).to(input._scale.dtype)
 
 
-@register_qtensor_op([torch.ops.aten.mm], qargs=[QArg(index=0, axis=[None]), QArg(index=1, axis=[None, -1])])
+@register_qtensor_op([torch.ops.aten.mm])
 def mm(op, input, other):
+    if not isinstance(input, QTensor):
+        return op(input, other.dequantize())
+    if not isinstance(other, QTensor) or input.axis is not None:
+        return op(input.dequantize(), other)
     if input.qtype != qint8 or other.qtype != qint8:
         return qfallback(op, input, other)
     n, m = input.shape
