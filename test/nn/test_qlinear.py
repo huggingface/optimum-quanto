@@ -1,6 +1,6 @@
 import pytest
 import torch
-from helpers import assert_similar, random_qtensor
+from helpers import assert_close, assert_similar, random_qtensor
 
 from quanto import Calibration, QBitsTensor, QTensor, qfloat8_e4m3fn, qfloat8_e5m2, qint4, qint8
 from quanto.nn import QLinear
@@ -113,9 +113,11 @@ def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
     gradient = torch.randn(qout.size()).to(device)
     qout.backward(gradient)
     out.backward(gradient)
-    # Gradients are identical because they depend only on the input
-    assert torch.allclose(qlinear.weight.grad, linear.weight.grad)
-    assert torch.allclose(qlinear.bias.grad, linear.bias.grad)
+    # Gradients are nearly identical because they depend only on the input
+    assert_close(qlinear.weight.grad, linear.weight.grad)
+    # Need to increase the tolerance a bit for MPS device
+    atol = 1e-5 if device.type == "mps" else None
+    assert_close(qlinear.bias.grad, linear.bias.grad, atol=atol)
 
 
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
