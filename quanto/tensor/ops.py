@@ -205,8 +205,8 @@ def bmm(op, input, other):
         return qfallback(op, input, other)
     # Cast data to float32 and do the operation
     out_data = op(input._data.to(torch.float32), other._data.to(torch.float32))
-    out_scale = input._scale * other._scale
-    return QTensor(qint32, out_data.to(torch.int32), out_scale)
+    out_scale = (input._scale * other._scale).to(torch.float32)
+    return (out_data * out_scale).to(input._scale.dtype)
 
 
 @register_qtensor_op([torch.ops.aten.mm], qargs=[QArg(index=0, axis=[None]), QArg(index=1, axis=[None, -1])])
@@ -229,8 +229,8 @@ def mm(op, input, other):
     else:
         # Cast data to float32 and do the operation
         out_data = op(input._data.to(torch.float32), other._data.to(torch.float32))
-    out_scale = input._scale * other._scale
-    return QTensor(qint32, out_data.to(torch.int32), out_scale)
+    out_scale = (input._scale * other._scale).to(torch.float32)
+    return (out_data * out_scale).to(input._scale.dtype)
 
 
 @register_qtensor_op([torch.ops.aten.mul])
