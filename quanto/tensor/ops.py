@@ -156,16 +156,6 @@ def div(op, input, other):
     return QTensor(input.qtype, input._data, op(input._scale, other))
 
 
-@register_qtensor_op([torch.ops.aten.dot], qargs=[QArg(index=0, axis=[None]), QArg(index=1, axis=[None])])
-def dot(op, input, other):
-    if input.qtype != qint8 or other.qtype != qint8:
-        return qfallback(op, input, other)
-    # Cast data to float32 and do the operation
-    out_data = op(input._data.to(torch.float32), other._data.to(torch.float32))
-    out_scale = input._scale * other._scale
-    return QTensor(qint32, out_data.to(torch.int32), out_scale)
-
-
 @register_qtensor_op([torch.ops.aten.neg])
 def neg(op, input, *args, **kwargs):
     if input.qtype.is_floating_point:
