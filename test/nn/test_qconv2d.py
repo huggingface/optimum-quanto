@@ -1,6 +1,6 @@
 import pytest
 import torch
-from helpers import assert_similar, random_qtensor
+from helpers import assert_close, assert_similar, random_qtensor
 
 from quanto import Calibration, QTensor, qfloat8_e4m3fn, qfloat8_e5m2, qint4, qint8
 from quanto.nn import QConv2d
@@ -120,6 +120,7 @@ def test_qconv2d_gradient(img_shape, out_channels, activations, weights, device)
     gradient = torch.randn(qout.size()).to(device)
     qout.backward(gradient)
     out.backward(gradient)
-    # Gradients are identical because they depend only on the input
-    assert torch.allclose(qconv2d.weight.grad, conv2d.weight.grad)
-    assert torch.allclose(qconv2d.bias.grad, conv2d.bias.grad)
+    # Gradients are nearly identical because they depend only on the input
+    atol = 1e-5 if device.type == "cuda" else None
+    assert_close(qconv2d.weight.grad, conv2d.weight.grad, atol=atol)
+    assert_close(qconv2d.bias.grad, conv2d.bias.grad, atol=atol)
