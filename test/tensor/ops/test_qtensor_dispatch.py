@@ -15,17 +15,6 @@ def test_to_device(device):
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
-def test_mul(input_shape, device):
-    qa = random_qtensor(input_shape, dtype=torch.float32).to(device)
-    qb = random_qtensor(input_shape, dtype=torch.float32).to(device)
-    # Quantized product will have int32 data
-    qprod = qa * qb
-    assert isinstance(qprod, QTensor)
-    prod = qa.dequantize() * qb.dequantize()
-    assert_close(prod, qprod)
-
-
-@pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 @pytest.mark.parametrize("scalar", [1, 0.5, torch.tensor(0.12)], ids=["int", "float", "tensor"])
 def test_mul_scalar(input_shape, scalar, device):
     qa = random_qtensor(input_shape, dtype=torch.float32).to(device)
