@@ -6,7 +6,7 @@ from typing import Any, Callable, List, Optional
 import torch
 
 from . import QTensor, dtype_info, qfallback
-from .qtype import qint8, qint32
+from .qtype import qint8
 
 
 __all__ = ["get_qtensor_op_dispatch", "register_qtensor_op"]
@@ -112,25 +112,6 @@ def lt(op, input, other):
     if isinstance(input, QTensor) and isinstance(other, QTensor) and torch.equal(input._scale, other._scale):
         return op(input._data, other._data)
     return qfallback(op, input, other)
-
-
-@register_qtensor_op(
-    [torch.ops.aten.addmm],
-    qargs=[QArg(index=0, axis=[None, -1]), QArg(index=1, axis=[None]), QArg(index=2, axis=[None, -1])],
-)
-def addmm(op, input, mat1, mat2, beta=1, alpha=1):
-    if alpha != 1 or beta != 1 or mat1.qtype != qint8 or mat2.qtype != qint8:
-        return qfallback(op, input, mat1, mat2, beta=beta, alpha=alpha)
-    # Do the operation with data cast to float32
-    out_data = op(
-        input._data.to(torch.float32),
-        mat1._data.to(torch.float32),
-        mat2._data.to(torch.float32),
-        beta=beta,
-        alpha=alpha,
-    )
-    out_scale = mat1._scale * mat2._scale
-    return QTensor(qint32, out_data.to(torch.int32), out_scale)
 
 
 @register_qtensor_op([torch.ops.aten.clone])
