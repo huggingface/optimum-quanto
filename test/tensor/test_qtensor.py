@@ -5,7 +5,7 @@ import pytest
 import torch
 from helpers import assert_close, assert_similar, device_eq, random_qtensor, random_tensor
 
-from quanto import QTensor, absmax_scale, qfloat8_e4m3fn, qfloat8_e5m2, qint8, qint16, qint32
+from quanto import QTensor, absmax_scale, qfloat8, qfloat8_e4m3fn, qfloat8_e5m2, qint8
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
@@ -61,10 +61,17 @@ def test_quantize_scale(input_shape, axis, dtype, qtype, device):
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
-@pytest.mark.parametrize("qtype", [qint8, qint16, qint32], ids=["qint8", "qint16", "qint32"])
+@pytest.mark.parametrize("qtype", [qint8, qfloat8], ids=["qint8", "qfloat8"])
 def test_instantiate(input_shape, dtype, qtype, device):
-    max_value = min(1024, torch.iinfo(qtype.dtype).max)
-    data = torch.randint(-max_value, max_value, input_shape, dtype=qtype.dtype)
+    if qtype.is_floating_point:
+        if device.type == "mps":
+            pytest.skip("float8 types are not supported on MPS device")
+        min_value = torch.finfo(qtype.dtype).min
+        max_value = torch.finfo(qtype.dtype).max
+        data = (torch.rand(input_shape) * max_value + min_value).to(qtype.dtype)
+    else:
+        max_value = torch.iinfo(qtype.dtype).max
+        data = torch.randint(-max_value, max_value, input_shape, dtype=qtype.dtype)
     qa = QTensor(qtype, data, scale=torch.tensor(1.0 / max_value, dtype=dtype)).to(device)
     assert torch.max(torch.abs(qa.dequantize())) <= 1
     assert qa.dtype == dtype
