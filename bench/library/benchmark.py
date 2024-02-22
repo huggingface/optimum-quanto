@@ -9,9 +9,20 @@ from tqdm.auto import tqdm
 from quanto.library import disable_extensions
 
 
+def get_dqmm_bench(input_dtype, device):
+    input = torch.rand([1024, 1024], dtype=input_dtype).to(device)
+    other = torch.randint(-127, 127, [1024, 1024], dtype=torch.int8).to(device)
+    other_scale = torch.ones((1024,), dtype=input_dtype, device=device) * 0.5
+
+    def bench_fn():
+        return torch.ops.quanto.dqmm(input, other, other_scale)
+
+    return bench_fn
+
+
 def get_quantize_symmetric_bench(src_dtype, dst_dtype, per_axis, device):
     a = torch.rand([10240, 10240], dtype=src_dtype).to(device)
-    scale = torch.fill((10240,), 0.5) if per_axis else torch.tensor(0.5)
+    scale = torch.ones((10240,)) * 0.5 if per_axis else torch.tensor(0.5)
     scale = scale.to(src_dtype).to(device)
 
     def bench_fn():
@@ -80,6 +91,7 @@ def timing(get_bench_func, device, iterations=10):
 
 
 GET_BENCH_FUNCTIONS = {
+    "dqmm_w8a16": lambda device: get_dqmm_bench(torch.float16, device),
     "quantize_symmetric_fp32_int8_per_tensor": lambda device: get_quantize_symmetric_bench(
         torch.float32, torch.int8, False, device
     ),
