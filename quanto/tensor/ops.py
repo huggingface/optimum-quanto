@@ -153,11 +153,12 @@ def neg(op, input, *args, **kwargs):
         torch.ops.aten.select,
         torch.ops.aten.slice,
         torch.ops.aten.unsqueeze,
-    ],
-    qargs=[QArg(index=0, axis=[None])],
+    ]
 )
 def unary_type_agnostic_op(op, input, *args, **kwargs):
-    # When quantization is per-tensor, rhese operations can be transparently applied
+    if input.axis is not None:
+        return op(input.dequantize(), *args, **kwargs)
+    # When quantization is per-tensor, these operations can be transparently applied
     # without modifying the scale.
     out_data = op(input._data, *args, **kwargs)
     return QTensor(input.qtype, out_data, input._scale)
@@ -275,14 +276,15 @@ def transpose(op, input, *args):
     return QTensor(input.qtype, out_data, out_scale)
 
 
-@register_qtensor_op([torch.ops.aten.view, torch.ops.aten._unsafe_view], qargs=[QArg(index=0, axis=[None, -1])])
+@register_qtensor_op([torch.ops.aten.view, torch.ops.aten._unsafe_view])
 def view(op, input, *shape):
     out_data = op(input._data, *shape)
     if input.axis is None:
         # The view is transparent for QTensor with scalar scales
         return QTensor(input.qtype, out_data, input._scale)
-    # The tensor is quantized along the last axis
-    assert input.axis == -1
+    # We only support view when the tensor is quantized along the last axis
+    if input.axis != -1:
+        return op(input.dequantize, *shape)
     # We can only perform the view if the last axis is not modified
     if input._scale.shape[-1] == out_data.shape[-1]:
         out_scale_shape = (1,) * (out_data.ndim - 1) + (input._scale.shape[-1],)
