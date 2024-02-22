@@ -1,7 +1,6 @@
 import numbers
-from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, Callable, List, Optional
+from typing import Callable, List
 
 import torch
 
@@ -12,30 +11,10 @@ from .qtype import qint8
 __all__ = ["get_qtensor_op_dispatch", "register_qtensor_op"]
 
 
-@dataclass
-class QArg:
-    """A simple class to describe the expected QTensor type of an argument."""
-
-    index: int = 0
-    axis: List[Any] = field(default_factory=[None])
-
-
-@dataclass
-class QOpDispatch:
-    """A simple class to describe a quantized dispatched operation.
-
-    It contains the quantized operation and the expected QTensor types
-    for its arguments.
-    """
-
-    qop: Callable
-    qargs: List[QArg] = field(default_factory=lambda: [])
-
-
 _QTENSOR_OP_TABLE = {}
 
 
-def register_qtensor_op(aten_ops: List[Callable], qargs: Optional[List[QArg]] = []):
+def register_qtensor_op(aten_ops: List[Callable]):
     """
     Used for registering a new __torch_dispatch__ aten operation to QTensor.
 
@@ -48,22 +27,13 @@ def register_qtensor_op(aten_ops: List[Callable], qargs: Optional[List[QArg]] = 
 
     def wrapper(op):
         for aten_op in aten_ops:
-            _QTENSOR_OP_TABLE[aten_op] = QOpDispatch(partial(op, aten_op), qargs)
+            _QTENSOR_OP_TABLE[aten_op] = partial(op, aten_op)
 
     return wrapper
 
 
 def get_qtensor_op_dispatch(aten_op):
     return _QTENSOR_OP_TABLE.get(aten_op, None)
-
-
-def ensure_qtensor_inputs(*args, per_tensor=True):
-    for arg in args:
-        if not isinstance(arg, QTensor):
-            return False
-        if per_tensor and arg.axis is not None:
-            return False
-    return True
 
 
 def is_scalar(t):
