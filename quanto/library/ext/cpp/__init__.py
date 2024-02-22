@@ -1,7 +1,6 @@
 import os
 
 import torch
-from torch.library import impl
 from torch.utils.cpp_extension import load
 
 
@@ -19,6 +18,7 @@ def ext():
         _ext = load(
             name="quanto_cpp",
             sources=[
+                f"{module_path}/mm.cpp",
                 f"{module_path}/quantize.cpp",
                 f"{module_path}/unpack.cpp",
                 f"{module_path}/pybind_module.cpp",
@@ -28,11 +28,16 @@ def ext():
     return _ext
 
 
+@torch.library.impl("quanto_ext::dqmm", ["CPU", "CUDA"])
+def dqmm_cpp(input: torch.Tensor, other: torch.Tensor, other_scale: torch.Tensor):
+    return ext().dqmm(input, other, other_scale)
+
+
 @torch.library.impl("quanto_ext::quantize_symmetric", ["CPU"])
 def quantize_symmetric_cpp(t: torch.Tensor, scale: torch.Tensor, dtype: torch.Tensor.dtype):
     return ext().quantize_symmetric(t, scale, dtype)
 
 
-@impl("quanto_ext::unpack", ["CPU", "CUDA"])
+@torch.library.impl("quanto_ext::unpack", ["CPU", "CUDA"])
 def unpack_cpp(t: torch.Tensor, bits: int):
     return ext().unpack(t, bits)
