@@ -206,14 +206,7 @@ class QTensor(torch.Tensor):
         # Look for a dispatched op accepting QTensor inputs
         qdispatch = get_qtensor_op_dispatch(op)
         if qdispatch is not None:
-            if qdispatch.qargs is not None:
-                # Check QTensor arguments
-                for qarg in qdispatch.qargs:
-                    arg = args[qarg.index]
-                    if not isinstance(arg, QTensor) or arg.axis not in qarg.axis:
-                        # Incompatible argument detected: qfallback
-                        return qfallback(op, *args, **kwargs)
-            return qdispatch.qop(*args, **kwargs)
+            return qdispatch(*args, **kwargs)
         # No dispatch available: qfallback
         return qfallback(op, *args, **kwargs)
 
