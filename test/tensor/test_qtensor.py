@@ -10,7 +10,7 @@ from quanto import QTensor, absmax_scale, qfloat8, qfloat8_e4m3fn, qfloat8_e5m2,
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("qtype", [qint8], ids=["qint8"])
-def test_quantize_integer(input_shape, dtype, qtype, device):
+def test_qtensor_quantize_integer(input_shape, dtype, qtype, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
     qa = QTensor.quantize(a, qtype)
     assert isinstance(qa, QTensor)
@@ -24,7 +24,7 @@ def test_quantize_integer(input_shape, dtype, qtype, device):
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("qtype", [qfloat8_e5m2, qfloat8_e4m3fn], ids=["qfloat8_e5m2", "qfloat8_e4m3"])
 @pytest.mark.skip_device("mps")
-def test_quantize_float8(input_shape, dtype, qtype, device):
+def test_qtensor_quantize_float8(input_shape, dtype, qtype, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
     qa = QTensor.quantize(a, qtype)
     assert isinstance(qa, QTensor)
@@ -38,7 +38,7 @@ def test_quantize_float8(input_shape, dtype, qtype, device):
 @pytest.mark.parametrize("qtype", [qint8], ids=["qint8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("axis", [None, 0, -1], ids=["per-tensor", "first-axis", "last-axis"])
-def test_quantize_scale(input_shape, axis, dtype, qtype, device):
+def test_qtensor_quantize_scale(input_shape, axis, dtype, qtype, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
     scale = absmax_scale(a, qtype, axis)
     qa = QTensor.quantize(a, qtype, scale)
@@ -61,7 +61,7 @@ def test_quantize_scale(input_shape, axis, dtype, qtype, device):
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("qtype", [qint8, qfloat8], ids=["qint8", "qfloat8"])
-def test_instantiate(input_shape, dtype, qtype, device):
+def test_qtensor_instantiate(input_shape, dtype, qtype, device):
     if qtype.is_floating_point:
         if device.type == "mps":
             pytest.skip("float8 types are not supported on MPS device")
@@ -81,7 +81,7 @@ def test_instantiate(input_shape, dtype, qtype, device):
 @pytest.mark.parametrize("qtype", [qint8, qfloat8], ids=["qint8", "qfloat8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("axis", [None, 0, -1], ids=["per-tensor", "first-axis", "last-axis"])
-def test_quantized_tensor_serialization(input_shape, qtype, dtype, axis):
+def test_qtensor_serialization(input_shape, qtype, dtype, axis):
     inputs = random_tensor(input_shape, dtype=dtype)
     scale = absmax_scale(inputs, qtype, axis)
     qinputs = QTensor.quantize(inputs, qtype, scale)
@@ -101,14 +101,14 @@ def test_quantized_tensor_serialization(input_shape, qtype, dtype, axis):
     assert qinputs_reloaded.axis == qinputs.axis
 
 
-def test_quantized_tensor_requires_grad(device):
+def test_qtensor_requires_grad(device):
     weight = random_tensor((10,), dtype=torch.float32).to(device)
     weight.requires_grad = True
     qweight = QTensor.quantize(weight)
     assert qweight.requires_grad is True
 
 
-def test_quantized_tensor_backward(device):
+def test_qtensor_backward(device):
     weight = random_tensor((10,), dtype=torch.float32).to(device)
     weight.requires_grad = True
     qweight = QTensor.quantize(weight)
@@ -118,7 +118,7 @@ def test_quantized_tensor_backward(device):
     assert torch.equal(weight.grad, gradient)
 
 
-def test_quantized_tensor_chained_backward(device):
+def test_qtensor_chained_backward(device):
     a = random_tensor((10,), dtype=torch.float32).to(device)
     a.requires_grad = True
     qa = QTensor.quantize(a)
