@@ -9,7 +9,7 @@ from quanto import QBitsTensor, qint2, qint4
 
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["qint2", "qint4"])
-def test_quantize_integer_tensor(dtype, qtype, device):
+def test_qbitstensor_quantize_integer_tensor(dtype, qtype, device):
     """This test verifies that an integer tensor in the correct range is preserved."""
     bits = qtype.bits
     qmin = -(2 ** (bits - 1))
@@ -29,7 +29,7 @@ def test_quantize_integer_tensor(dtype, qtype, device):
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["qint2", "qint4"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("zp", [-1, 0, 1], ids=["neg", "centered", "pos"])
-def test_quantize_per_tensor(input_shape, qtype, dtype, zp, device):
+def test_qbitstensor_quantize_per_tensor(input_shape, qtype, dtype, zp, device):
     a = random_tensor(input_shape, dtype=dtype).to(device) + zp
     qa = QBitsTensor.quantize(a, qtype=qtype)
     assert isinstance(qa, QBitsTensor)
@@ -43,7 +43,7 @@ def test_quantize_per_tensor(input_shape, qtype, dtype, zp, device):
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["qint2", "qint4"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("zp", [-1, 0, 1], ids=["neg", "centered", "pos"])
-def test_quantize_per_axis(axis, qtype, dtype, zp, device):
+def test_qbitstensor_quantize_per_axis(axis, qtype, dtype, zp, device):
     a = random_tensor((32, 32), dtype=dtype).to(device) + zp
     qa = QBitsTensor.quantize(a, qtype=qtype, axis=axis)
     assert isinstance(qa, QBitsTensor)
