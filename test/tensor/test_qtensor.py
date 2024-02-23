@@ -1,5 +1,4 @@
-import os
-from tempfile import TemporaryDirectory
+import io
 
 import pytest
 import torch
@@ -78,14 +77,28 @@ def test_instantiate(input_shape, dtype, qtype, device):
     assert qa.qtype == qtype
 
 
-def test_quantized_tensor_serialization():
-    qinputs = random_qtensor((1, 10, 32), dtype=torch.float32)
-    with TemporaryDirectory() as tmpdir:
-        qinputs_file = os.path.join(tmpdir, "qinputs.pt")
-        torch.save(qinputs, qinputs_file)
-        qinputs_reloaded = torch.load(qinputs_file)
-    assert torch.equal(qinputs._data, qinputs_reloaded._data)
-    assert torch.equal(qinputs._scale, qinputs_reloaded._scale)
+@pytest.mark.parametrize("input_shape", [(10,), (1, 10), (2, 10), (10, 32, 32)])
+@pytest.mark.parametrize("qtype", [qint8, qfloat8], ids=["qint8", "qfloat8"])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
+@pytest.mark.parametrize("axis", [None, 0, -1], ids=["per-tensor", "first-axis", "last-axis"])
+def test_quantized_tensor_serialization(input_shape, qtype, dtype, axis):
+    inputs = random_tensor(input_shape, dtype=dtype)
+    scale = absmax_scale(inputs, qtype, axis)
+    qinputs = QTensor.quantize(inputs, qtype, scale)
+    b = io.BytesIO()
+    torch.save(qinputs, b)
+    b.seek(0)
+    qinputs_reloaded = torch.load(b)
+    assert qinputs_reloaded.qtype == qtype
+    assert torch.equal(qinputs_reloaded._scale, qinputs._scale)
+    if qtype.is_floating_point:
+        # Equality is not supported for float8
+        assert torch.equal(qinputs_reloaded._data.to(torch.float32), qinputs._data.to(torch.float32))
+    else:
+        assert torch.equal(qinputs_reloaded._data, qinputs._data)
+    # We cannot test dtype directly as it is not correctly set by torch.load
+    assert qinputs_reloaded._scale.dtype == dtype
+    assert qinputs_reloaded.axis == qinputs.axis
 
 
 def test_quantized_tensor_requires_grad(device):
