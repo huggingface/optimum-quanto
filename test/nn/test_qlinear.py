@@ -1,3 +1,5 @@
+import io
+
 import pytest
 import torch
 from helpers import assert_close, assert_similar, random_qtensor
@@ -131,3 +133,39 @@ def test_move_qlinear(use_bias, weights, device):
     assert qlinear.weight._scale.device.type == device.type
     if isinstance(qlinear.weight, QBitsTensor):
         assert qlinear.weight._zeropoint.device.type == device.type
+
+
+@pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
+@pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
+@pytest.mark.parametrize("activations", [None, qint8], ids=["a-float", "a-qint8"])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
+def test_qlinear_serialization(use_bias, activations, weights, dtype, device):
+    if dtype == torch.float16 and device.type == "cpu":
+        pytest.skip("Matrix multiplication is not supported for float16 on CPU")
+    embeddings = 10
+    linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(dtype).to(device)
+    qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
+    if activations is not None:
+        qinputs = random_qtensor((10, 10, embeddings), dtype=dtype).to(device)
+        with Calibration():
+            qlinear(qinputs)
+    qlinear.freeze()
+    b = io.BytesIO()
+    torch.save(qlinear.state_dict(), b)
+    b.seek(0)
+    state_dict = torch.load(b)
+    qlinear_reloaded = QLinear(embeddings, embeddings, bias=use_bias)
+    # We need to force assignment instead of copy to replace weights by quantized weights
+    qlinear_reloaded.load_state_dict(state_dict, assign=True)
+    w = qlinear.weight
+    w_reloaded = qlinear_reloaded.weight
+    assert w.qtype == w_reloaded.qtype
+    assert torch.equal(w._data, w_reloaded._data)
+    assert torch.equal(w._scale, w_reloaded._scale)
+    assert w_reloaded.dtype == dtype
+    assert w_reloaded.axis == w.axis
+    if activations is not None:
+        for attr in ["input_scale", "output_scale"]:
+            v = getattr(qlinear, attr)
+            v_reloaded = getattr(qlinear_reloaded, attr)
+            assert torch.equal(v, v_reloaded)
