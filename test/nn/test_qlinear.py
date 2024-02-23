@@ -1,10 +1,11 @@
 import io
+from contextlib import nullcontext
 
 import pytest
 import torch
 from helpers import assert_close, assert_similar, random_qtensor
 
-from quanto import Calibration, QBitsTensor, QTensor, qfloat8_e4m3fn, qfloat8_e5m2, qint4, qint8
+from quanto import Calibration, QBitsTensor, QTensor, qfloat8, qfloat8_e4m3fn, qfloat8_e5m2, qint4, qint8
 from quanto.nn import QLinear
 
 
@@ -13,15 +14,17 @@ def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, act
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
     assert qlinear.qweight().qtype == weights
     qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=dtype).to(device)
+    inputs = qinputs.dequantize()
     # Run an inference with Calibration to get the correct output dtype
-    with torch.no_grad(), Calibration():
-        qout = qlinear(qinputs)
+    context = nullcontext if activations is None else Calibration
+    with torch.no_grad(), context():
+        qout = qlinear(inputs if activations is None else qinputs)
     if activations is not None:
         assert isinstance(qout, QTensor)
         assert qout.qtype == activations
     # Align linear weights with quantized linear weights for comparison
     linear.weight = torch.nn.Parameter(qlinear.qweight().dequantize())
-    out = linear(qinputs.dequantize())
+    out = linear(inputs)
     # We need to increase atol for float16 dtype
     dtype_atol = {torch.float32: 1e-4, torch.float16: 1e-3}[dtype]
     # We also need to increase atol for float8 qtypes
@@ -82,7 +85,7 @@ def test_quantize_linear_float32_activations_float8(
 @pytest.mark.parametrize("batch_size", [1, 10])
 @pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
-@pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
+@pytest.mark.parametrize("weights", [qint4, qint8, qfloat8], ids=["w-qint4", "w-qint8", "float8"])
 @pytest.mark.skip_device("cpu")
 def test_quantize_linear_float16_weight_only(batch_size, tokens, embeddings, use_bias, weights, device):
     _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, None, torch.float16, device)
