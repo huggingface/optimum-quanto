@@ -1,4 +1,5 @@
 import functools
+import gc
 
 import pytest
 import torch
@@ -82,3 +83,14 @@ def assert_similar(a, b, atol=1e-6, rtol=1e-5):
     if not torch.allclose(sim, torch.tensor(1.0, dtype=sim.dtype), atol=atol, rtol=rtol):
         max_deviation = torch.min(sim)
         raise ValueError(f"Alignment {max_deviation:.8f} deviates too much from 1.0 with atol={atol}, rtol={rtol}")
+
+
+def get_device_memory(device):
+    gc.collect()
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
+        return torch.cuda.memory_allocated()
+    elif device.type == "mps":
+        torch.mps.empty_cache()
+        return torch.mps.current_allocated_memory()
+    return None
