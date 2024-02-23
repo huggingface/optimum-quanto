@@ -136,7 +136,7 @@ def test_move_qlinear(use_bias, weights, device):
 
 
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
-@pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
+@pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
 @pytest.mark.parametrize("activations", [None, qint8], ids=["a-float", "a-qint8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 def test_qlinear_serialization(use_bias, activations, weights, dtype, device):
