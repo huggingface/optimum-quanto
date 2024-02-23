@@ -24,7 +24,7 @@ quanto: 0.0.10
 | princeton-nlp/Sheared-LLaMA-1.3B | 21 ms | 39 ms | 79 ms  | 115 ms   | 33 ms    |
 | 01-ai/Yi-6B                      | 32 ms | 81 ms | 113 ms | 190 ms   | 44 ms    |
 | NousResearch/Llama-2-7b-hf       | 37 ms | 93 ms | 107 ms | 164 ms   | 42 ms    |
-| HuggingFaceH4/zephyr-7b-beta     | 38 ms | 98 ms | 118 ms | 207 ms   | 45 ms    |
+| HuggingFaceH4/zephyr-7b-beta     | 38 ms | 95 ms | 109 ms | 200 ms   | 45 ms    |
 
 At a quick glance, we can see that:
 
