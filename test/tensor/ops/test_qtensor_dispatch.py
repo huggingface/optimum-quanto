@@ -69,3 +69,16 @@ def test_cat(input_shape, device):
     qother = QTensor.quantize(other, qinputs.qtype)
     qcat = torch.cat([qinputs, qother])
     assert not isinstance(qcat, QTensor)
+
+
+@pytest.mark.parametrize("axis", [None, 0, -1], ids=["per-tensor", "first-axis", "last-axis"])
+def test_transpose_2d(axis, device):
+    input_shape = (32, 64)
+    qinputs = random_qtensor(input_shape, axis=axis).to(device)
+    qtransposed = qinputs.t()
+    assert qtransposed.qtype == qinputs.qtype
+    if axis == -1:
+        assert qtransposed.axis == 0
+    elif axis == 0:
+        assert qtransposed.axis == -1
+    assert torch.equal(qtransposed.dequantize(), qinputs.dequantize().t())
