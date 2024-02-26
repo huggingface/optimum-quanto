@@ -2,7 +2,7 @@ from functools import partial
 
 import torch
 
-from .core import qfallback
+from .qtensor import qfallback
 
 
 __all__ = ["get_qtensor_func", "register_qtensor_func"]

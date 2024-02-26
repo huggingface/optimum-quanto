@@ -4,7 +4,8 @@ from typing import Callable, List
 
 import torch
 
-from . import QTensor, dtype_info, qfallback
+from .core import dtype_info
+from .qtensor import QTensor, qfallback
 from .qtype import qint8
 
 
