@@ -126,10 +126,10 @@ class QModuleMixin(ABC):
             return self.weight
         # Quantize dynamically the weights per-axis
         if self.weights in (qint2, qint4):
-            return QBitsTensor.quantize(self.weight, qtype=self.weights, axis=0)
+            return QBitsTensor.quantize(self.weight, qtype=self.weights, axis=0, group_size=None)
         elif isinstance(self.weights, qtype):
             wscale = absmax_scale(self.weight, axis=0)
-            return QTensor.quantize(self.weight, qtype=self.weights, axis=0, scale=wscale)
+            return QTensor.quantize(self.weight, qtype=self.weights, axis=0, group_size=None, scale=wscale)
         raise ValueError(f"Invalid quantized weights type {self.weights}")
 
     def qforward(self, input: torch.Tensor) -> torch.Tensor:
@@ -139,7 +139,7 @@ class QModuleMixin(ABC):
         def maybe_requantize(t, scale):
             if t.qtype == self.activations and t.axis is None:
                 return t
-            return QTensor.quantize(t.dequantize(), qtype=self.activations, axis=None, scale=scale)
+            return QTensor.quantize(t.dequantize(), qtype=self.activations, axis=None, group_size=None, scale=scale)
 
         if self.activations is not None and isinstance(input, QTensor):
             input = maybe_requantize(input, self.input_scale)
@@ -148,7 +148,9 @@ class QModuleMixin(ABC):
             if isinstance(output, QTensor):
                 output = maybe_requantize(output, self.output_scale)
             else:
-                output = QTensor.quantize(output, qtype=self.activations, axis=None, scale=self.output_scale)
+                output = QTensor.quantize(
+                    output, qtype=self.activations, axis=None, group_size=None, scale=self.output_scale
+                )
         return output
 
     def freeze(self):
