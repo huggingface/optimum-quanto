@@ -88,6 +88,8 @@ def test_quantize_linear_float32_activations_float8(
 @pytest.mark.parametrize("weights", [qint4, qint8, qfloat8], ids=["w-qint4", "w-qint8", "float8"])
 @pytest.mark.skip_device("cpu")
 def test_quantize_linear_float16_weight_only(batch_size, tokens, embeddings, use_bias, weights, device):
+    if device.type == "mps" and weights == qfloat8:
+        pytest.skip("Float 8 are not supported on MPS device")
     _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, None, torch.float16, device)
 
 
