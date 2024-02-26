@@ -4,7 +4,6 @@ import torch
 from torch.autograd import Function
 from torch.utils import _pytree as pytree
 
-from .core import axis_to_dim
 from .packed import PackedTensor
 from .qtensor import QTensor
 from .qtype import qint2, qint4, qint8, qtype
@@ -17,16 +16,13 @@ class AffineQuantizer(Function):
     """A standard affine quantizer."""
 
     @staticmethod
-    def forward(ctx, base, qtype: qtype, axis=None):
+    def forward(ctx, base, qtype: qtype, axis: int):
         assert qtype in (qint2, qint4)
+        assert axis in (0, -1)
         bits = qtype.bits
-        if axis is None:
-            rmin = torch.min(base)
-            rmax = torch.max(base)
-        else:
-            dim = axis_to_dim(base, axis)
-            rmin = torch.amin(base, dim=dim, keepdim=True)
-            rmax = torch.amax(base, dim=dim, keepdim=True)
+        dim = list(range(1, base.ndim)) if (axis == 0) else list(range(0, base.ndim - 1))
+        rmin = torch.amin(base, dim=dim, keepdim=True)
+        rmax = torch.amax(base, dim=dim, keepdim=True)
         qmin = -(2 ** (bits - 1))
         qmax = 2 ** (bits - 1) - 1
         scale = (rmax - rmin) / (qmax - qmin)
@@ -76,8 +72,10 @@ class QBitsTensor(QTensor):
         return f"QBitsTensor({self._data}, scale={self._scale}, zeropoint={self._zeropoint}, dtype={self.dtype}{autograd_info})"
 
     @classmethod
-    def quantize(cls, base, qtype=qint4, axis=None):
+    def quantize(cls, base, qtype=qint4, axis=0):
         """Differentiable quantization function"""
+        if axis not in (0, -1):
+            raise ValueError("QBitsTensor axis parameter must be 0 (first axis) or -1 (last axis)")
         return AffineQuantizer.apply(base, qtype, axis)
 
     def qtensor(self):

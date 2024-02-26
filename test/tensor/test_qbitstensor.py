@@ -25,21 +25,7 @@ def test_qbitstensor_quantize_integer_tensor(dtype, qtype, device):
     assert torch.equal(a, qa.dequantize())
 
 
-@pytest.mark.parametrize("input_shape", [(10,), (12,), (10, 10), (12, 10), (32, 32)])
-@pytest.mark.parametrize("qtype", [qint2, qint4], ids=["qint2", "qint4"])
-@pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
-@pytest.mark.parametrize("zp", [-1, 0, 1], ids=["neg", "centered", "pos"])
-def test_qbitstensor_quantize_per_tensor(input_shape, qtype, dtype, zp, device):
-    a = random_tensor(input_shape, dtype=dtype).to(device) + zp
-    qa = QBitsTensor.quantize(a, qtype=qtype)
-    assert isinstance(qa, QBitsTensor)
-    assert qa.dtype == dtype
-    assert qa.qtype == qtype
-    assert device_eq(qa.device, device)
-    assert_close(a, qa)
-
-
-@pytest.mark.parametrize("axis", [0, 1, -1], ids=["first-axis", "second-axis", "last-axis"])
+@pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["qint2", "qint4"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("zp", [-1, 0, 1], ids=["neg", "centered", "pos"])
@@ -54,7 +40,7 @@ def test_qbitstensor_quantize_per_axis(axis, qtype, dtype, zp, device):
 
 
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["int2", "int4"])
-@pytest.mark.parametrize("axis", [0, None, -1], ids=["first-axis", "per-tensor", "last-axis"])
+@pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
 def test_qbitstensor_serialization(qtype, axis):
     a = random_tensor((5, 5), dtype=torch.float32)
     qa = QBitsTensor.quantize(a, qtype=qtype, axis=axis)
