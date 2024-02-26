@@ -40,7 +40,7 @@ def random_qtensor(shape, qtype=qint8, dtype=torch.float32, axis=None):
     return QTensor.quantize(t, qtype=qtype, scale=scale)
 
 
-def random_qbitstensor(shape, qtype=qint4, dtype=torch.float32, axis=None):
+def random_qbitstensor(shape, qtype=qint4, dtype=torch.float32, axis=0):
     t = random_tensor(shape, dtype)
     return QBitsTensor.quantize(t, qtype=qtype, axis=axis)
 
