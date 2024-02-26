@@ -71,7 +71,7 @@ def test_qtensor_instantiate(input_shape, dtype, qtype, device):
     else:
         max_value = torch.iinfo(qtype.dtype).max
         data = torch.randint(-max_value, max_value, input_shape, dtype=qtype.dtype)
-    qa = QTensor(qtype, data, scale=torch.tensor(1.0 / max_value, dtype=dtype)).to(device)
+    qa = QTensor(qtype, None, data, scale=torch.tensor(1.0 / max_value, dtype=dtype)).to(device)
     assert torch.max(torch.abs(qa.dequantize())) <= 1
     assert qa.dtype == dtype
     assert qa.qtype == qtype

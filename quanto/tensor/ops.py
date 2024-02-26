@@ -47,7 +47,7 @@ def _to_copy(op, t, dtype=None, **kwargs):
     out_data = op(t._data, dtype=t._data.dtype, **kwargs)
     # Apply the new dtype on the scale only
     out_scale = op(t._scale, dtype=dtype, **kwargs)
-    return QTensor(t.qtype, out_data, out_scale)
+    return QTensor(t.qtype, t.axis, out_data, out_scale)
 
 
 @register_qtensor_op([torch.ops.aten.detach])
@@ -55,7 +55,7 @@ def detach(op, t):
     # Detach both data and scale
     out_data = op(t._data)
     out_scale = op(t._scale)
-    return QTensor(t.qtype, out_data, out_scale)
+    return QTensor(t.qtype, t.axis, out_data, out_scale)
 
 
 @register_qtensor_op([torch.ops.aten.cat])
@@ -73,7 +73,7 @@ def cat(op, inputs, dim=0):
                 return qfallback(op, inputs, dim)
             # Only quantized tensors with identical scales can be concatenated
             out_data = op([t1._data, t2._data], dim)
-            return QTensor(t1.qtype, out_data, t1._scale)
+            return QTensor(t1.qtype, t1.axis, out_data, t1._scale)
     return qfallback(op, inputs, dim)
 
 
@@ -89,7 +89,7 @@ def lt(op, input, other):
 def clone(op, t, memory_format=torch.preserve_format):
     out_data = op(t._data, memory_format=memory_format)
     out_scale = op(t._scale, memory_format=memory_format)
-    return QTensor(t.qtype, out_data, out_scale)
+    return QTensor(t.qtype, t.axis, out_data, out_scale)
 
 
 @register_qtensor_op([torch.ops.aten.copy_])
@@ -105,7 +105,7 @@ def div(op, input, other):
     if not is_scalar(other):
         return op(input.dequantize(), other)
     # We just divide the scale
-    return QTensor(input.qtype, input._data, op(input._scale, other))
+    return QTensor(input.qtype, input.axis, input._data, op(input._scale, other))
 
 
 @register_qtensor_op([torch.ops.aten.neg])
@@ -114,7 +114,7 @@ def neg(op, input, *args, **kwargs):
         # Neg is not supported for float8
         return op(input.dequantize(), *args, **kwargs)
     out_data = op(input._data, *args, **kwargs)
-    return QTensor(input.qtype, out_data, input._scale)
+    return QTensor(input.qtype, input.axis, out_data, input._scale)
 
 
 @register_qtensor_op(
@@ -132,7 +132,7 @@ def unary_type_agnostic_op(op, input, *args, **kwargs):
     # When quantization is per-tensor, these operations can be transparently applied
     # without modifying the scale.
     out_data = op(input._data, *args, **kwargs)
-    return QTensor(input.qtype, out_data, input._scale)
+    return QTensor(input.qtype, input.axis, out_data, input._scale)
 
 
 @register_qtensor_op([torch.ops.aten.is_same_size])
@@ -188,9 +188,9 @@ def mm(op, input, other):
 def mul(op, input, other):
     # If one of the multiplicands is a scalar, just multiply the scale
     if is_scalar(input):
-        return QTensor(other.qtype, other._data, input * other._scale)
+        return QTensor(other.qtype, other.axis, other._data, input * other._scale)
     if is_scalar(other):
-        return QTensor(input.qtype, input._data, other * input._scale)
+        return QTensor(input.qtype, input.axis, input._data, other * input._scale)
     return qfallback(op, input, other)
 
 
@@ -200,7 +200,7 @@ def relu(op, input):
         # Relu is not supported for float8 types
         return qfallback(op, input)
     out_data = op(input._data)
-    return QTensor(input.qtype, out_data, input._scale)
+    return QTensor(input.qtype, input.axis, out_data, input._scale)
 
 
 @register_qtensor_op([torch.ops.aten._softmax])
@@ -225,7 +225,7 @@ def stack(op, inputs, dim=0):
         ):
             # Only quantized tensors with identical scales can be stacked
             out_data = op([t1._data, t2._data], dim)
-            return QTensor(t1.qtype, out_data, t1._scale)
+            return QTensor(t1.qtype, t1.axis, out_data, t1._scale)
     return qfallback(inputs, dim)
 
 
@@ -234,17 +234,28 @@ def split(op, input, *args, **kwargs):
     if input.axis is not None:
         return qfallback(op, input, *args, **kwargs)
     out_datas = op(input._data, *args, **kwargs)
-    return [QTensor(input.qtype, out_data, input._scale) for out_data in out_datas]
+    return [QTensor(input.qtype, input.axis, out_data, input._scale) for out_data in out_datas]
 
 
-@register_qtensor_op([torch.ops.aten.transpose, torch.ops.aten.t])
+@register_qtensor_op([torch.ops.aten.transpose])
 def transpose(op, input, *args):
+    if input.axis is not None:
+        return op(input.dequantize(), *args)
     out_data = op(input._data, *args)
     out_scale = input._scale
+    return QTensor(input.qtype, None, out_data, out_scale)
+
+
+@register_qtensor_op([torch.ops.aten.t])
+def transpose2d(op, input):
+    out_data = op(input._data)
+    out_scale = input._scale
+    out_axis = input.axis
     if input.axis is not None:
         # We need to transpose also the scale
-        out_scale = op(out_scale, *args)
-    return QTensor(input.qtype, out_data, out_scale)
+        out_scale = op(out_scale)
+        out_axis = 0 if out_axis == -1 else -1
+    return QTensor(input.qtype, out_axis, out_data, out_scale)
 
 
 @register_qtensor_op([torch.ops.aten.view, torch.ops.aten._unsafe_view])
@@ -252,7 +263,7 @@ def view(op, input, *shape):
     out_data = op(input._data, *shape)
     if input.axis is None:
         # The view is transparent for QTensor with scalar scales
-        return QTensor(input.qtype, out_data, input._scale)
+        return QTensor(input.qtype, input.axis, out_data, input._scale)
     # We only support view when the tensor is quantized along the last axis
     if input.axis != -1:
         return op(input.dequantize, *shape)
@@ -260,7 +271,7 @@ def view(op, input, *shape):
     if input._scale.shape[-1] == out_data.shape[-1]:
         out_scale_shape = (1,) * (out_data.ndim - 1) + (input._scale.shape[-1],)
         out_scale = input._scale.view(out_scale_shape)
-        return QTensor(input.qtype, out_data, out_scale)
+        return QTensor(input.qtype, input.axis, out_data, out_scale)
     return qfallback(op, input, *shape)
 
 

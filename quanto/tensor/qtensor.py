@@ -21,30 +21,38 @@ def qfallback(callable, *args, **kwargs):
 
 
 class Quantizer(Function):
-    """A standard symmetric quantizer.
-
-    If the quantization scale is not specified, it uses the absmax scale for the base tensor.
-    """
+    """A standard symmetric quantizer."""
 
     @staticmethod
-    def forward(ctx, base, qtype: qtype = qint8, scale=None):
+    def forward(ctx, base: torch.Tensor, qtype: qtype, scale: torch.Tensor):
         info = dtype_info(qtype.dtype)
-        if scale is None:
-            scale = absmax_scale(base, qtype)
-        elif scale.ndim > 0:
+        axis = None
+        if scale.ndim > 0:
             if torch.squeeze(scale).ndim > 1:
                 raise ValueError("Quantizing along multiple axis is not supported")
             if scale.ndim != base.ndim:
                 raise ValueError(
                     "When quantizing per-axis, the scale must be broadcastable to the base (Tip: try to add missing dims of length zero)."
                 )
+            dims = scale.shape
+            for i in range(scale.ndim):
+                if dims[i] != 1:
+                    axis = i
+            if axis is None:
+                # All dims are 1: the scale is actually a scalar
+                scale = torch.squeeze(scale)
+            elif axis == scale.ndim - 1:
+                # Align on the general convention to index the last dimension
+                axis = -1
+            elif axis not in (0, -1):
+                raise ValueError("QTensor can only be quantized along the first or last axis.")
         data = base / scale
         if not qtype.is_floating_point:
             data = torch.round(data)
         data = torch.clamp(data, min=info.min, max=info.max).to(qtype.dtype)
         # The instantiation of the quantized tensor must happen within the context of the Function
         # for the autograd magic to work.
-        return QTensor(qtype, data, scale)
+        return QTensor(qtype, axis, data, scale)
 
     @staticmethod
     def backward(ctx, gO):
@@ -68,7 +76,7 @@ class Dequantizer(Function):
 
 class QTensor(torch.Tensor):
     @staticmethod
-    def __new__(cls, qtype, data, scale, requires_grad=False):
+    def __new__(cls, qtype, axis, data, scale, requires_grad=False):
         assert data.device == scale.device
         # This constructor can ONLY create leaf Tensors wrt autograd.
         # Use QTensor.from_tensor(t) to get a non-leaf Tensor wrt autograd.
@@ -76,26 +84,9 @@ class QTensor(torch.Tensor):
             cls, data.size(), strides=data.stride(), dtype=scale.dtype, device=data.device, requires_grad=requires_grad
         )
 
-    def __init__(self, qtype, data, scale, requires_grad=False):
+    def __init__(self, qtype, axis, data, scale, requires_grad=False):
         self._qtype = qtype
-        self._axis = None
-        if scale.ndim > 0:
-            if torch.squeeze(scale).ndim > 1:
-                raise ValueError("QTensor cannot be quantized along multiple axis.")
-            if scale.ndim != data.ndim:
-                raise ValueError(
-                    "The QTensor scale must be broadcastable to the base (Tip: try to add missing dims of length zero)."
-                )
-            dims = scale.shape
-            for i in range(scale.ndim):
-                if dims[i] != 1:
-                    self._axis = i
-            if self._axis is None:
-                # All dims are 1: the scale is actually a scalar
-                scale = torch.squeeze(scale)
-            elif self._axis == scale.ndim - 1:
-                # Align on the general convention to index the last dimension
-                self._axis = -1
+        self._axis = axis
         self._data = data
         self._scale = scale
 
@@ -107,7 +98,12 @@ class QTensor(torch.Tensor):
 
     @classmethod
     def quantize(cls, base, qtype=qint8, scale=None):
-        """Differentiable quantization function"""
+        """Differentiable quantization function
+
+        If the quantization scale is not specified, it uses the absmax scale for the base tensor.
+        """
+        if scale is None:
+            scale = absmax_scale(base, qtype)
         return Quantizer.apply(base, qtype, scale)
 
     def dequantize(self):
@@ -124,16 +120,17 @@ class QTensor(torch.Tensor):
 
     def __tensor_flatten__(self):
         inner_tensors = ["_data", "_scale"]
-        meta = {"qtype": self._qtype}
+        meta = {"qtype": self._qtype, "axis": self._axis}
         return inner_tensors, meta
 
     @staticmethod
     def __tensor_unflatten__(inner_tensors, meta, outer_size, outer_stride):
         assert len(inner_tensors) == 2
-        assert len(meta) == 1
+        assert len(meta) == 2
         data, scale = inner_tensors["_data"], inner_tensors["_scale"]
         qtype = meta["qtype"]
-        return QTensor(qtype, data, scale)
+        axis = meta["axis"]
+        return QTensor(qtype, axis, data, scale)
 
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
