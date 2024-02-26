@@ -1,8 +1,9 @@
 import io
+from math import prod
 
 import pytest
 import torch
-from helpers import assert_close, assert_similar, device_eq, random_qtensor, random_tensor
+from helpers import assert_similar, device_eq, random_qtensor, random_tensor
 
 from quanto import QTensor, absmax_scale, qfloat8, qfloat8_e4m3fn, qfloat8_e5m2, qint8
 
@@ -12,12 +13,12 @@ from quanto import QTensor, absmax_scale, qfloat8, qfloat8_e4m3fn, qfloat8_e5m2,
 def test_qtensor_quantize_int8(input_shape, dtype, device):
     qtype = qint8
     a = random_tensor(input_shape, dtype=dtype).to(device)
-    qa = QTensor.quantize(a, qtype)
+    qa = QTensor.quantize(a, qtype=qtype)
     assert isinstance(qa, QTensor)
     assert qa.dtype == dtype
     assert qa.qtype == qtype
     assert device_eq(qa.device, device)
-    assert_close(a, qa)
+    assert_similar(a, qa)
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
@@ -26,7 +27,7 @@ def test_qtensor_quantize_int8(input_shape, dtype, device):
 @pytest.mark.skip_device("mps")
 def test_qtensor_quantize_float8(input_shape, dtype, qtype, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
-    qa = QTensor.quantize(a, qtype)
+    qa = QTensor.quantize(a, qtype=qtype)
     assert isinstance(qa, QTensor)
     assert qa.dtype == dtype
     assert qa.qtype == qtype
@@ -50,6 +51,24 @@ def test_qtensor_quantize_per_axis(input_shape, dtype, qtype, axis, device):
     assert_similar(a, qa, atol=5e-3)
 
 
+@pytest.mark.parametrize("input_shape", [(256, 256), (256, 512)])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
+@pytest.mark.parametrize("qtype", [qint8, qfloat8], ids=["qint8", "qfloat8"])
+@pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
+@pytest.mark.parametrize("group_size", [64, 128])
+def test_qtensor_quantize_groupwise(input_shape, dtype, qtype, axis, group_size, device):
+    if device.type == "mps" and qtype.is_floating_point:
+        pytest.skip("Float8 is not supported on MPS device")
+    a = random_tensor(input_shape, dtype=dtype).to(device)
+    qa = QTensor.quantize(a, qtype=qtype, axis=axis, group_size=group_size)
+    assert isinstance(qa, QTensor)
+    assert qa.dtype == dtype
+    assert qa.qtype == qtype
+    assert qa.shape == input_shape
+    assert device_eq(qa.device, device)
+    assert_similar(a, qa, atol=5e-3)
+
+
 @pytest.mark.parametrize("input_shape", [(10, 10), (10, 32, 32)])
 @pytest.mark.parametrize("qtype", [qint8], ids=["qint8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
@@ -57,7 +76,7 @@ def test_qtensor_quantize_per_axis(input_shape, dtype, qtype, axis, device):
 def test_qtensor_quantize_scale(input_shape, axis, dtype, qtype, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
     scale = absmax_scale(a, qtype, axis)
-    qa = QTensor.quantize(a, qtype, axis, scale)
+    qa = QTensor.quantize(a, qtype=qtype, axis=axis, group_size=None, scale=scale)
     if axis is not None:
         if a.shape[axis] == 1:
             # Quantization is actually per-tensor as the axis dim is 1
@@ -68,7 +87,7 @@ def test_qtensor_quantize_scale(input_shape, axis, dtype, qtype, device):
     assert qa.qtype == qtype
     assert qa._scale.dtype == dtype
     assert device_eq(qa.device, device)
-    assert_close(a, qa)
+    assert_similar(a, qa)
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
@@ -84,10 +103,13 @@ def test_qtensor_instantiate(input_shape, dtype, qtype, device):
     else:
         max_value = torch.iinfo(qtype.dtype).max
         data = torch.randint(-max_value, max_value, input_shape, dtype=qtype.dtype)
-    qa = QTensor(qtype, None, data, scale=torch.tensor(1.0 / max_value, dtype=dtype)).to(device)
+    qa = QTensor(qtype, None, data.size(), data.stride(), data, scale=torch.tensor(1.0 / max_value, dtype=dtype)).to(
+        device
+    )
     assert torch.max(torch.abs(qa.dequantize())) <= 1
     assert qa.dtype == dtype
     assert qa.qtype == qtype
+    assert qa.shape == input_shape
 
 
 @pytest.mark.parametrize("input_shape", [(10, 10), (10, 32, 32)])
@@ -97,7 +119,7 @@ def test_qtensor_instantiate(input_shape, dtype, qtype, device):
 def test_qtensor_serialization(input_shape, qtype, dtype, axis):
     inputs = random_tensor(input_shape, dtype=dtype)
     scale = absmax_scale(inputs, qtype, axis)
-    qinputs = QTensor.quantize(inputs, qtype, axis, scale)
+    qinputs = QTensor.quantize(inputs, qtype=qtype, axis=axis, group_size=None, scale=scale)
     b = io.BytesIO()
     torch.save(qinputs, b)
     b.seek(0)
@@ -165,3 +187,14 @@ def test_qtensor_contiguous(device):
     assert not tqa.is_contiguous()
     tqa = tqa.contiguous()
     assert tqa.is_contiguous()
+
+
+@pytest.mark.parametrize("input_shape, group_size", [[(4, 6), 2], [(32, 64), 4]], ids=["small", "bigger"])
+def test_qtensor_quantize_transposed_groupwise(input_shape, group_size, device):
+    x = torch.tensor(range(prod(input_shape))).reshape(input_shape).to(device)
+    xt = x.t()
+    qx = QTensor.quantize(x, axis=0, group_size=group_size)
+    qxt = QTensor.quantize(xt, axis=-1, group_size=group_size)
+    dqx = qx.dequantize()
+    dqxt = qxt.dequantize()
+    assert torch.equal(dqx.t(), dqxt)

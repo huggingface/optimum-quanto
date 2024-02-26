@@ -47,7 +47,7 @@ def _to_copy(op, t, dtype=None, **kwargs):
     out_data = op(t._data, dtype=t._data.dtype, **kwargs)
     # Apply the new dtype on the scale only
     out_scale = op(t._scale, dtype=dtype, **kwargs)
-    return QTensor(t.qtype, t.axis, out_data, out_scale)
+    return QTensor(t.qtype, t.axis, t.size(), t.stride(), out_data, out_scale)
 
 
 @register_qtensor_op([torch.ops.aten.detach])
@@ -55,25 +55,27 @@ def detach(op, t):
     # Detach both data and scale
     out_data = op(t._data)
     out_scale = op(t._scale)
-    return QTensor(t.qtype, t.axis, out_data, out_scale)
+    return QTensor(t.qtype, t.axis, t.size(), t.stride(), out_data, out_scale)
 
 
 @register_qtensor_op([torch.ops.aten.cat])
 def cat(op, inputs, dim=0):
     if len(inputs) == 2:
         t1, t2 = inputs
+        # Only quantized tensors with identical scalar scales can be concatenated
         if (
             isinstance(t1, QTensor)
             and isinstance(t2, QTensor)
+            and t1.axis is None
+            and t2.axis is None
             and torch.equal(t1._scale, t2._scale)
             and t1.qtype == t2.qtype
         ):
             if t1.qtype.is_floating_point or t2.qtype.is_floating_point:
                 # Cat is not supported for float8
                 return qfallback(op, inputs, dim)
-            # Only quantized tensors with identical scales can be concatenated
             out_data = op([t1._data, t2._data], dim)
-            return QTensor(t1.qtype, t1.axis, out_data, t1._scale)
+            return QTensor(t1.qtype, t1.axis, out_data.size(), out_data.stride(), out_data, t1._scale)
     return qfallback(op, inputs, dim)
 
 
@@ -87,9 +89,14 @@ def lt(op, input, other):
 
 @register_qtensor_op([torch.ops.aten.clone])
 def clone(op, t, memory_format=torch.preserve_format):
+    # We need to restore the data original shape before cloning to get the correct strides
+    data_shape = t._data.shape
+    out_data = t._data.reshape(t.shape)
     out_data = op(t._data, memory_format=memory_format)
+    out_stride = out_data.stride()
+    out_data = out_data.reshape(data_shape)
     out_scale = op(t._scale, memory_format=memory_format)
-    return QTensor(t.qtype, t.axis, out_data, out_scale)
+    return QTensor(t.qtype, t.axis, t.size(), out_stride, out_data, out_scale)
 
 
 @register_qtensor_op([torch.ops.aten.copy_])
@@ -105,7 +112,7 @@ def div(op, input, other):
     if not is_scalar(other):
         return op(input.dequantize(), other)
     # We just divide the scale
-    return QTensor(input.qtype, input.axis, input._data, op(input._scale, other))
+    return QTensor(input.qtype, input.axis, input.size(), input.stride(), input._data, op(input._scale, other))
 
 
 @register_qtensor_op([torch.ops.aten.neg])
@@ -114,7 +121,7 @@ def neg(op, input, *args, **kwargs):
         # Neg is not supported for float8
         return op(input.dequantize(), *args, **kwargs)
     out_data = op(input._data, *args, **kwargs)
-    return QTensor(input.qtype, input.axis, out_data, input._scale)
+    return QTensor(input.qtype, input.axis, input.size(), input.stride(), out_data, input._scale)
 
 
 @register_qtensor_op(
@@ -132,7 +139,7 @@ def unary_type_agnostic_op(op, input, *args, **kwargs):
     # When quantization is per-tensor, these operations can be transparently applied
     # without modifying the scale.
     out_data = op(input._data, *args, **kwargs)
-    return QTensor(input.qtype, input.axis, out_data, input._scale)
+    return QTensor(input.qtype, input.axis, out_data.size(), out_data.stride(), out_data, input._scale)
 
 
 @register_qtensor_op([torch.ops.aten.is_same_size])
@@ -142,13 +149,18 @@ def is_same_size(op, input, other):
     return op(a, b)
 
 
+def cannot_mm(t: QTensor):
+    """True if the QTensor data cannot be passed to an mm op"""
+    return t.axis is not None and t.size() != t._data.size()
+
+
 @register_qtensor_op([torch.ops.aten.bmm])
 def bmm(op, input, other):
     if not isinstance(input, QTensor):
         return op(input, other.dequantize())
     if not isinstance(other, QTensor) or input.axis is not None:
         return op(input.dequantize(), other)
-    if input.qtype != qint8 or other.qtype != qint8:
+    if input.qtype != qint8 or other.qtype != qint8 or cannot_mm(other):
         return qfallback(op, input, other)
     # Cast data to float32 and do the operation
     out_data = op(input._data.to(torch.float32), other._data.to(torch.float32))
@@ -162,7 +174,7 @@ def mm(op, input, other):
         return torch.ops.quanto.dqmm(input, other._data, other._scale)
     if not isinstance(other, QTensor) or input.axis is not None:
         return op(input.dequantize(), other)
-    if input.qtype != qint8 or other.qtype != qint8:
+    if input.qtype != qint8 or other.qtype != qint8 or cannot_mm(other):
         return qfallback(op, input, other)
     n, m = input.shape
     p = other.shape[-1]
@@ -188,9 +200,9 @@ def mm(op, input, other):
 def mul(op, input, other):
     # If one of the multiplicands is a scalar, just multiply the scale
     if is_scalar(input):
-        return QTensor(other.qtype, other.axis, other._data, input * other._scale)
+        return QTensor(other.qtype, other.axis, other.size(), other.stride(), other._data, input * other._scale)
     if is_scalar(other):
-        return QTensor(input.qtype, input.axis, input._data, other * input._scale)
+        return QTensor(input.qtype, input.axis, input.size(), input.stride(), input._data, other * input._scale)
     return qfallback(op, input, other)
 
 
@@ -200,7 +212,7 @@ def relu(op, input):
         # Relu is not supported for float8 types
         return qfallback(op, input)
     out_data = op(input._data)
-    return QTensor(input.qtype, input.axis, out_data, input._scale)
+    return QTensor(input.qtype, input.axis, input.size(), input.stride(), out_data, input._scale)
 
 
 @register_qtensor_op([torch.ops.aten._softmax])
@@ -210,22 +222,24 @@ def _softmax(op, input, dim, half_to_float):
     # Since softmax is normalized, we know the optimal scale
 
     out_scale = torch.tensor(1 / dtype_info(input.qtype.dtype).max, dtype=input._scale.dtype).to(input.device)
-    return QTensor.quantize(float_data, qtype=input.qtype, axis=input.axis, scale=out_scale)
+    return QTensor.quantize(float_data, qtype=input.qtype, axis=None, group_size=None, scale=out_scale)
 
 
 @register_qtensor_op([torch.ops.aten.stack])
 def stack(op, inputs, dim=0):
     if len(inputs) == 2:
         t1, t2 = inputs
+        # Only quantized tensors with identical scales can be stacked
         if (
             isinstance(t1, QTensor)
             and isinstance(t2, QTensor)
+            and t1.axis is None
+            and t2.axis is None
             and torch.equal(t1._scale, t2._scale)
             and t1.qtype == t2.qtype
         ):
-            # Only quantized tensors with identical scales can be stacked
             out_data = op([t1._data, t2._data], dim)
-            return QTensor(t1.qtype, t1.axis, out_data, t1._scale)
+            return QTensor(t1.qtype, t1.axis, out_data.size(), out_data.stride(), out_data, t1._scale)
     return qfallback(inputs, dim)
 
 
@@ -234,7 +248,10 @@ def split(op, input, *args, **kwargs):
     if input.axis is not None:
         return qfallback(op, input, *args, **kwargs)
     out_datas = op(input._data, *args, **kwargs)
-    return [QTensor(input.qtype, input.axis, out_data, input._scale) for out_data in out_datas]
+    return [
+        QTensor(input.qtype, input.axis, input.size(), input.stride(), out_data, input._scale)
+        for out_data in out_datas
+    ]
 
 
 @register_qtensor_op([torch.ops.aten.transpose])
@@ -242,8 +259,10 @@ def transpose(op, input, *args):
     if input.axis is not None:
         return op(input.dequantize(), *args)
     out_data = op(input._data, *args)
+    out_size = out_data.size()
+    out_stride = out_data.stride()
     out_scale = input._scale
-    return QTensor(input.qtype, None, out_data, out_scale)
+    return QTensor(input.qtype, None, out_size, out_stride, out_data, out_scale)
 
 
 @register_qtensor_op([torch.ops.aten.t])
@@ -251,27 +270,23 @@ def transpose2d(op, input):
     out_data = op(input._data)
     out_scale = input._scale
     out_axis = input.axis
+    # Manually reverse size and stride because we cannot trust the out_data shape when using group-wise quantization
+    dim0, dim1 = input.size()
+    out_size = torch.Size([dim1, dim0])
+    out_stride = input.stride()[::-1]
     if input.axis is not None:
         # We need to transpose also the scale
         out_scale = op(out_scale)
         out_axis = 0 if out_axis == -1 else -1
-    return QTensor(input.qtype, out_axis, out_data, out_scale)
+    return QTensor(input.qtype, out_axis, out_size, out_stride, out_data, out_scale)
 
 
 @register_qtensor_op([torch.ops.aten.view, torch.ops.aten._unsafe_view])
 def view(op, input, *shape):
-    out_data = op(input._data, *shape)
     if input.axis is None:
         # The view is transparent for QTensor with scalar scales
-        return QTensor(input.qtype, input.axis, out_data, input._scale)
-    # We only support view when the tensor is quantized along the last axis
-    if input.axis != -1:
-        return op(input.dequantize(), *shape)
-    # We can only perform the view if the last axis is not modified
-    if input._scale.shape[-1] == out_data.shape[-1]:
-        out_scale_shape = (1,) * (out_data.ndim - 1) + (input._scale.shape[-1],)
-        out_scale = input._scale.view(out_scale_shape)
-        return QTensor(input.qtype, input.axis, out_data, out_scale)
+        out_data = op(input._data, *shape)
+        return QTensor(input.qtype, None, out_data.size(), out_data.stride(), out_data, input._scale)
     return qfallback(op, input, *shape)
 
 
@@ -280,5 +295,7 @@ def where(op, condition, input, other):
     if isinstance(condition, QTensor) or isinstance(other, QTensor):
         raise NotImplementedError
     float_data = op(condition, input.dequantize(), other)
-    # We requantize with the input scale
-    return QTensor.quantize(float_data, qtype=input.qtype, axis=input.axis, scale=input._scale)
+    if input.axis is None:
+        # We requantize with the input scale
+        return QTensor.quantize(float_data, qtype=input.qtype, axis=None, group_size=None, scale=input._scale)
+    return float_data
