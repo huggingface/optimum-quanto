@@ -25,7 +25,7 @@ def test_compile_quantize_tensor(input_shape, qtype, axis, dtype, device):
 
     def f(x, qtype, axis):
         scale = None if axis is None else absmax_scale(a, qtype, axis).to(device)
-        return QTensor.quantize(x, qtype, scale)
+        return QTensor.quantize(x, qtype, axis, scale)
 
     compiled_f = compile_for_device(f, device)
     qa = compiled_f(a, qtype, axis)
