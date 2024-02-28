@@ -36,8 +36,7 @@ def random_tensor(shape, dtype=torch.float32):
 
 def random_qtensor(shape, qtype=qint8, dtype=torch.float32, axis=None):
     t = random_tensor(shape, dtype)
-    scale = absmax_scale(t, qtype=qtype, axis=axis)
-    return QTensor.quantize(t, qtype=qtype, scale=scale)
+    return QTensor.quantize(t, qtype=qtype, axis=axis)
 
 
 def random_qbitstensor(shape, qtype=qint4, dtype=torch.float32, axis=0):
@@ -76,9 +75,17 @@ def assert_close(a: torch.Tensor, b: torch.Tensor, atol: float = None, rtol: flo
         )
 
 
-def assert_similar(a, b, atol=1e-6, rtol=1e-5):
+def assert_similar(a, b, atol=None, rtol=None):
     """Verify that the cosine similarity of the two inputs is close to 1.0 everywhere"""
+    assert a.dtype == b.dtype
     assert a.shape == b.shape
+    if atol is None:
+        # We use torch finfo resolution
+        atol = torch.finfo(a.dtype).resolution
+    if rtol is None:
+        # Please refer to that discussion for default rtol values based on the float type:
+        # https://scicomp.stackexchange.com/questions/43111/float-equality-tolerance-for-single-and-half-precision
+        rtol = {torch.float32: 1e-5, torch.float16: 1e-3, torch.bfloat16: 1e-1}[a.dtype]
     sim = torch.nn.functional.cosine_similarity(a.flatten(), b.flatten(), dim=0)
     if not torch.allclose(sim, torch.tensor(1.0, dtype=sim.dtype), atol=atol, rtol=rtol):
         max_deviation = torch.min(sim)

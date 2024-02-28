@@ -210,7 +210,7 @@ def _softmax(op, input, dim, half_to_float):
     # Since softmax is normalized, we know the optimal scale
 
     out_scale = torch.tensor(1 / dtype_info(input.qtype.dtype).max, dtype=input._scale.dtype).to(input.device)
-    return QTensor.quantize(float_data, input.qtype, out_scale)
+    return QTensor.quantize(float_data, qtype=input.qtype, axis=input.axis, scale=out_scale)
 
 
 @register_qtensor_op([torch.ops.aten.stack])
@@ -266,7 +266,7 @@ def view(op, input, *shape):
         return QTensor(input.qtype, input.axis, out_data, input._scale)
     # We only support view when the tensor is quantized along the last axis
     if input.axis != -1:
-        return op(input.dequantize, *shape)
+        return op(input.dequantize(), *shape)
     # We can only perform the view if the last axis is not modified
     if input._scale.shape[-1] == out_data.shape[-1]:
         out_scale_shape = (1,) * (out_data.ndim - 1) + (input._scale.shape[-1],)
@@ -281,4 +281,4 @@ def where(op, condition, input, other):
         raise NotImplementedError
     float_data = op(condition, input.dequantize(), other)
     # We requantize with the input scale
-    return QTensor.quantize(float_data, input.qtype, input._scale)
+    return QTensor.quantize(float_data, qtype=input.qtype, axis=input.axis, scale=input._scale)
