@@ -33,7 +33,7 @@ def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, act
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
-@pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
+@pytest.mark.parametrize("tokens, embeddings", [(10, 32), (10, 256)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
 @pytest.mark.skip_device("cpu")
@@ -42,7 +42,7 @@ def test_quantize_linear_float16_activations_int8(batch_size, tokens, embeddings
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
-@pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
+@pytest.mark.parametrize("tokens, embeddings", [(10, 32), (10, 256)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
 def test_quantize_linear_float32_activations_int8(batch_size, tokens, embeddings, use_bias, weights, device):
@@ -50,7 +50,7 @@ def test_quantize_linear_float32_activations_int8(batch_size, tokens, embeddings
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
-@pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
+@pytest.mark.parametrize("tokens, embeddings", [(10, 32), (10, 256)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
 @pytest.mark.parametrize(
@@ -83,7 +83,7 @@ def test_quantize_linear_float32_activations_float8(
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
-@pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
+@pytest.mark.parametrize("tokens, embeddings", [(10, 32), (10, 256)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("weights", [qint4, qint8, qfloat8], ids=["w-qint4", "w-qint8", "float8"])
 @pytest.mark.skip_device("cpu")
@@ -94,14 +94,14 @@ def test_quantize_linear_float16_weight_only(batch_size, tokens, embeddings, use
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
-@pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
+@pytest.mark.parametrize("tokens, embeddings", [(10, 32), (10, 256)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
 def test_quantize_linear_float32_weight_only(batch_size, tokens, embeddings, use_bias, weights, device):
     _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, None, torch.float32, device)
 
 
-@pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
+@pytest.mark.parametrize("tokens, embeddings", [(10, 32), (10, 256)])
 @pytest.mark.parametrize("activations", [None, qint8], ids=["a-float", "a-qint8"])
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
 def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
