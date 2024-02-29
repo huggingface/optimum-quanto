@@ -171,6 +171,8 @@ def bmm(op, input, other):
 @register_qtensor_op([torch.ops.aten.mm])
 def mm(op, input, other):
     if not isinstance(input, QTensor):
+        if cannot_mm(other):
+            return op(input, other.dequantize())
         return torch.ops.quanto.dqmm(input, other._data, other._scale)
     if not isinstance(other, QTensor) or input.axis is not None:
         return op(input.dequantize(), other)

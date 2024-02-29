@@ -84,6 +84,14 @@ class QModuleMixin(ABC):
         # This will setup the torch.nn.Module
         super().__init__(*args, **kwargs)
         self.weights = weights
+        self.weights_group_size = None
+        if self.weights in (qint2, qint4):
+            out_features = self.weight.shape[0]
+            if out_features >= 128:
+                group_size = self.weight.numel() // out_features
+                while group_size >= 128 and group_size % 2 == 0:
+                    group_size = group_size // 2
+                self.weights_group_size = group_size
         self.activations = activations
         self.register_buffer("input_scale", torch.ones(()))
         self.register_buffer("output_scale", torch.ones(()))
@@ -126,7 +134,7 @@ class QModuleMixin(ABC):
             return self.weight
         # Quantize dynamically the weights per-axis
         if self.weights in (qint2, qint4):
-            return QBitsTensor.quantize(self.weight, qtype=self.weights, axis=0, group_size=None)
+            return QBitsTensor.quantize(self.weight, qtype=self.weights, axis=0, group_size=self.weights_group_size)
         elif isinstance(self.weights, qtype):
             wscale = absmax_scale(self.weight, axis=0)
             return QTensor.quantize(self.weight, qtype=self.weights, axis=0, group_size=None, scale=wscale)
