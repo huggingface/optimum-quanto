@@ -28,7 +28,7 @@ def ext():
     return _ext
 
 
-@torch.library.impl("quanto_ext::dqmm", ["CPU", "CUDA"])
+@torch.library.impl("quanto_ext::dqmm", ["CPU", "CUDA", "MPS"])
 def dqmm_cpp(input: torch.Tensor, other: torch.Tensor, other_scale: torch.Tensor):
     return ext().dqmm(input, other, other_scale)
 
