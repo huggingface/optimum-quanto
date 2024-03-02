@@ -5,7 +5,7 @@ import torch
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from quanto import Calibration, freeze, qfloat8, qfloat8_e4m3fn, qfloat8_e5m2, qint4, qint8, quantize
+from quanto import Calibration, freeze, qfloat8, qint4, qint8, quantize
 
 
 @torch.no_grad()
@@ -55,8 +55,6 @@ def keyword_to_itype(k):
         "none": None,
         "int4": qint4,
         "int8": qint8,
-        "fp8_e5m2": qfloat8_e5m2,
-        "fp8_e4m3": qfloat8_e4m3fn,
         "float8": qfloat8,
     }[k]
 
@@ -88,8 +86,7 @@ def main():
         "--activations",
         type=str,
         default="int8",
-        choices=["none", "int8", "fp8_e5m2", "fp8_e4m3"],
-        help="One of none, int8, fp8_e5m2, fp8_e4m3.",
+        choices=["none", "int8", "float8"],
     )
     parser.add_argument("--device", type=str, default=None, help="The device to use for generation.")
     parser.add_argument(

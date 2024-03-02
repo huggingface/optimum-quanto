@@ -16,15 +16,22 @@ models=(
     HuggingFaceH4/zephyr-7b-beta
 )
 
+weights=(
+    int4
+    int8
+    float8
+)
+
 activations=(
     int8
-    fp8_e5m2
-    fp8_e4m3
+    float8
 )
 
 for m in ${models[@]}; do
     python ${SCRIPT_PATH}/quantize_causal_lm_model.py --model $m --weights int8 --activations none --skip_generation
-    for a in ${activations[@]}; do
-        python ${SCRIPT_PATH}/quantize_causal_lm_model.py --model $m --weights int8 --activations $a --skip_float --skip_generation
+    for w in ${weights[@]}; do
+        for a in ${activations[@]}; do
+            python ${SCRIPT_PATH}/quantize_causal_lm_model.py --model $m --weights $w --activations $a --skip_float --skip_generation
+        done
     done
 done
