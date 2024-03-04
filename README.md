@@ -12,8 +12,8 @@
 - provides a seamless workflow from a float model to a dynamic to a static quantized model,
 - supports quantized model serialization as a `state_dict`,
 - uses integer matrix multiplications (`mm`) on CUDA devices,
-- supports not only int8 weights, but also int2 and int4,
-- supports not only int8 activations, but also float8.
+- supports int2, int4, int8 and float8 weights,
+- supports int8 and float8 activations.
 
 Features yet to be implemented:
 
@@ -84,25 +84,22 @@ Activations are dynamically quantized using static scales (defaults to the range
 
 ## Performances
 
-**DISCLAIMER**: These are preliminary observations gathered from a panel of models, and not an actual performance report.
+In a nutshell:
 
-In terms of accuracy:
+- accuracy: models compiled with `int8`/`float8` weights and `float8` activations are very close to the `16-bit` models,
+- latency: all models are at least `2x` slower than the `16-bit` models due to the lack of optimized kernels (for now).
+- device memory: approximately divided by float bits / integer bits.
 
-- models using only int8 weights do not seem to suffer any drop in accuracy,
-- models using also int8 activations do suffer from moderate to severe accuracy drops,
-- using float8 activations can help in getting a better accuracy.
+The paragraph below is just an example. Please refer to the `bench` folder for detailed results per use-case of model.
 
-In terms of speed:
+### NousResearch/Llama-2-7b-hf
 
-- models using int8 weights only are very slightly slower than the original float model due to the weight dequantization,
-- models using int8 activations are slightly slower on CUDA devices,
-- models using int8 activations are significantly slower on CPU and MPS devices, where fallbacks are triggered.
-- models using float8 activations are significantly slower on CUDA devices, where fallbacks are triggered.
-
-The disk space and on-device memory to store weights is:
-
-- equivalent for a model with dynamic weights (weights are stored with full precision and quantized dynamically),
-- approximately divided by float bits / integer bits for a model with static weights.
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/NousResearch-Llama-2-7b-hf_Perplexity.png" alt="NousResearch/Llama-2-7b-hf WikiText perplexity">
+  </div>
+ </center>
+</div>
 
 ## Installation
 
@@ -177,8 +174,8 @@ The outputs of a quantized matrix multiplication will anyway always be dequantiz
 - the resulting integer values are expressed with a much higher bitwidth (typically `int32`) than the activation bitwidth (typically `int8`),
 - they might be combined with a `float` bias.
 
-Quantizing activations per-tensor can lead to serious quantization errors if the corresponding tensors contain large outlier values. Typically, this will lead to quantized tensors with most values set to zero (except the outliers).
+Quantizing activations per-tensor to `int8` can lead to serious quantization errors if the corresponding tensors contain large outlier values. Typically, this will lead to quantized tensors with most values set to zero (except the outliers).
 
 A possible solution to work around that issue is to 'smooth' the activations statically as illustrated by [SmoothQuant](https://github.com/mit-han-lab/smoothquant). You can find a script to smooth some model architectures under [external/smoothquant](external/smoothquant).
 
-A better option, often, is to represent activations using `float8` instead of `int8`.
+A better option is to represent activations using `float8`.
