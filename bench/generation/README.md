@@ -74,18 +74,18 @@ The paragraphs below display results for some popular models.
  </center>
 </div>
 
-## princeton-nlp-Sheared-LLaMA-1.3b
+## princeton-nlp-Sheared-LLaMA-1.3B
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/princeton-nlp-Sheared-LLaMA-1.3b_Accuracy.png" alt="princeton-nlp-Sheared-LLaMA-1.3b Lambada prediction accuracy">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/princeton-nlp-Sheared-LLaMA-1.3B_Accuracy.png" alt="princeton-nlp/Sheared-LLaMA-1.3B Lambada prediction accuracy">
   </div>
  </center>
 </div>
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/princeton-nlp-Sheared-LLaMA-1.3b_Perplexity.png" alt="princeton-nlp-Sheared-LLaMA-1.3b WikiText perplexity">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/princeton-nlp-Sheared-LLaMA-1.3B_Perplexity.png" alt="princeton-nlp/Sheared-LLaMA-1.3B WikiText perplexity">
   </div>
  </center>
 </div>
@@ -94,14 +94,14 @@ The paragraphs below display results for some popular models.
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/NousResearch/Llama-2-7b-hf_Accuracy.png" alt="NousResearch/Llama-2-7b-hf Lambada prediction accuracy">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/NousResearch-Llama-2-7b-hf_Accuracy.png" alt="NousResearch/Llama-2-7b-hf Lambada prediction accuracy">
   </div>
  </center>
 </div>
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/NousResearch/Llama-2-7b-hf_Perplexity.png" alt="NousResearch/Llama-2-7b-hf WikiText perplexity">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/NousResearch-Llama-2-7b-hf_Perplexity.png" alt="NousResearch/Llama-2-7b-hf WikiText perplexity">
   </div>
  </center>
 </div>
@@ -110,14 +110,7 @@ The paragraphs below display results for some popular models.
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/HuggingFaceH4/zephyr-7b-beta_Accuracy.png" alt="HuggingFaceH4/zephyr-7b-beta Lambada prediction accuracy">
-  </div>
- </center>
-</div>
-
-<div class="row"><center>
-  <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/HuggingFaceH4/zephyr-7b-beta_Perplexity.png" alt="HuggingFaceH4/zephyr-7b-beta WikiText perplexity">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/HuggingFaceH4-zephyr-7b-beta_Accuracy.png" alt="HuggingFaceH4/zephyr-7b-beta Lambada prediction accuracy">
   </div>
  </center>
 </div>
