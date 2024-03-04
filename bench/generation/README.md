@@ -1,37 +1,123 @@
 # Quanto generation benchmark
 
-This script compares the latency per generated token for a specific model for several quantization configurations and implementations.
+This repository contains scripts to evaluate the performances of quantized models using three metrics:
 
-```
-usage: benchmark.py [-h] [--model MODEL] [--device DEVICE] [--it IT] [--quantization {bnb_4bit,bnb_8bit,w8a16,w8a8}]
+- `latency.py` evaluates the latency per generated token,
+- `prediction.py` evaluates the accuracy when predicting the last token of prompts from the [Lambada dataset](https://huggingface.co/datasets/lambada),
+- `perplexity.py` evaluates the perplexity of the model on the [WikiText dataset](https://huggingface.co/datasets/wikitext), as defined in the [transformers documentation](https://huggingface.co/docs/transformers/en/perplexity).
 
-Generate bechmark
+A `evaluate_model.py` utility script is also provided to evaluate the metrics on a specific model for several quantization configurations, and output the result to a `png` barchart and/or a `json` file.
 
-options:
-  -h, --help            show this help message and exit
-  --model MODEL         The model to use for benchmark
-  --device DEVICE       The device to use for benchmark.
-  --it IT               The number of benchmark iterations
-  --quantization {bnb_4bit,bnb_8bit,w8a16,w8a8}
-                        One of none, bnb_4bit, bnb_8bit, w8a16, w8a8.
-```
+The paragraphs below display results for some popular models.
 
-Device: NVIDIA A10G (24Gb memory)
-quanto: 0.0.10
+## facebook/opt-125m
 
-| model                            | fp16  | w8a16 | w8a8   | bnb 8bit | bnb 4bit |
-|----------------------------------|-------|-------|--------|----------|----------|
-| princeton-nlp/Sheared-LLaMA-1.3B | 21 ms | 39 ms | 79 ms  | 115 ms   | 33 ms    |
-| 01-ai/Yi-6B                      | 32 ms | 81 ms | 113 ms | 190 ms   | 44 ms    |
-| NousResearch/Llama-2-7b-hf       | 37 ms | 93 ms | 107 ms | 164 ms   | 42 ms    |
-| HuggingFaceH4/zephyr-7b-beta     | 38 ms | 95 ms | 109 ms | 200 ms   | 45 ms    |
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/facebook-opt-125m_Accuracy.png" alt="facebook/opt-125m Lambada prediction accuracy">
+  </div>
+ </center>
+</div>
 
-At a quick glance, we can see that:
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/facebook-opt-125m_Perplexity.png" alt="facebook/opt-125m WikiText perplexity">
+  </div>
+ </center>
+</div>
 
-- the w8a16 latency per-token is quite far from the reference float16 latency,
-- the w8a8 latency is not very far from the w8a16 latency, probably thanks to
-the accelerated integer matmul (`torch._int_mm`).
-- both quanto configurations are much faster than LLM.int8, but much slower than LLM.int4.
+## facebook/opt-350m
 
-Note that quanto does not include (yet) any optimized kernels, and uses only vanilla
-pytorch operations. There is therefore plenty of room for improvement.
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/facebook-opt-350m_Accuracy.png" alt="facebook/opt-350m Lambada prediction accuracy">
+  </div>
+ </center>
+</div>
+
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/facebook-opt-350m_Perplexity.png" alt="facebook/opt-350m WikiText perplexity">
+  </div>
+ </center>
+</div>
+
+## facebook/opt-1.3b
+
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/facebook-opt-1.3b_Accuracy.png" alt="facebook/opt-1.3bm Lambada prediction accuracy">
+  </div>
+ </center>
+</div>
+
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/facebook-opt-1.3b_Perplexity.png" alt="facebook/opt-1.3bm WikiText perplexity">
+  </div>
+ </center>
+</div>
+
+## EleutherAI-pythia-1b
+
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/EleutherAI-pythia-1b_Accuracy.png" alt="EleutherAI-pythia-1b Lambada prediction accuracy">
+  </div>
+ </center>
+</div>
+
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/EleutherAI-pythia-1b_Perplexity.png" alt="EleutherAI-pythia-1b WikiText perplexity">
+  </div>
+ </center>
+</div>
+
+## princeton-nlp-Sheared-LLaMA-1.3b
+
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/princeton-nlp-Sheared-LLaMA-1.3b_Accuracy.png" alt="princeton-nlp-Sheared-LLaMA-1.3b Lambada prediction accuracy">
+  </div>
+ </center>
+</div>
+
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/princeton-nlp-Sheared-LLaMA-1.3b_Perplexity.png" alt="princeton-nlp-Sheared-LLaMA-1.3b WikiText perplexity">
+  </div>
+ </center>
+</div>
+
+## NousResearch/Llama-2-7b-hf
+
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/NousResearch/Llama-2-7b-hf_Accuracy.png" alt="NousResearch/Llama-2-7b-hf Lambada prediction accuracy">
+  </div>
+ </center>
+</div>
+
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/NousResearch/Llama-2-7b-hf_Perplexity.png" alt="NousResearch/Llama-2-7b-hf WikiText perplexity">
+  </div>
+ </center>
+</div>
+
+## HuggingFaceH4/zephyr-7b-beta
+
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/HuggingFaceH4/zephyr-7b-beta_Accuracy.png" alt="HuggingFaceH4/zephyr-7b-beta Lambada prediction accuracy">
+  </div>
+ </center>
+</div>
+
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/HuggingFaceH4/zephyr-7b-beta_Perplexity.png" alt="HuggingFaceH4/zephyr-7b-beta WikiText perplexity">
+  </div>
+ </center>
+</div>
