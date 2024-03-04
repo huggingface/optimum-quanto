@@ -129,7 +129,7 @@ class QBitsTensor(QTensor):
             data = op(t._data, **data_kwargs)
             zeropoint_kwargs = copy(kwargs)
             zeropoint_kwargs["dtype"] = torch.int8
-            zeropoint = op(t._data, **data_kwargs)
+            zeropoint = op(t._zeropoint, **data_kwargs)
             return QBitsTensor(t._qtype, t._axis, t.size(), t.stride(), data, scale, zeropoint)
         args, kwargs = pytree.tree_map_only(QBitsTensor, lambda x: x.qtensor(), (args, kwargs or {}))
         return op(*args, **kwargs)
