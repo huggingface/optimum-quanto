@@ -295,6 +295,7 @@ def perplexity(
     ppl_value = np.mean(ppl.calculate_perplexity())
     return ppl_value
 
+
 def keyword_to_qtype(k):
     return {"none": None, "int4": qint4, "int8": qint8, "float8": qfloat8}[k]
 
