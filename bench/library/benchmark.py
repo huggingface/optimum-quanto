@@ -12,8 +12,8 @@ from quanto.tensor.packed import pack_weights
 
 
 def get_udqmm_bench(input_dtype, device, bits):
-    input = torch.rand([1024, 1024], dtype=input_dtype).to(device)
-    weight = torch.randint(-127, 127, [1024, 1024], dtype=torch.int8).to(device)
+    input = torch.rand([128, 128], dtype=input_dtype).to(device)
+    weight = torch.randint(-127, 127, [128, 128], dtype=torch.int8).to(device)
 
     input_shape = weight.shape
     grouped_weights = group(weight, axis=0, group_size=int(input_shape[-1] / 4))
