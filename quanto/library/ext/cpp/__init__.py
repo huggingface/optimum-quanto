@@ -9,6 +9,7 @@ __all__ = []
 
 _ext = None
 
+
 def ext():
     """Helper to load the CPU ext only when it is required"""
     global _ext
@@ -43,9 +44,11 @@ def quantize_symmetric_cpp(t: torch.Tensor, scale: torch.Tensor, dtype: torch.Te
 def unpack_cpp(t: torch.Tensor, bits: int):
     return ext().unpack(t, bits)
 
+
 @torch.library.impl("quanto_ext::mm_4bit", ["CPU", "CUDA"])
 def mm_4bit_cpp(input: torch.Tensor, weight: torch.Tensor, scales: torch.Tensor):
     return ext().mm_4bit(input, weight, scales)
+
 
 @torch.library.impl("quanto_ext::mm_2bit", ["CPU", "CUDA"])
 def mm_2bit_cpp(input: torch.Tensor, weight: torch.Tensor, scales: torch.Tensor):
