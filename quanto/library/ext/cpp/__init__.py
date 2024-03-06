@@ -19,8 +19,7 @@ def ext():
             name="quanto_cpp",
             sources=[
                 f"{module_path}/mm.cpp",
-                f"{module_path}/mm_4bit.cpp",
-                f"{module_path}/mm_2bit.cpp",
+                f"{module_path}/udqmm.cpp",
                 f"{module_path}/quantize.cpp",
                 f"{module_path}/unpack.cpp",
                 f"{module_path}/pybind_module.cpp",
@@ -45,11 +44,6 @@ def unpack_cpp(t: torch.Tensor, bits: int):
     return ext().unpack(t, bits)
 
 
-@torch.library.impl("quanto_ext::mm_4bit", ["CPU", "CUDA"])
-def mm_4bit_cpp(input: torch.Tensor, weight: torch.Tensor, scales: torch.Tensor):
-    return ext().mm_4bit(input, weight, scales)
-
-
-@torch.library.impl("quanto_ext::mm_2bit", ["CPU", "CUDA"])
-def mm_2bit_cpp(input: torch.Tensor, weight: torch.Tensor, scales: torch.Tensor):
-    return ext().mm_2bit(input, weight, scales)
+@torch.library.impl("quanto_ext::udqmm", ["CPU", "CUDA"])
+def udqmm_cpp(input: torch.Tensor, weight: torch.Tensor, scales: torch.Tensor, bits: int):
+    return ext().udqmm(input, weight, scales, bits)

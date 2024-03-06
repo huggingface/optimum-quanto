@@ -1,4 +1,4 @@
-#include "mm_4bit.h"
+#include "udqmm.h"
 #include "unpack.h"
 
 #include <iostream>
@@ -6,8 +6,8 @@
 
 using namespace std;
 
-torch::Tensor mm_4bit(torch::Tensor &input, torch::Tensor &weights, torch::Tensor& scale) {
-    torch::Tensor unpacked_weights = unpack(weights, 4);
+torch::Tensor udqmm(torch::Tensor &input, torch::Tensor &weights, torch::Tensor& scale, int bits) {
+    torch::Tensor unpacked_weights = unpack(weights, bits);
     torch::Tensor dq_output = unpacked_weights * scale;
 
     // Optionally ungroup 
