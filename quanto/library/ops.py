@@ -57,3 +57,7 @@ define("dqmm", "(Tensor input, Tensor other, Tensor other_scale) -> Tensor")
 define("quantize_symmetric", "(Tensor self, Tensor scale, ScalarType dtype) -> Tensor")
 define("unpack", "(Tensor self, int bits, Any orig_shape, int axis) -> Tensor")
 define("ungroup", "(Tensor grouped, int axis, Any orig_shape) -> Tensor")
+define(
+    "udqmm",
+    "(Tensor input, Tensor weight, Tensor scales, Tensor zeropoint, int axis, int bits, Any orig_shape, Any unpacked_shape, int packed_axis) -> Tensor",
+)

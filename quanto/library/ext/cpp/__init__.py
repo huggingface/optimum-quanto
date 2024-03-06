@@ -19,6 +19,7 @@ def ext():
             name="quanto_cpp",
             sources=[
                 f"{module_path}/mm.cpp",
+                f"{module_path}/udqmm.cpp",
                 f"{module_path}/quantize.cpp",
                 f"{module_path}/unpack.cpp",
                 f"{module_path}/ungroup.cpp",
@@ -47,3 +48,18 @@ def unpack_cpp(t: torch.Tensor, bits: int, orig_shape: torch.Size, axis: int):
 @torch.library.impl("quanto_ext::ungroup", ["CPU", "CUDA", "MPS"])
 def ungroup_cpp(grouped: torch.Tensor, axis: int, orig_shape: torch.Size):
     return ext().ungroup(grouped, axis, orig_shape)
+
+
+@torch.library.impl("quanto_ext::udqmm", ["CPU", "CUDA"])
+def udqmm_cpp(
+    input: torch.Tensor,
+    weights: torch.Tensor,
+    scale: torch.Tensor,
+    zeropoint: torch.Tensor,
+    axis: int,
+    bits: int,
+    orig_shape: torch.Size,
+    unpacked_shape: torch.Size,
+    packed_axis: int,
+):
+    return ext().udqmm(input, weights, scale, zeropoint, axis, bits, orig_shape, unpacked_shape, packed_axis)

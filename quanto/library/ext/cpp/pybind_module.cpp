@@ -1,6 +1,7 @@
 #include <torch/extension.h>
 #include "mm.h"
 #include "quantize.h"
+#include "udqmm.h"
 #include "unpack.h"
 #include "ungroup.h"
 
@@ -13,6 +14,7 @@
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("dqmm", &dqmm, "dqmm");
+  m.def("udqmm", &udqmm, "udqmm");
   m.def("quantize_symmetric",
         [](const torch::Tensor& t, const torch::Tensor& scale, py::object dtype) {
           return quantize_symmetric(t,

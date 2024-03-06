@@ -139,6 +139,20 @@ class QBitsTensor(QTensor):
             zeropoint_kwargs["dtype"] = torch.int8
             zeropoint = op(t._zeropoint, **data_kwargs)
             return QBitsTensor(t._qtype, t._axis, t.size(), t.stride(), data, scale, zeropoint)
+        elif op.overloadpacket is torch.ops.aten.mm:
+            input = args[0]
+            t = args[1]
+            return torch.ops.quanto.udqmm(
+                input,
+                t._data._data,
+                t._scale,
+                t._zeropoint,
+                t._axis,
+                t._data._bits,
+                t.shape,
+                t._data.shape,
+                t._data._axis,
+            )
         elif op.overloadpacket is torch.ops.aten.t:
             input = args[0]
             out_data = op(input._data)
