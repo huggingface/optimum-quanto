@@ -1,6 +1,6 @@
 import pytest
 import torch
-from helpers import assert_close, random_qtensor, random_tensor
+from helpers import assert_similar, random_qtensor, random_tensor
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
@@ -16,6 +16,4 @@ def test_linear(batch_size, tokens, embeddings, use_bias, dtype, weight_axis, de
     bias = random_tensor((embeddings,), dtype=dtype).to(device) if use_bias else None
     out = torch.nn.functional.linear(qinputs.dequantize(), qweight.dequantize(), bias)
     qout = torch.nn.functional.linear(qinputs, qweight, bias)
-    # We need to increase rtol for float16
-    rtol = {torch.float32: 1e-5, torch.float16: 1e-2}[dtype]
-    assert_close(out, qout, rtol)
+    assert_similar(out, qout)
