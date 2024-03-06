@@ -9,7 +9,6 @@ __all__ = []
 
 _ext = None
 
-
 def ext():
     """Helper to load the CPU ext only when it is required"""
     global _ext
@@ -19,6 +18,8 @@ def ext():
             name="quanto_cpp",
             sources=[
                 f"{module_path}/mm.cpp",
+                f"{module_path}/mm_4bit.cpp",
+                f"{module_path}/mm_2bit.cpp",
                 f"{module_path}/quantize.cpp",
                 f"{module_path}/unpack.cpp",
                 f"{module_path}/pybind_module.cpp",
@@ -41,3 +42,11 @@ def quantize_symmetric_cpp(t: torch.Tensor, scale: torch.Tensor, dtype: torch.Te
 @torch.library.impl("quanto_ext::unpack", ["CPU", "CUDA"])
 def unpack_cpp(t: torch.Tensor, bits: int):
     return ext().unpack(t, bits)
+
+@torch.library.impl("quanto_ext::mm_4bit", ["CPU", "CUDA"])
+def mm_4bit_cpp(input: torch.Tensor, weight: torch.Tensor, scales: torch.Tensor):
+    return ext().mm_4bit(input, weight, scales)
+
+@torch.library.impl("quanto_ext::mm_2bit", ["CPU", "CUDA"])
+def mm_2bit_cpp(input: torch.Tensor, weight: torch.Tensor, scales: torch.Tensor):
+    return ext().mm_2bit(input, weight, scales)
