@@ -21,6 +21,7 @@ static torch::Tensor unpack_2bit(torch::Tensor &t) {
 }
 
 torch::Tensor unpack(torch::Tensor &t, int bits) {
+    TORCH_CHECK(t.scalar_type() == torch::kUInt8, "Unsupported data type: ", t.scalar_type());
     switch(bits) {
       case 4:
         return unpack_4bit(t);
