@@ -121,12 +121,12 @@ def timing(get_bench_func, device, iterations=10):
 
 
 GET_BENCH_FUNCTIONS = {
-    # "dqmm_w8a16": lambda device: get_dqmm_bench(torch.float16, device),
-    # "quantize_symmetric_fp32_int8_per_tensor": lambda device: get_quantize_symmetric_bench(
-    #     torch.float32, torch.int8, False, device
-    # ),
-    # "unpack_2bit": lambda device: get_unpack_bench(2, device),
-    # "unpack_4bit": lambda device: get_unpack_bench(4, device),
+    "dqmm_w8a16": lambda device: get_dqmm_bench(torch.float16, device),
+    "quantize_symmetric_fp32_int8_per_tensor": lambda device: get_quantize_symmetric_bench(
+        torch.float32, torch.int8, False, device
+    ),
+    "unpack_2bit": lambda device: get_unpack_bench(2, device),
+    "unpack_4bit": lambda device: get_unpack_bench(4, device),
     "udqmm_4bit": lambda device: get_udqmm_bench(torch.float16, device, 4),
 }
 
