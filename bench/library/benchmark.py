@@ -15,14 +15,26 @@ def get_udqmm_bench(input_dtype, device, bits):
     input = torch.rand([128, 128], dtype=input_dtype).to(device)
     weight = torch.randint(-127, 127, [128, 128], dtype=torch.int8).to(device)
 
-    input_shape = weight.shape
-    grouped_weights = group(weight, axis=0, group_size=int(input_shape[-1] / 4))
+    orig_shape = weight.shape
+    grouped_weights = group(weight, axis=0, group_size=int(orig_shape[-1] / 4))
     scale = torch.ones((1, grouped_weights.shape[1]), dtype=input_dtype, device=device) * 0.5
+    zeropoint = torch.randint(
+        torch.iinfo(torch.int8).min, torch.iinfo(torch.int8).max, (1, grouped_weights.shape[1]), dtype=torch.int8
+    ).to(device)
 
     packed_weights = pack_weights(grouped_weights, bits)
 
     def bench_fn():
-        return torch.ops.quanto.udqmm(input, packed_weights, scale, bits)
+        return torch.ops.quanto.udqmm(
+            input,
+            packed_weights,
+            scale,
+            zeropoint,
+            axis=0,
+            bits=bits,
+            orig_shape=orig_shape,
+            unpacked_shape=grouped_weights.shape,
+        )
 
     return bench_fn
 
@@ -109,12 +121,12 @@ def timing(get_bench_func, device, iterations=10):
 
 
 GET_BENCH_FUNCTIONS = {
-    "dqmm_w8a16": lambda device: get_dqmm_bench(torch.float16, device),
-    "quantize_symmetric_fp32_int8_per_tensor": lambda device: get_quantize_symmetric_bench(
-        torch.float32, torch.int8, False, device
-    ),
-    "unpack_2bit": lambda device: get_unpack_bench(2, device),
-    "unpack_4bit": lambda device: get_unpack_bench(4, device),
+    # "dqmm_w8a16": lambda device: get_dqmm_bench(torch.float16, device),
+    # "quantize_symmetric_fp32_int8_per_tensor": lambda device: get_quantize_symmetric_bench(
+    #     torch.float32, torch.int8, False, device
+    # ),
+    # "unpack_2bit": lambda device: get_unpack_bench(2, device),
+    # "unpack_4bit": lambda device: get_unpack_bench(4, device),
     "udqmm_4bit": lambda device: get_udqmm_bench(torch.float16, device, 4),
 }
 

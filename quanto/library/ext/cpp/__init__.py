@@ -53,5 +53,6 @@ def udqmm_cpp(
     axis: int,
     bits: int,
     orig_shape: torch.Size,
+    unpacked_shape: torch.Size,
 ):
-    return ext().udqmm(input, weights, scale, zeropoint, axis, bits, orig_shape)
+    return ext().udqmm(input, weights, scale, zeropoint, axis, bits, orig_shape, unpacked_shape)

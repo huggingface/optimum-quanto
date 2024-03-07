@@ -134,6 +134,8 @@ class QBitsTensor(QTensor):
         elif op.overloadpacket is torch.ops.aten.mm:
             input = args[0]
             t = args[1]
-            return torch.ops.quanto.udqmm(input, t._data, t._scale, t._zeropoint, t._axis, t._bits, t.shape)
+            return torch.ops.quanto.udqmm(
+                input, t._data, t._scale, t._zeropoint, t._axis, t._bits, t.shape, t._data.shape
+            )
         args, kwargs = pytree.tree_map_only(QBitsTensor, lambda x: x.qtensor(), (args, kwargs or {}))
         return op(*args, **kwargs)
