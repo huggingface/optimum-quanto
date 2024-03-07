@@ -45,5 +45,13 @@ def unpack_cpp(t: torch.Tensor, bits: int):
 
 
 @torch.library.impl("quanto_ext::udqmm", ["CPU", "CUDA"])
-def udqmm_cpp(input: torch.Tensor, weight: torch.Tensor, scales: torch.Tensor, bits: int):
-    return ext().udqmm(input, weight, scales, bits)
+def udqmm_cpp(
+    input: torch.Tensor,
+    weights: torch.Tensor,
+    scale: torch.Tensor,
+    zeropoint: torch.Tensor,
+    axis: int,
+    bits: int,
+    orig_shape: torch.Size,
+):
+    return ext().udqmm(input, weights, scale, zeropoint, axis, bits, orig_shape)

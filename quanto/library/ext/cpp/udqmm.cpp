@@ -6,19 +6,20 @@
 
 using namespace std;
 
-torch::Tensor udqmm(torch::Tensor &input, torch::Tensor &weights, torch::Tensor& scale, int bits) {
+torch::Tensor udqmm(torch::Tensor &input, torch::Tensor &weights, torch::Tensor& scale, torch::Tensor& zeropoint, int axis, int bits, torch::IntArrayRef orig_shape) {
     torch::Tensor unpacked_weights = unpack(weights, bits);
-    torch::Tensor dq_output = unpacked_weights * scale;
+    torch::Tensor dq_output = (unpacked_weights.to(torch::kInt8) - zeropoint.to(torch::kInt8)) * scale;
 
-    // Optionally ungroup 
-    // TODO: deal with the case where group_axis != 0
-    if (dq_output.size(0) != input.size(1)) {
-        int64_t last_dim = torch::numel(dq_output) / input.size(1);
-        std::vector<int64_t> shape = { input.size(1), last_dim };   
+    torch::Tensor ungrouped_output;
 
-        torch::Tensor ungrouped_output = torch::reshape(dq_output, shape);
-        return torch::mm(input, ungrouped_output);
-    };
+    // Ungroup TODO : put on its own function
+    if (dq_output.sizes() == orig_shape){
+        ungrouped_output = dq_output;
+    }
+    if (axis == 0) {
+        ungrouped_output = torch::reshape(dq_output, orig_shape);
+    }
+    // Finish axis = 1 case
 
-    return torch::mm(input, dq_output);
+    return torch::mm(input, ungrouped_output);
 }
