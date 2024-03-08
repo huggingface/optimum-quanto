@@ -74,7 +74,7 @@ The paragraphs below display results for some popular models.
  </center>
 </div>
 
-## princeton-nlp-Sheared-LLaMA-1.3B
+## princeton-nlp/Sheared-LLaMA-1.3B
 
 <div class="row"><center>
   <div class="column">
@@ -106,11 +106,34 @@ The paragraphs below display results for some popular models.
  </center>
 </div>
 
+## mistralai/Mistral-7B-v0.1
+
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/mistralai-Mistral-7B-v0.1_Accuracy.png" alt="mistralai/Mistral-7B-v0.1 Lambada prediction accuracy">
+  </div>
+ </center>
+</div>
+
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/mistralai-Mistral-7B-v0.1_Perplexity.png" alt="mistralai/Mistral-7B-v0.1 Lambada prediction accuracy">
+  </div>
+ </center>
+</div>
+
 ## HuggingFaceH4/zephyr-7b-beta
 
 <div class="row"><center>
   <div class="column">
     <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/HuggingFaceH4-zephyr-7b-beta_Accuracy.png" alt="HuggingFaceH4/zephyr-7b-beta Lambada prediction accuracy">
+  </div>
+ </center>
+</div>
+
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/HuggingFaceH4-zephyr-7b-beta_Perplexity.png" alt="HuggingFaceH4/zephyr-7b-beta Lambada prediction accuracy">
   </div>
  </center>
 </div>
