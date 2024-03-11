@@ -7,8 +7,7 @@
 using namespace std;
 
 torch::Tensor udqmm(torch::Tensor &input, torch::Tensor &weights, torch::Tensor &scale, torch::Tensor &zeropoint, int axis, int bits, torch::IntArrayRef orig_shape, torch::IntArrayRef unpacked_shape) {
-    TORCH_CHECK(zeropoint.dtype() == torch::kInt8, "zeropoint must have dtype: torch.int8");
-    
+    TORCH_CHECK(zeropoint.scalar_type() == torch::kInt8, "zeropoint must have scalar type: torch.int8");
     torch::Tensor unpacked_weights = unpack(weights, bits);
     // slice along the first dim from index 0 to unpacked_shape[0]
     unpacked_weights = unpacked_weights.slice(0, 0, unpacked_shape[0]);
