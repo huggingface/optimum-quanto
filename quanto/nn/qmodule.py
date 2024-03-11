@@ -107,7 +107,30 @@ class QModuleMixin(ABC):
         self.register_buffer("output_scale", torch.ones(()))
 
     def _save_to_state_dict(self, destination, prefix, keep_vars):
-        super()._save_to_state_dict(destination, prefix, keep_vars)
+        if self.weight_qtype is None or not self.frozen:
+            # Save standard weight Tensor
+            destination[prefix + "weight"] = self.weight if keep_vars else self.weight.detach()
+        else:
+
+            def serialize_tensor_subclass(t, destination, prefix, keep_vars):
+                inner_tensors, meta = t.__tensor_flatten__()
+                for name in inner_tensors:
+                    inner_tensor = getattr(t, name)
+                    if type(inner_tensor) == torch.Tensor:
+                        # Leaf Tensor, we can serialize it
+                        destination[prefix + name] = inner_tensor if keep_vars else inner_tensor.detach()
+                    else:
+                        # Flatten also this inner Tensor
+                        serialize_tensor_subclass(inner_tensor, destination, prefix + name + ".", keep_vars)
+                for name, value in meta.items():
+                    destination[prefix + name] = value
+
+            # Frozen module: flatten QTensor weight into individual tensors
+            serialize_tensor_subclass(self.weight, destination, prefix + "weight.", keep_vars)
+        if self.bias is not None:
+            destination[prefix + "bias"] = self.bias if keep_vars else self.bias.detach()
+        destination[prefix + "input_scale"] = self.input_scale if keep_vars else self.input_scale.detach()
+        destination[prefix + "output_scale"] = self.output_scale if keep_vars else self.output_scale.detach()
         destination[prefix + "weight_qtype"] = "none" if self.weight_qtype is None else self.weight_qtype.name
         destination[prefix + "activation_qtype"] = (
             "none" if self.activation_qtype is None else self.activation_qtype.name
@@ -120,6 +143,39 @@ class QModuleMixin(ABC):
         self.weight_qtype = None if weight_qtype == "none" else qtypes[weight_qtype]
         activation_qtype = state_dict.pop(prefix + "activation_qtype")
         self.activation_qtype = None if activation_qtype == "none" else qtypes[activation_qtype]
+
+        weight_name = prefix + "weight"
+        if self.weight_qtype is not None and weight_name not in state_dict:
+            # The weight Tensor is not present because it is a flattened QTensor
+            def deserialize_tensor_subclass(t, state_dict, prefix):
+                inner_tensors, meta = t.__tensor_flatten__()
+                inner_tensors_dict = {}
+                meta_dict = {}
+                for name in inner_tensors:
+                    if (prefix + name) in state_dict:
+                        # Leaf Tensor, we can deserialize it
+                        inner_tensors_dict[name] = state_dict.pop(prefix + name)
+                    else:
+                        # Flattened inner Tensor
+                        inner_tensor = getattr(t, name)
+                        inner_tensors_dict[name] = deserialize_tensor_subclass(
+                            inner_tensor, state_dict, prefix + name + "."
+                        )
+                for name in meta:
+                    meta_dict[name] = state_dict.pop(prefix + name)
+                return t.__class__.__tensor_unflatten__(inner_tensors_dict, meta_dict, None, None)
+
+            deserialized_weight = deserialize_tensor_subclass(self.qweight, state_dict, weight_name + ".")
+            assign_to_params_buffers = local_metadata.get("assign_to_params_buffers", False)
+            if assign_to_params_buffers:
+                self.weight = torch.nn.Parameter(deserialized_weight)
+            else:
+                if type(self.weight.data) != type(deserialized_weight):
+                    # Reloading frozen weights into unfrozen module: move to the correct device and force assignment
+                    self.weight = torch.nn.Parameter(deserialized_weight.to(self.weight.device))
+                else:
+                    # FIXME: here we should copy frozen weights into frozen module, but this leads to grad error
+                    self.weight = torch.nn.Parameter(deserialized_weight.to(self.weight.device))
 
         super()._load_from_state_dict(
             state_dict, prefix, local_metadata, False, missing_keys, unexpected_keys, error_msgs

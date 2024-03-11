@@ -158,9 +158,8 @@ def test_qlinear_serialization(features, use_bias, activations, weights, dtype, 
     torch.save(qlinear.state_dict(), b)
     b.seek(0)
     state_dict = torch.load(b)
-    qlinear_reloaded = QLinear(features, features, bias=use_bias)
-    # We need to force assignment instead of copy to replace weights by quantized weights
-    qlinear_reloaded.load_state_dict(state_dict, assign=True)
+    qlinear_reloaded = QLinear(features, features, bias=use_bias).to(device)
+    qlinear_reloaded.load_state_dict(state_dict)
     assert qlinear_reloaded.weight_qtype == weights
     w = qlinear.weight
     w_reloaded = qlinear_reloaded.weight

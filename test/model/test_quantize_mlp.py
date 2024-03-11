@@ -96,8 +96,7 @@ def test_serialize_quantized_mlp(weights, dtype, device):
     state_dict = torch.load(b)
     model_reloaded = MLP(input_features, hidden_features, output_features).to(device)
     quantize(model_reloaded)
-    # When reloading we must assign instead of copying to force quantized tensors assignment
-    model_reloaded.load_state_dict(state_dict, assign=True)
+    model_reloaded.load_state_dict(state_dict)
     for name, module in model.named_modules():
         if isinstance(module, QModuleMixin):
             module_reloaded = getattr(model_reloaded, name)
