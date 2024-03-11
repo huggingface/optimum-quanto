@@ -30,9 +30,11 @@ class QConv2d(QModuleMixin, torch.nn.Conv2d):
         )
 
     def qforward(self, input: torch.Tensor) -> torch.Tensor:
-        if self.activations is not None and not isinstance(input, QTensor):
+        if self.activation_qtype is not None and not isinstance(input, QTensor):
             # Quantize tensor to be able to take advantage of accelerated conv2d
-            input = QTensor.quantize(input, qtype=self.activations, axis=None, group_size=None, scale=self.input_scale)
+            input = QTensor.quantize(
+                input, qtype=self.activation_qtype, axis=None, group_size=None, scale=self.input_scale
+            )
         # We always use quantized weights
         qweight = self.qweight()
         return self._conv_forward(input, qweight, self.bias)
