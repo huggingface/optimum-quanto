@@ -71,10 +71,8 @@ def main():
     )
     parser.add_argument("--seed", type=int, default=1, metavar="S", help="random seed (default: 1)")
     parser.add_argument("--model", type=str, default="dacorvo/mnist-mlp", help="The name of the trained Model.")
-    parser.add_argument(
-        "--weights", type=str, default="int8", choices=["int4", "int8", "float8"], help="One of int4, int8, float8."
-    )
-    parser.add_argument("--activations", type=str, default="int8", choices=["none", "int8"], help="One of none, int8.")
+    parser.add_argument("--weights", type=str, default="int8", choices=["int4", "int8", "float8"])
+    parser.add_argument("--activations", type=str, default="int8", choices=["none", "int8", "float8"])
     parser.add_argument("--device", type=str, default=None, help="The device to use for evaluation.")
     args = parser.parse_args()
 
