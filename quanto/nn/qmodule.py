@@ -1,10 +1,10 @@
 from abc import ABC
 from inspect import signature
-from typing import Optional
+from typing import Optional, Union
 
 import torch
 
-from ..tensor import QBitsTensor, QTensor, absmax_scale, qint2, qint4, qtype
+from ..tensor import QBitsTensor, QTensor, absmax_scale, qint2, qint4, qtype, qtypes
 
 
 __all__ = ["QModuleMixin", "register_qmodule", "quantize_module"]
@@ -72,7 +72,13 @@ def quantize_module(module, **kwargs):
 
 
 class QModuleMixin(ABC):
-    def __init__(self, *args, weights: Optional[qtype] = None, activations: Optional[qtype] = None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        weights: Optional[Union[qtype, str]] = None,
+        activations: Optional[Union[qtype, str]] = None,
+        **kwargs,
+    ):
         # The tests below are meant to help people writing their own quantized Module class
         mro = self.__class__.__mro__
         if torch.nn.Module not in mro:
@@ -83,6 +89,10 @@ class QModuleMixin(ABC):
             )
         # This will setup the torch.nn.Module
         super().__init__(*args, **kwargs)
+        if weights is not None and not isinstance(weights, qtype):
+            weights = qtypes[weights]
+        if activations is not None and not isinstance(activations, qtype):
+            activations = qtypes[activations]
         self.weight_qtype = weights
         self.weight_group_size = None
         if self.weight_qtype in (qint2, qint4):

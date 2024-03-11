@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from quanto import QTensor, qint8
+from quanto import QTensor, qint8, qtypes
 from quanto.nn import QLinear
 
 
@@ -29,3 +29,11 @@ def test_qmodule_freeze(in_features, out_features, use_bias, dtype):
     if use_bias:
         assert not isinstance(qlinear.bias, QTensor)
         assert qlinear.bias.dtype == dtype
+
+
+@pytest.mark.parametrize("weights", ["qint2", "qint4", "qint8", "qfloat8"])
+@pytest.mark.parametrize("activations", [None, "qint8", "qfloat8"])
+def test_qmodule_qtype_as_string(weights, activations):
+    qlinear = QLinear(16, 64, weights=weights, activations=activations)
+    assert qlinear.weight_qtype == qtypes[weights]
+    assert qlinear.activation_qtype is None if activations is None else qtypes[activations]
