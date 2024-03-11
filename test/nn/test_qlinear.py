@@ -12,7 +12,7 @@ from quanto.nn import QLinear
 def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, dtype, device):
     linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(dtype).to(device)
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
-    assert qlinear.qweight().qtype == weights
+    assert qlinear.qweight.qtype == weights
     qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=dtype).to(device)
     inputs = qinputs.dequantize()
     # Run an inference with Calibration to get the correct output dtype
@@ -23,7 +23,7 @@ def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, act
         assert isinstance(qout, QTensor)
         assert qout.qtype == activations
     # Align linear weights with quantized linear weights for comparison
-    linear.weight = torch.nn.Parameter(qlinear.qweight().dequantize())
+    linear.weight = torch.nn.Parameter(qlinear.qweight.dequantize())
     out = linear(inputs)
     # We need to increase atol for float16 dtype
     dtype_atol = {torch.float32: 1e-4, torch.float16: 1e-3}[dtype]
