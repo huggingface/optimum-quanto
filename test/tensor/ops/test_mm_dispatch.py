@@ -1,6 +1,6 @@
 import pytest
 import torch
-from helpers import assert_close, random_qtensor, random_tensor
+from helpers import assert_similar, random_qtensor, random_tensor
 
 from quanto import QTensor
 
@@ -17,10 +17,7 @@ def test_matmul(dtype, in_features, hidden, out_features, device):
     qmatmul = torch.matmul(qa, qb)
     # The outputs should be almost identical if we use the dequantized inputs
     matmul = torch.matmul(qa.dequantize(), qb.dequantize())
-    # We need to increase atol and rtol for float16
-    atol = {torch.float32: 1e-6, torch.float16: 2e-3}[dtype]
-    rtol = {torch.float32: 1e-5, torch.float16: 1e-2}[dtype]
-    assert_close(matmul, qmatmul, atol=atol, rtol=rtol)
+    assert_similar(matmul, qmatmul)
 
 
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16], ids=["fp32", "fp16"])
@@ -35,10 +32,7 @@ def test_bmm(dtype, batch_size, a_shape, b_shape, b_axis, device):
     qbmm = torch.bmm(qa, qb)
     # The outputs should be almost identical if we use the dequantized inputs
     bmm = torch.bmm(qa.dequantize(), qb.dequantize())
-    # We need to increase atol and rtol for float16
-    atol = {torch.float32: 1e-6, torch.float16: 2e-3}[dtype]
-    rtol = {torch.float32: 1e-5, torch.float16: 1e-2}[dtype]
-    assert_close(bmm, qbmm, atol=atol, rtol=rtol)
+    assert_similar(bmm, qbmm)
 
 
 @pytest.mark.parametrize(
