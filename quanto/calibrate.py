@@ -71,14 +71,14 @@ class Calibration(TorchFunctionMode):
         self.post_handle.remove()
 
     def calibrate_input(self, module: torch.nn.Module, input, momentum: float = 0.9):
-        if isinstance(module, QModuleMixin) and module.activations is not None:
+        if isinstance(module, QModuleMixin) and module.activation_qtype is not None:
             input = input[0]
             if isinstance(input, QTensor):
                 # Just adopt the maximum scale of the input
                 module.input_scale = torch.max(input._scale)
             else:
                 # Evaluate the best scale
-                input_scale = absmax_scale(input, module.activations)
+                input_scale = absmax_scale(input, module.activation_qtype)
                 module.input_scale = _updated_scale(module.input_scale, input_scale, momentum)
             return input
 
@@ -88,13 +88,13 @@ class Calibration(TorchFunctionMode):
         input,
         output,
     ):
-        if isinstance(module, (QModuleMixin)) and module.activations is not None:
+        if isinstance(module, (QModuleMixin)) and module.activation_qtype is not None:
             # Re-evaluate raw module output
             qoutput = module.qforward(input[0])
             if isinstance(qoutput, QTensor):
                 qoutput = qoutput.dequantize()
             # Evaluate the optimal scale per-tensor and update output scale
-            output_scale = absmax_scale(qoutput, module.activations, axis=None)
+            output_scale = absmax_scale(qoutput, module.activation_qtype, axis=None)
             module.output_scale = _updated_scale(module.output_scale, output_scale, self.momentum)
             # Re-evaluate output with the correct output scale
             output = module.forward(input[0])
@@ -105,18 +105,18 @@ class Calibration(TorchFunctionMode):
         else:
             if self.streamline:
                 for name, child in module.named_children():
-                    if isinstance(child, QModuleMixin) and child.activations is not None:
+                    if isinstance(child, QModuleMixin) and child.activation_qtype is not None:
                         qactivations_required = self.modules_qactivations.get(child, False)
                         if not qactivations_required:
                             # Disable activations for this child as its outputs are only consumed by incompatible functions.
-                            child.activations = None
+                            child.activation_qtype = None
             if self.debug:
                 for name, child in module.named_children():
                     if isinstance(child, QModuleMixin):
                         classname = child.__class__.__name__
                         trace = f"{name}({classname}) activations are"
-                        if child.activations is None:
+                        if child.activation_qtype is None:
                             trace += " not quantized."
                         else:
-                            trace += f" quantized to {child.activations} with scale {child.output_scale}."
+                            trace += f" quantized to {child.activation_qtype} with scale {child.output_scale}."
                         print(trace)

@@ -83,16 +83,16 @@ class QModuleMixin(ABC):
             )
         # This will setup the torch.nn.Module
         super().__init__(*args, **kwargs)
-        self.weights = weights
-        self.weights_group_size = None
-        if self.weights in (qint2, qint4):
+        self.weight_qtype = weights
+        self.weight_group_size = None
+        if self.weight_qtype in (qint2, qint4):
             out_features = self.weight.shape[0]
             if out_features >= 128:
                 group_size = self.weight.numel() // out_features
                 while group_size >= 128 and group_size % 2 == 0:
                     group_size = group_size // 2
-                self.weights_group_size = group_size
-        self.activations = activations
+                self.weight_group_size = group_size
+        self.activation_qtype = activations
         self.register_buffer("input_scale", torch.ones(()))
         self.register_buffer("output_scale", torch.ones(()))
         # We need to register a state_dict pre-hook to reset scales because their actual shapes and dtype are yet unknown
@@ -126,38 +126,42 @@ class QModuleMixin(ABC):
         raise NotImplementedError
 
     def qweight(self):
-        if self.weights is None:
+        if self.weight_qtype is None:
             # QModule that does not quantize its weights
             return None
         if isinstance(self.weight, QTensor):
             # Frozen QModule
             return self.weight
         # Quantize dynamically the weights per-axis
-        if self.weights in (qint2, qint4):
-            return QBitsTensor.quantize(self.weight, qtype=self.weights, axis=0, group_size=self.weights_group_size)
-        elif isinstance(self.weights, qtype):
+        if self.weight_qtype in (qint2, qint4):
+            return QBitsTensor.quantize(
+                self.weight, qtype=self.weight_qtype, axis=0, group_size=self.weight_group_size
+            )
+        elif isinstance(self.weight_qtype, qtype):
             wscale = absmax_scale(self.weight, axis=0)
-            return QTensor.quantize(self.weight, qtype=self.weights, axis=0, group_size=None, scale=wscale)
-        raise ValueError(f"Invalid quantized weights type {self.weights}")
+            return QTensor.quantize(self.weight, qtype=self.weight_qtype, axis=0, group_size=None, scale=wscale)
+        raise ValueError(f"Invalid quantized weights type {self.weight_qtype}")
 
     def qforward(self, input: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         def maybe_requantize(t, scale):
-            if t.qtype == self.activations and t.axis is None:
+            if t.qtype == self.activation_qtype and t.axis is None:
                 return t
-            return QTensor.quantize(t.dequantize(), qtype=self.activations, axis=None, group_size=None, scale=scale)
+            return QTensor.quantize(
+                t.dequantize(), qtype=self.activation_qtype, axis=None, group_size=None, scale=scale
+            )
 
-        if self.activations is not None and isinstance(input, QTensor):
+        if self.activation_qtype is not None and isinstance(input, QTensor):
             input = maybe_requantize(input, self.input_scale)
         output = self.qforward(input)
-        if self.activations is not None:
+        if self.activation_qtype is not None:
             if isinstance(output, QTensor):
                 output = maybe_requantize(output, self.output_scale)
             else:
                 output = QTensor.quantize(
-                    output, qtype=self.activations, axis=None, group_size=None, scale=self.output_scale
+                    output, qtype=self.activation_qtype, axis=None, group_size=None, scale=self.output_scale
                 )
         return output
 

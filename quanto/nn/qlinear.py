@@ -24,9 +24,11 @@ class QLinear(QModuleMixin, torch.nn.Linear):
         )
 
     def qforward(self, input: torch.Tensor) -> torch.Tensor:
-        if self.activations is not None and not isinstance(input, QTensor):
+        if self.activation_qtype is not None and not isinstance(input, QTensor):
             # Quantize activations to be able to take advantage of accelerated matmul
-            input = QTensor.quantize(input, qtype=self.activations, axis=None, group_size=None, scale=self.input_scale)
+            input = QTensor.quantize(
+                input, qtype=self.activation_qtype, axis=None, group_size=None, scale=self.input_scale
+            )
         # We always use quantized weights
         qweight = self.qweight()
         return torch.nn.functional.linear(input, qweight, bias=self.bias)
