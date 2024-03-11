@@ -1,6 +1,6 @@
 from abc import ABC
 from inspect import signature
-from typing import Any, Mapping, Optional
+from typing import Optional
 
 import torch
 
@@ -95,18 +95,6 @@ class QModuleMixin(ABC):
         self.activation_qtype = activations
         self.register_buffer("input_scale", torch.ones(()))
         self.register_buffer("output_scale", torch.ones(()))
-        # We need to register a state_dict pre-hook to reset scales because their actual shapes and dtype are yet unknown
-        self._register_load_state_dict_pre_hook(self._load_state_dict_pre_hook)
-
-    def _load_state_dict_pre_hook(self, state_dict: Mapping[str, Any], prefix: str, *args, **kwargs):
-        def init_scale_from_dict(state_dict, prefix, scale_attr):
-            scale_key = f"{prefix}{scale_attr}"
-            if scale_key in state_dict:
-                setattr(self, scale_attr, state_dict[scale_key])
-
-        # We need to update the shapes and dtypes of the scales as they are not known at initialization
-        for scale_attr in ["input_scale", "output_scale"]:
-            init_scale_from_dict(state_dict, prefix, scale_attr)
 
     @classmethod
     def from_module(
