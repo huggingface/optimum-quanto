@@ -96,7 +96,7 @@ class PackedTensor(torch.Tensor):
 
     def __tensor_flatten__(self):
         inner_tensors = ["_data"]
-        meta = {"bits": self.__bits, "size": self.size(), "stride": self.stride()}
+        meta = {"bits": self._bits, "size": self.size(), "stride": self.stride()}
         return inner_tensors, meta
 
     @staticmethod
