@@ -139,18 +139,18 @@ def test_move_qlinear(use_bias, weights, device):
         assert qlinear.weight._zeropoint.device.type == device.type
 
 
+@pytest.mark.parametrize("features", [10, 256], ids=["per-axis", "per-group"])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
 @pytest.mark.parametrize("activations", [None, qint8], ids=["a-float", "a-qint8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
-def test_qlinear_serialization(use_bias, activations, weights, dtype, device):
+def test_qlinear_serialization(features, use_bias, activations, weights, dtype, device):
     if dtype == torch.float16 and device.type == "cpu":
         pytest.skip("Matrix multiplication is not supported for float16 on CPU")
-    embeddings = 10
-    linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(dtype).to(device)
+    linear = torch.nn.Linear(features, features, bias=use_bias).to(dtype).to(device)
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
     if activations is not None:
-        qinputs = random_qtensor((10, 10, embeddings), dtype=dtype).to(device)
+        qinputs = random_qtensor((10, 10, features), dtype=dtype).to(device)
         with Calibration():
             qlinear(qinputs)
     qlinear.freeze()
@@ -158,9 +158,10 @@ def test_qlinear_serialization(use_bias, activations, weights, dtype, device):
     torch.save(qlinear.state_dict(), b)
     b.seek(0)
     state_dict = torch.load(b)
-    qlinear_reloaded = QLinear(embeddings, embeddings, bias=use_bias)
+    qlinear_reloaded = QLinear(features, features, bias=use_bias)
     # We need to force assignment instead of copy to replace weights by quantized weights
     qlinear_reloaded.load_state_dict(state_dict, assign=True)
+    assert qlinear_reloaded.weight_qtype == weights
     w = qlinear.weight
     w_reloaded = qlinear_reloaded.weight
     assert w.qtype == w_reloaded.qtype
@@ -169,6 +170,7 @@ def test_qlinear_serialization(use_bias, activations, weights, dtype, device):
     assert w_reloaded.dtype == dtype
     assert w_reloaded.axis == w.axis
     if activations is not None:
+        assert qlinear_reloaded.activation_qtype == activations
         for attr in ["input_scale", "output_scale"]:
             v = getattr(qlinear, attr)
             v_reloaded = getattr(qlinear_reloaded, attr)

@@ -106,6 +106,25 @@ class QModuleMixin(ABC):
         self.register_buffer("input_scale", torch.ones(()))
         self.register_buffer("output_scale", torch.ones(()))
 
+    def _save_to_state_dict(self, destination, prefix, keep_vars):
+        super()._save_to_state_dict(destination, prefix, keep_vars)
+        destination[prefix + "weight_qtype"] = "none" if self.weight_qtype is None else self.weight_qtype.name
+        destination[prefix + "activation_qtype"] = (
+            "none" if self.activation_qtype is None else self.activation_qtype.name
+        )
+
+    def _load_from_state_dict(
+        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+    ):
+        weight_qtype = state_dict.pop(prefix + "weight_qtype")
+        self.weight_qtype = None if weight_qtype == "none" else qtypes[weight_qtype]
+        activation_qtype = state_dict.pop(prefix + "activation_qtype")
+        self.activation_qtype = None if activation_qtype == "none" else qtypes[activation_qtype]
+
+        super()._load_from_state_dict(
+            state_dict, prefix, local_metadata, False, missing_keys, unexpected_keys, error_msgs
+        )
+
     @classmethod
     def from_module(
         cls, module: torch.nn.Module, weights: Optional[qtype] = None, activations: Optional[qtype] = None
