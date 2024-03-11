@@ -17,7 +17,7 @@ def test_qmodule_freeze(in_features, out_features, use_bias, dtype):
     if use_bias:
         assert not isinstance(qlinear.bias, QTensor)
         assert qlinear.bias.dtype == dtype
-    qweight = qlinear.qweight()
+    qweight = qlinear.qweight
     assert isinstance(qweight, QTensor)
     assert qweight.dtype == dtype
     assert qweight.qtype == qint8

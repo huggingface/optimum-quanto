@@ -36,5 +36,4 @@ class QConv2d(QModuleMixin, torch.nn.Conv2d):
                 input, qtype=self.activation_qtype, axis=None, group_size=None, scale=self.input_scale
             )
         # We always use quantized weights
-        qweight = self.qweight()
-        return self._conv_forward(input, qweight, self.bias)
+        return self._conv_forward(input, self.qweight, self.bias)

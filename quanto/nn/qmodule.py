@@ -125,7 +125,16 @@ class QModuleMixin(ABC):
     def qcreate(cls, module: torch.nn.Module, weights: Optional[qtype], activations: Optional[qtype] = None):
         raise NotImplementedError
 
+    @property
     def qweight(self):
+        """Return the module quantized weight
+
+        When the module is frozen or does not quantize its weight parameter, it simply
+        returns the weight.
+        When the module is not frozen, this property is required to add the dynamic quantization
+        of the weight parameter to the graph and allow gradients to be propagated to the
+        underlying weight float values.
+        """
         if self.weight_qtype is None:
             # QModule that does not quantize its weights
             return None
@@ -166,10 +175,10 @@ class QModuleMixin(ABC):
         return output
 
     def freeze(self):
-        qweight = self.qweight()
+        qweight = self.qweight
         if qweight is not None:
             # Replace float weights by quantized weights
-            self.weight = torch.nn.Parameter(self.qweight())
+            self.weight = torch.nn.Parameter(qweight)
 
     @property
     def frozen(self):

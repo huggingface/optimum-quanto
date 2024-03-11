@@ -30,5 +30,4 @@ class QLinear(QModuleMixin, torch.nn.Linear):
                 input, qtype=self.activation_qtype, axis=None, group_size=None, scale=self.input_scale
             )
         # We always use quantized weights
-        qweight = self.qweight()
-        return torch.nn.functional.linear(input, qweight, bias=self.bias)
+        return torch.nn.functional.linear(input, self.qweight, bias=self.bias)
