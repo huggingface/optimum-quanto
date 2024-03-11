@@ -3,9 +3,6 @@ from dataclasses import dataclass
 import torch
 
 
-__all__ = ["qtype", "qint2", "qint4", "qint8", "qfloat8", "qfloat8_e4m3fn", "qfloat8_e5m2"]
-
-
 @dataclass
 class qtype:
     """A quantized type class mimicking torch dtype"""
@@ -30,3 +27,8 @@ qint8 = qtype("qint8", is_floating_point=False, bits=8, dtype=torch.int8)
 qfloat8 = qtype("qfloat8", is_floating_point=True, bits=8, dtype=torch.float8_e4m3fn)
 qfloat8_e4m3fn = qtype("qfloat8_e4m3fn", is_floating_point=True, bits=8, dtype=torch.float8_e4m3fn)
 qfloat8_e5m2 = qtype("qfloat8_e5m2", is_floating_point=True, bits=8, dtype=torch.float8_e5m2)
+
+# Convenience dict to get a dtype from its name
+qtypes = {name: q for (name, q) in locals().items() if isinstance(q, qtype)}
+
+__all__ = ["qtype", "qtypes"] + [str(name) for name in qtypes.keys()]
