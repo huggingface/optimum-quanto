@@ -5,7 +5,7 @@ import torch
 from helpers import random_tensor
 
 from quanto.library import disable_extensions
-from quanto.tensor.core import group, ungroup
+from quanto.tensor.core import group
 from quanto.tensor.packed import pack_weights
 
 
@@ -93,7 +93,7 @@ def test_grouped_udqmm(input_shape, output_features, dtype, device, bits, use_ex
         unpacked_weights = torch.ops.quanto.unpack(packed_weights, bits)
         # TODO: We should probably combine it with unpack
         unpacked_weights = unpacked_weights[: grouped_weights.shape[0]]
-        ungrouped_weights = ungroup(
+        ungrouped_weights = torch.ops.quanto.ungroup(
             (unpacked_weights.to(torch.int8) - zeropoint.to(torch.int8)) * scale,
             axis=0,
             orig_shape=weights.shape,

@@ -2,6 +2,7 @@
 #include "mm.h"
 #include "quantize.h"
 #include "unpack.h"
+#include "ungroup.h"
 #include "udqmm.h"
 
 // !IMPORTANT! Some python objects such as dtype, device, are not mapped to C++ types,
@@ -21,4 +22,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
                                     torch::python::detail::py_object_to_dtype(dtype));
         }, "quantize_symmetric");
   m.def("unpack", &unpack, "unpack");
+  m.def("ungroup", &ungroup, "ungroup");
 }
