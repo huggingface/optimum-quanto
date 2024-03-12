@@ -139,5 +139,20 @@ class QBitsTensor(QTensor):
             zeropoint_kwargs["dtype"] = torch.int8
             zeropoint = op(t._zeropoint, **data_kwargs)
             return QBitsTensor(t._qtype, t._axis, t.size(), t.stride(), data, scale, zeropoint)
+        elif op.overloadpacket is torch.ops.aten.t:
+            input = args[0]
+            out_data = op(input._data)
+            out_scale = input._scale
+            out_zeropoint = input._zeropoint
+            out_axis = input.axis
+            dim0, dim1 = input.size()
+            out_stride = input.stride()[::-1]
+            out_size = torch.Size([dim1, dim0])
+            if input.axis is not None:
+                # We need to transpose also the scale and the zeropoint
+                out_scale = op(out_scale)
+                out_zeropoint = op(out_zeropoint)
+                out_axis = 0 if out_axis == -1 else -1
+            return QBitsTensor(input.qtype, out_axis, out_size, out_stride, out_data, out_scale, out_zeropoint)
         args, kwargs = pytree.tree_map_only(QBitsTensor, lambda x: x.qtensor(), (args, kwargs or {}))
         return op(*args, **kwargs)
