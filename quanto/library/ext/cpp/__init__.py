@@ -21,6 +21,7 @@ def ext():
                 f"{module_path}/mm.cpp",
                 f"{module_path}/quantize.cpp",
                 f"{module_path}/unpack.cpp",
+                f"{module_path}/ungroup.cpp",
                 f"{module_path}/pybind_module.cpp",
             ],
             extra_cflags=["-O3"],
@@ -41,3 +42,8 @@ def quantize_symmetric_cpp(t: torch.Tensor, scale: torch.Tensor, dtype: torch.Te
 @torch.library.impl("quanto_ext::unpack", ["CPU", "CUDA"])
 def unpack_cpp(t: torch.Tensor, bits: int):
     return ext().unpack(t, bits)
+
+
+@torch.library.impl("quanto_ext::ungroup", ["CPU", "CUDA", "MPS"])
+def ungroup_cpp(grouped: torch.Tensor, axis: int, orig_shape: torch.Size):
+    return ext().ungroup(grouped, axis, orig_shape)

@@ -4,7 +4,7 @@ import torch
 from torch.autograd import Function
 from torch.utils import _pytree as pytree
 
-from .core import absmax_scale, dtype_info, group, ungroup
+from .core import absmax_scale, dtype_info, group
 from .qtype import qint8, qtype, qtypes
 
 
@@ -80,7 +80,7 @@ class Dequantizer(Function):
         if t.axis is None:
             return dqt
         # Restore the original shape (if needed)
-        return ungroup(dqt, axis=t.axis, orig_shape=t.shape)
+        return torch.ops.quanto.ungroup(dqt, axis=t.axis, orig_shape=t.shape)
 
     @staticmethod
     def backward(ctx, gO):
