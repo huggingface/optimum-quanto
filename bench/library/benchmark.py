@@ -71,6 +71,17 @@ def get_unpack_bench(bits, device):
     return bench_fn
 
 
+def get_ungroup_bench(device):
+    qmax = 2**8
+    weights = torch.randint(0, qmax, (10240, 10240), dtype=torch.uint8).to(device)
+    grouped_weights = group(weights, axis=0, group_size=32)
+
+    def bench_fn():
+        return torch.ops.quanto.ungroup(grouped_weights, axis=0, orig_shape=weights.shape)
+
+    return bench_fn
+
+
 def timing(get_bench_func, device, iterations=10):
     def synchronize(device):
         if device.type == "cuda":
@@ -127,6 +138,7 @@ GET_BENCH_FUNCTIONS = {
     ),
     "unpack_2bit": lambda device: get_unpack_bench(2, device),
     "unpack_4bit": lambda device: get_unpack_bench(4, device),
+    "ungroup": lambda device: get_ungroup_bench(device),
     "udqmm_4bit": lambda device: get_udqmm_bench(torch.float16, device, 4),
 }
 
