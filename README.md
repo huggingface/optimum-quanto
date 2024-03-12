@@ -1,6 +1,6 @@
 # Quanto
 
-**DISCLAIMER**: This package is still an early prototype (pre-beta version), and not (yet) an HuggingFace product. Expect breaking changes and drastic modifications in scope and features.
+**DISCLAIMER**: This package is still beta. Expect breaking changes in API and serialization.
 
 🤗 Quanto is a python quantization toolkit that provides several features that are either not supported or limited by the base [pytorch quantization tools](https://pytorch.org/docs/stable/quantization.html):
 
@@ -10,18 +10,15 @@
 - automatically inserts quantized functional operations,
 - automatically inserts quantized modules (see below the list of supported modules),
 - provides a seamless workflow from a float model to a dynamic to a static quantized model,
-- supports quantized model serialization as a `state_dict`,
+- serialization compatible with pytorch `weight_only` and 🤗 `safetensors`,
 - uses integer matrix multiplications (`mm`) on CUDA devices,
 - supports int2, int4, int8 and float8 weights,
 - supports int8 and float8 activations.
 
 Features yet to be implemented:
 
-- quantize clone (quantization happens in-place for now),
 - dynamic activations smoothing,
-- integer batched matrix multiplications (`bmm`) on CUDA devices,
-- integer matrix multiplications for CPU and MPS devices,
-- quantized operators fusion (`mm` followed by dequantization is the most common use case),
+- kernels for all mixed matrix multiplications on all devices,
 - compatibility with [torch compiler](https://pytorch.org/docs/stable/torch.compiler.html) (aka dynamo).
 
 ## Quantized modules
