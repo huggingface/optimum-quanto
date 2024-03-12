@@ -1,10 +1,22 @@
 import io
+from tempfile import NamedTemporaryFile
 
 import pytest
 import torch
 from helpers import assert_similar, get_device_memory, random_qtensor, random_tensor
 
-from quanto import Calibration, QLinear, QTensor, freeze, qfloat8_e4m3fn, qfloat8_e5m2, qint8, quantize
+from quanto import (
+    Calibration,
+    QLinear,
+    QTensor,
+    freeze,
+    qfloat8_e4m3fn,
+    qfloat8_e5m2,
+    qint8,
+    quantize,
+    safe_load,
+    safe_save,
+)
 from quanto.nn import QModuleMixin
 
 
@@ -76,10 +88,23 @@ def test_quantize_mlp_float8_activations(weights, activations, frozen, device):
     _test_quantize_mlp(weights, activations, frozen, device)
 
 
+def save_and_reload_state_dict(state_dict, serialization):
+    if serialization == "safetensors":
+        with NamedTemporaryFile() as tmp_file:
+            safe_save(state_dict, tmp_file.name)
+            return safe_load(tmp_file.name)
+    else:
+        b = io.BytesIO()
+        torch.save(state_dict, b)
+        b.seek(0)
+        weights_only = serialization == "weights_only"
+        return torch.load(b, weights_only=weights_only)
+
+
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
-@pytest.mark.parametrize("weights_only", [True, False], ids=["weights-only", "pickle"])
-def test_serialize_quantized_mlp(weights, dtype, weights_only, device):
+@pytest.mark.parametrize("serialization", ["weights_only", "pickle", "safetensors"])
+def test_serialize_quantized_mlp(weights, dtype, serialization, device):
     if dtype == torch.float16 and device.type == "cpu":
         pytest.skip("Matrix multiplication is not supported for float16 on CPU")
     input_features = 32
@@ -91,10 +116,7 @@ def test_serialize_quantized_mlp(weights, dtype, weights_only, device):
     with Calibration():
         model(inputs)
     freeze(model)
-    b = io.BytesIO()
-    torch.save(model.state_dict(), b)
-    b.seek(0)
-    state_dict = torch.load(b, weights_only=weights_only)
+    state_dict = save_and_reload_state_dict(model.state_dict(), serialization)
     model_reloaded = MLP(input_features, hidden_features, output_features).to(device)
     quantize(model_reloaded)
     model_reloaded.load_state_dict(state_dict)
