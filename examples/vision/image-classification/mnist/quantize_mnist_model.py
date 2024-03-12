@@ -37,6 +37,7 @@ def test(model, device, test_loader):
 
 
 def train(log_interval, model, device, train_loader, optimizer, epoch):
+    model.to(device)
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
@@ -131,7 +132,7 @@ def main():
     state_dict = torch.load(b)
     model_reloaded = AutoModel.from_pretrained(args.model, trust_remote_code=True)
     quantize(model_reloaded, weights=weights, activations=activations)
-    model_reloaded.load_state_dict(state_dict, assign=True)
+    model_reloaded.load_state_dict(state_dict)
     print("Serialized quantized model")
     test(model_reloaded, device, test_loader)
 

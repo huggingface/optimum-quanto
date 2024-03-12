@@ -75,7 +75,7 @@ def main():
     state_dict = torch.load(b)
     model_reloaded = AutoModelForSequenceClassification.from_pretrained(args.model).to(device)
     quantize(model_reloaded, weights=weights, activations=activations)
-    model_reloaded.load_state_dict(state_dict, assign=True)
+    model_reloaded.load_state_dict(state_dict)
     print("Serialized quantized model")
     evaluate_model(model, tokenizer, dataset, device, args.batch_size)
 
