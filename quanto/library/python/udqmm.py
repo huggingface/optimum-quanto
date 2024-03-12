@@ -18,10 +18,10 @@ def udqmm(
     # TODO : we should proably add that in unpack with with arg unpacked_shape.
     # Depends if the weights have been transposed or not
     # if not transposed, we need to do unpacked_weights[: unpacked_shape[0]]
-    unpacked_weights_resized = unpacked_weights[: unpacked_shape[1]]
+    unpacked_weights = unpacked_weights[: unpacked_shape[1]]
     # transpose back
-    unpacked_weights_resized = unpacked_weights_resized.transpose(0, 1)
-    shifted_weights = unpacked_weights_resized.to(torch.int8) - zeropoint
+    unpacked_weights = unpacked_weights.transpose(0, 1)
+    shifted_weights = unpacked_weights.to(torch.int8) - zeropoint
     scaled_weights = shifted_weights.to(scale.dtype) * scale
     ungrouped_weights = torch.ops.quanto.ungroup(scaled_weights, axis, orig_shape)
     return torch.ops.aten.mm(input, ungrouped_weights)
