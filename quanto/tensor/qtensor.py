@@ -1,9 +1,11 @@
+import ast
+
 import torch
 from torch.autograd import Function
 from torch.utils import _pytree as pytree
 
 from .core import absmax_scale, dtype_info, group, ungroup
-from .qtype import qint8, qtype
+from .qtype import qint8, qtype, qtypes
 
 
 __all__ = ["qfallback", "QTensor"]
@@ -132,7 +134,12 @@ class QTensor(torch.Tensor):
 
     def __tensor_flatten__(self):
         inner_tensors = ["_data", "_scale"]
-        meta = {"qtype": self._qtype, "axis": self._axis, "size": self.size(), "stride": self.stride()}
+        meta = {
+            "qtype": self._qtype.name,
+            "axis": str(self._axis),
+            "size": str(list(self.size())),
+            "stride": str(list(self.stride())),
+        }
         return inner_tensors, meta
 
     @staticmethod
@@ -140,10 +147,11 @@ class QTensor(torch.Tensor):
         assert len(inner_tensors) == 2
         assert len(meta) == 4
         data, scale = inner_tensors["_data"], inner_tensors["_scale"]
-        qtype = meta["qtype"]
-        axis = meta["axis"]
-        size = meta["size"]
-        stride = meta["stride"]
+        # Meta should only contain strings, AST compatible except qtype
+        qtype = qtypes[meta["qtype"]]
+        axis = ast.literal_eval(meta["axis"])
+        size = ast.literal_eval(meta["size"])
+        stride = ast.literal_eval(meta["stride"])
         return QTensor(qtype, axis, size, stride, data, scale)
 
     @classmethod
