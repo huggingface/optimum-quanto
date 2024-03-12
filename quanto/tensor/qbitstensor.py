@@ -135,7 +135,23 @@ class QBitsTensor(QTensor):
             input = args[0]
             t = args[1]
             return torch.ops.quanto.udqmm(
-                input, t._data, t._scale, t._zeropoint, t._axis, t._bits, t.shape, t._data.shape
+                input, t._data._data, t._scale, t._zeropoint, t._axis, t._data._bits, t.shape, t._data.shape
             )
+        elif op.overloadpacket is torch.ops.aten.t:
+            # inspired by  transpose2d in  qtensor.py file
+            input = args[0]
+            out_data = op(input._data)
+            out_scale = input._scale
+            out_zeropoint = input._zeropoint
+            out_axis = input.axis
+            dim0, dim1 = input.size()
+            out_stride = input.stride()[::-1]
+            out_size = torch.Size([dim1, dim0])
+            if input.axis is not None:
+                # We need to transpose also the scale and the zeropoint
+                out_scale = op(out_scale)
+                out_zeropoint = op(out_zeropoint)
+                out_axis = 0 if out_axis == -1 else -1
+            return QBitsTensor(input.qtype, out_axis, out_size, out_stride, out_data, out_scale, out_zeropoint)
         args, kwargs = pytree.tree_map_only(QBitsTensor, lambda x: x.qtensor(), (args, kwargs or {}))
         return op(*args, **kwargs)
