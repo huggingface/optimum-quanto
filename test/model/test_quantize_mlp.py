@@ -111,25 +111,25 @@ def test_serialize_quantized_mlp(weights, dtype, device):
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 def test_quantized_mlp_device_memory(weights, dtype, device):
-    # Check we start from a clean state
-    assert get_device_memory(device) == 0
+    # We might not start from a clean state
+    base_memory = get_device_memory(device)
     input_features = 1024
     hidden_features = 2048
     output_features = 1024
     model = MLP(input_features, hidden_features, output_features).to(dtype).to(device)
     full_precision_memory = get_device_memory(device)
-    assert full_precision_memory > 0
+    assert full_precision_memory > base_memory
     quantize(model, weights=weights)
     freeze(model)
     quantized_memory = get_device_memory(device)
-    assert quantized_memory > 0
+    assert quantized_memory > base_memory
     assert quantized_memory < full_precision_memory
     # Serialize model
     b = io.BytesIO()
     torch.save(model.state_dict(), b)
     # Free device memory
     del model
-    assert get_device_memory(device) == 0
+    assert get_device_memory(device) == base_memory
     # Reload state dict on CPU
     b.seek(0)
     state_dict = torch.load(b, map_location=torch.device("cpu"))
@@ -137,12 +137,12 @@ def test_quantized_mlp_device_memory(weights, dtype, device):
     # Create an empty model and quantize it with the same parameters
     with torch.device("meta"):
         model_reloaded = MLP(input_features, hidden_features, output_features)
-        assert get_device_memory(device) == 0
+        assert get_device_memory(device) == base_memory
         quantize(model_reloaded)
-        assert get_device_memory(device) == 0
+        assert get_device_memory(device) == base_memory
     # Reload the state dict, still on CPU
     model_reloaded.load_state_dict(state_dict, assign=True)
-    assert get_device_memory(device) == 0
+    assert get_device_memory(device) == base_memory
     # Finally, move the model to the device
     model_reloaded.to(device)
     reloaded_memory = get_device_memory(device)
