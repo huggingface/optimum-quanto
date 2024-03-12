@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from tqdm.auto import tqdm
 
+from quanto import group
 from quanto.library import disable_extensions
 
 
@@ -37,6 +38,17 @@ def get_unpack_bench(bits, device):
 
     def bench_fn():
         return torch.ops.quanto.unpack(a, bits)
+
+    return bench_fn
+
+
+def get_ungroup_bench(device):
+    qmax = 2**8
+    weights = torch.randint(0, qmax, (10240, 10240), dtype=torch.uint8).to(device)
+    grouped_weights = group(weights, axis=0, group_size=32)
+
+    def bench_fn():
+        return torch.ops.quanto.ungroup(grouped_weights, axis=0, orig_shape=weights.shape)
 
     return bench_fn
 
@@ -97,6 +109,7 @@ GET_BENCH_FUNCTIONS = {
     ),
     "unpack_2bit": lambda device: get_unpack_bench(2, device),
     "unpack_4bit": lambda device: get_unpack_bench(4, device),
+    "ungroup": lambda device: get_ungroup_bench(device),
 }
 
 
