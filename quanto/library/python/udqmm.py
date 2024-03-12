@@ -21,7 +21,7 @@ def udqmm(
     unpacked_weights_resized = unpacked_weights[: unpacked_shape[1]]
     # transpose back
     unpacked_weights_resized = unpacked_weights_resized.transpose(0, 1)
-    shifted_weights = unpacked_weights.to(torch.int8) - zeropoint
+    shifted_weights = unpacked_weights_resized.to(torch.int8) - zeropoint
     scaled_weights = shifted_weights.to(scale.dtype) * scale
     ungrouped_weights = torch.ops.quanto.ungroup(scaled_weights, axis, orig_shape)
     return torch.ops.aten.mm(input, ungrouped_weights)
