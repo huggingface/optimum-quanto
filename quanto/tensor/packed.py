@@ -126,6 +126,14 @@ class PackedTensor(torch.Tensor):
             # Move data
             data = op(t._data, **kwargs)
             return PackedTensor(data, t._bits, t.size(), t.stride())
+        elif op.overloadpacket is torch.ops.aten.t:
+            t = args[0]
+            data = op(t._data)
+            dim0, dim1 = t.size()
+            out_size = torch.Size([dim1, dim0])
+            out_stride = t.stride()[::-1]
+            return PackedTensor(data, t._bits, out_size, out_stride)
+
         args, kwargs = pytree.tree_map_only(PackedTensor, lambda x: x.unpack(), (args, kwargs or {}))
         return op(*args, **kwargs)
 
