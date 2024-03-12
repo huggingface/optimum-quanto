@@ -1,3 +1,4 @@
+import ast
 from copy import copy
 
 import torch
@@ -7,7 +8,7 @@ from torch.utils import _pytree as pytree
 from .core import group
 from .packed import PackedTensor
 from .qtensor import QTensor
-from .qtype import qint2, qint4, qint8, qtype
+from .qtype import qint2, qint4, qint8, qtype, qtypes
 
 
 __all__ = ["QBitsTensor"]
@@ -96,7 +97,13 @@ class QBitsTensor(QTensor):
 
     def __tensor_flatten__(self):
         inner_tensors = ["_data", "_scale", "_zeropoint"]
-        meta = {"qtype": self._qtype, "axis": self._axis, "size": self.size(), "stride": self.stride()}
+        # Since meta can be used for serialization, use only strings
+        meta = {
+            "qtype": self._qtype.name,
+            "axis": str(self._axis),
+            "size": str(list(self.size())),
+            "stride": str(list(self.stride())),
+        }
         return inner_tensors, meta
 
     @staticmethod
@@ -104,10 +111,11 @@ class QBitsTensor(QTensor):
         assert len(inner_tensors) == 3
         assert len(meta) == 4
         data, scale, zeropoint = inner_tensors["_data"], inner_tensors["_scale"], inner_tensors["_zeropoint"]
-        qtype = meta["qtype"]
-        axis = meta["axis"]
-        size = meta["size"]
-        stride = meta["stride"]
+        # Meta should only contain strings, AST compatible except qtype
+        qtype = qtypes[meta["qtype"]]
+        axis = ast.literal_eval(meta["axis"])
+        size = ast.literal_eval(meta["size"])
+        stride = ast.literal_eval(meta["stride"])
         return QBitsTensor(qtype, axis, size, stride, data, scale, zeropoint)
 
     @classmethod

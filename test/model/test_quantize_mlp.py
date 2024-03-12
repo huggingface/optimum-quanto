@@ -78,7 +78,8 @@ def test_quantize_mlp_float8_activations(weights, activations, frozen, device):
 
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
-def test_serialize_quantized_mlp(weights, dtype, device):
+@pytest.mark.parametrize("weights_only", [True, False], ids=["weights-only", "pickle"])
+def test_serialize_quantized_mlp(weights, dtype, weights_only, device):
     if dtype == torch.float16 and device.type == "cpu":
         pytest.skip("Matrix multiplication is not supported for float16 on CPU")
     input_features = 32
@@ -93,7 +94,7 @@ def test_serialize_quantized_mlp(weights, dtype, device):
     b = io.BytesIO()
     torch.save(model.state_dict(), b)
     b.seek(0)
-    state_dict = torch.load(b)
+    state_dict = torch.load(b, weights_only=weights_only)
     model_reloaded = MLP(input_features, hidden_features, output_features).to(device)
     quantize(model_reloaded)
     model_reloaded.load_state_dict(state_dict)
@@ -109,7 +110,8 @@ def test_serialize_quantized_mlp(weights, dtype, device):
 @pytest.mark.skip_device("cpu")
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
-def test_quantized_mlp_device_memory(weights, dtype, device):
+@pytest.mark.parametrize("weights_only", [True, False], ids=["weights-only", "pickle"])
+def test_quantized_mlp_device_memory(weights, dtype, weights_only, device):
     # We might not start from a clean state
     base_memory = get_device_memory(device)
     input_features = 1024
@@ -131,7 +133,7 @@ def test_quantized_mlp_device_memory(weights, dtype, device):
     assert get_device_memory(device) == base_memory
     # Reload state dict on CPU
     b.seek(0)
-    state_dict = torch.load(b, map_location=torch.device("cpu"))
+    state_dict = torch.load(b, map_location=torch.device("cpu"), weights_only=weights_only)
     assert get_device_memory(device) == 0
     # Create an empty model and quantize it with the same parameters
     with torch.device("meta"):

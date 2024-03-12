@@ -1,3 +1,5 @@
+import ast
+
 import torch
 from torch.utils import _pytree as pytree
 
@@ -96,7 +98,8 @@ class PackedTensor(torch.Tensor):
 
     def __tensor_flatten__(self):
         inner_tensors = ["_data"]
-        meta = {"bits": self._bits, "size": self.size(), "stride": self.stride()}
+        # Since meta can be used for serialization, use only AST compatible strings
+        meta = {"bits": str(self._bits), "size": str(list(self.size())), "stride": str(self.stride())}
         return inner_tensors, meta
 
     @staticmethod
@@ -104,9 +107,10 @@ class PackedTensor(torch.Tensor):
         assert len(inner_tensors) == 1
         assert len(meta) == 3
         data = inner_tensors["_data"]
-        bits = meta["bits"]
-        size = meta["size"]
-        stride = meta["stride"]
+        # Meta should contain only AST compatible strings
+        bits = ast.literal_eval(meta["bits"])
+        size = ast.literal_eval(meta["size"])
+        stride = ast.literal_eval(meta["stride"])
         return PackedTensor(data, bits, size, stride)
 
     __torch_function__ = torch._C._disabled_torch_function_impl

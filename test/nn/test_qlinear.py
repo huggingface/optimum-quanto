@@ -144,7 +144,8 @@ def test_move_qlinear(use_bias, weights, device):
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
 @pytest.mark.parametrize("activations", [None, qint8], ids=["a-float", "a-qint8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
-def test_qlinear_serialization(features, use_bias, activations, weights, dtype, device):
+@pytest.mark.parametrize("weights_only", [True, False], ids=["weights-only", "pickle"])
+def test_qlinear_serialization(features, use_bias, activations, weights, dtype, weights_only, device):
     if dtype == torch.float16 and device.type == "cpu":
         pytest.skip("Matrix multiplication is not supported for float16 on CPU")
     linear = torch.nn.Linear(features, features, bias=use_bias).to(dtype).to(device)
@@ -157,7 +158,7 @@ def test_qlinear_serialization(features, use_bias, activations, weights, dtype, 
     b = io.BytesIO()
     torch.save(qlinear.state_dict(), b)
     b.seek(0)
-    state_dict = torch.load(b)
+    state_dict = torch.load(b, weights_only=weights_only)
     qlinear_reloaded = QLinear(features, features, bias=use_bias).to(device)
     qlinear_reloaded.load_state_dict(state_dict)
     assert qlinear_reloaded.weight_qtype == weights
