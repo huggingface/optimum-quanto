@@ -32,12 +32,17 @@ def get_quantize_symmetric_bench(src_dtype, dst_dtype, per_axis, device):
     return bench_fn
 
 
-def get_unpack_bench(bits, device):
+def get_unpack_bench(bits, axis, device):
     qmax = 2**bits
-    a = torch.randint(0, qmax, [10240, 10240], dtype=torch.uint8).to(device)
+    packed_size = 10240
+    a = torch.randint(0, qmax, [packed_size, packed_size], dtype=torch.uint8).to(device)
+    n_packed = 8 // bits
+    actual_axis = 0 if axis == 1 else 1
+    orig_shape = [packed_size, packed_size]
+    orig_shape[actual_axis] = orig_shape[actual_axis] * n_packed
 
     def bench_fn():
-        return torch.ops.quanto.unpack(a, bits)
+        return torch.ops.quanto.unpack(a, bits, orig_shape, axis)
 
     return bench_fn
 
@@ -107,8 +112,10 @@ GET_BENCH_FUNCTIONS = {
     "quantize_symmetric_fp32_int8_per_tensor": lambda device: get_quantize_symmetric_bench(
         torch.float32, torch.int8, False, device
     ),
-    "unpack_2bit": lambda device: get_unpack_bench(2, device),
-    "unpack_4bit": lambda device: get_unpack_bench(4, device),
+    "unpack_2bit_axis_0": lambda device: get_unpack_bench(2, 0, device),
+    "unpack_2bit_axis_1": lambda device: get_unpack_bench(2, 1, device),
+    "unpack_4bit_axis_0": lambda device: get_unpack_bench(4, 0, device),
+    "unpack_4bit_axis_1": lambda device: get_unpack_bench(4, 1, device),
     "ungroup": lambda device: get_ungroup_bench(device),
 }
 

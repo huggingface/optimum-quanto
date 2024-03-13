@@ -93,16 +93,16 @@ torch::Tensor& mask_and_shift(const torch::Tensor& input, torch::Tensor& output,
     return output;
 }
 
-torch::Tensor unpack_4bit(const torch::Tensor &input) {
+torch::Tensor unpack_4bit(const torch::Tensor &input, int axis) {
 
     torch::Tensor output = torch::empty_like(input);
     mask_and_shift(input, output, 0x0F, 0);
     torch::Tensor output1 = torch::empty_like(input);
     mask_and_shift(input, output1, 0xF0, 4);
-    return torch::cat({output, output1}, 0);
+    return torch::cat({output, output1}, axis);
 }
 
-torch::Tensor unpack_2bit(const torch::Tensor &input) {
+torch::Tensor unpack_2bit(const torch::Tensor &input, int axis) {
 
     torch::Tensor output = torch::empty_like(input);
     mask_and_shift(input, output, 0x03, 0);
@@ -112,11 +112,15 @@ torch::Tensor unpack_2bit(const torch::Tensor &input) {
     mask_and_shift(input, output2, 0x30, 4);
     torch::Tensor output3 = torch::empty_like(input);
     mask_and_shift(input, output3, 0xC0, 6);
-    return torch::cat({output, output1, output2, output3}, 0);
+    return torch::cat({output, output1, output2, output3}, axis);
+}
+
+static torch::Tensor slice_along_axis(torch::Tensor& t, torch::IntArrayRef orig_shape, int axis) {
+    return t.slice(axis, 0, orig_shape[axis]);
 }
 
 // C++ op dispatching the Metal unpack operation.
-torch::Tensor unpack(const torch::Tensor &input, int bits) {
+torch::Tensor unpack(const torch::Tensor &input, int bits, torch::IntArrayRef orig_shape, int axis) {
     // Check whether the input tensor resides on the MPS device and whether it's contiguous.
     TORCH_CHECK(input.device().is_mps(), "input must be a MPS tensor");
     TORCH_CHECK(input.is_contiguous(), "input must be contiguous");
@@ -125,10 +129,14 @@ torch::Tensor unpack(const torch::Tensor &input, int bits) {
     TORCH_CHECK(input.scalar_type() == torch::kUInt8, "Unsupported data type: ", input.scalar_type());
 
     switch(bits) {
-      case 4:
-        return unpack_4bit(input);
-      case 2:
-        return unpack_2bit(input);
+      case 4: {
+        auto output = unpack_4bit(input, axis);
+        return slice_along_axis(output, orig_shape, axis);
+      }
+      case 2: {
+        auto output = unpack_2bit(input, axis);
+        return slice_along_axis(output, orig_shape, axis);
+      }
       default:
         throw std::invalid_argument("Can only unpack 2-bit or 4-bit tensors.");
     }

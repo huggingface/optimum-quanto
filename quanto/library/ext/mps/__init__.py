@@ -25,5 +25,5 @@ def ext():
 
 
 @impl("quanto_ext::unpack", "MPS")
-def unpack_mps(t: torch.Tensor, bits: int):
-    return ext().unpack(t, bits)
+def unpack_mps(t: torch.Tensor, bits: int, orig_shape: torch.Size, axis: int):
+    return ext().unpack(t, bits, orig_shape, axis)

@@ -40,8 +40,8 @@ def quantize_symmetric_cpp(t: torch.Tensor, scale: torch.Tensor, dtype: torch.Te
 
 
 @torch.library.impl("quanto_ext::unpack", ["CPU", "CUDA"])
-def unpack_cpp(t: torch.Tensor, bits: int):
-    return ext().unpack(t, bits)
+def unpack_cpp(t: torch.Tensor, bits: int, orig_shape: torch.Size, axis: int):
+    return ext().unpack(t, bits, orig_shape, axis)
 
 
 @torch.library.impl("quanto_ext::ungroup", ["CPU", "CUDA", "MPS"])

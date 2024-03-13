@@ -57,7 +57,7 @@ def pack_weights(intweights: torch.Tensor, bits: int) -> torch.Tensor:
 
 class PackedTensor(torch.Tensor):
     @staticmethod
-    def __new__(cls, data, bits, size, stride, requires_grad=False):
+    def __new__(cls, data, bits, size, stride, axis, requires_grad=False):
         # PackedTensor represents uint8 data and can therefore NEVER require gradient
         assert data.dtype == torch.uint8
         assert requires_grad is False
@@ -65,9 +65,11 @@ class PackedTensor(torch.Tensor):
             cls, size, strides=stride, dtype=torch.uint8, device=data.device, requires_grad=requires_grad
         )
 
-    def __init__(self, data, bits, size, stride, requires_grad=False):
+    def __init__(self, data, bits, size, stride, axis, requires_grad=False):
         self._bits = bits
         self._data = data
+        # keep track of the axis used to pack the data
+        self._axis = axis
 
     def __repr__(self):
         autograd_info = (
@@ -80,13 +82,12 @@ class PackedTensor(torch.Tensor):
         assert bits in (2, 4)
         assert t.dtype == torch.uint8
         data = pack_weights(t, bits)
+        axis = 0
         # We need to store size and stride to make sure the unpacked data has the correct shape
-        return PackedTensor(data, bits, t.size(), t.stride())
+        return PackedTensor(data, bits, t.size(), t.stride(), axis)
 
     def unpack(self):
-        unpacked_data = torch.ops.quanto.unpack(self._data, self._bits)
-        # Adjust the first dimension, as unpacked data may have extra rows if the original shape is not a multiple of 8 // bits
-        return unpacked_data[: self.shape[0]]
+        return torch.ops.quanto.unpack(self._data, self._bits, self.shape, self._axis)
 
     @property
     def bits(self):
@@ -99,19 +100,25 @@ class PackedTensor(torch.Tensor):
     def __tensor_flatten__(self):
         inner_tensors = ["_data"]
         # Since meta can be used for serialization, use only AST compatible strings
-        meta = {"bits": str(self._bits), "size": str(list(self.size())), "stride": str(self.stride())}
+        meta = {
+            "bits": str(self._bits),
+            "size": str(list(self.size())),
+            "stride": str(self.stride()),
+            "axis": str(self._axis),
+        }
         return inner_tensors, meta
 
     @staticmethod
     def __tensor_unflatten__(inner_tensors, meta, outer_size, outer_stride):
         assert len(inner_tensors) == 1
-        assert len(meta) == 3
+        assert len(meta) == 4
         data = inner_tensors["_data"]
         # Meta should contain only AST compatible strings
         bits = ast.literal_eval(meta["bits"])
         size = ast.literal_eval(meta["size"])
         stride = ast.literal_eval(meta["stride"])
-        return PackedTensor(data, bits, size, stride)
+        axis = ast.literal_eval(meta["axis"])
+        return PackedTensor(data, bits, size, stride, axis)
 
     __torch_function__ = torch._C._disabled_torch_function_impl
 
@@ -121,7 +128,7 @@ class PackedTensor(torch.Tensor):
         if op.overloadpacket is torch.ops.aten.detach:
             t = args[0]
             data = op(t._data)
-            return PackedTensor(data, t._bits, t.size(), t.stride())
+            return PackedTensor(data, t._bits, t.size(), t.stride(), t._axis)
         elif op.overloadpacket is torch.ops.aten._to_copy:
             t = args[0]
             dtype = kwargs.get("dtype", torch.uint8)
@@ -129,7 +136,8 @@ class PackedTensor(torch.Tensor):
                 raise ValueError(f"PackedTensor are torch.uint8 only and cannot be moved to {dtype}.")
             # Move data
             data = op(t._data, **kwargs)
-            return PackedTensor(data, t._bits, t.size(), t.stride())
+            return PackedTensor(data, t._bits, t.size(), t.stride(), t._axis)
+
         args, kwargs = pytree.tree_map_only(PackedTensor, lambda x: x.unpack(), (args, kwargs or {}))
         return op(*args, **kwargs)
 
