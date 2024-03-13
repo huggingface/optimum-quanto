@@ -178,7 +178,7 @@ class QModuleMixin(ABC):
                     # FIXME: here we should copy frozen weights into frozen module, but this leads to grad error
                     self.weight = torch.nn.Parameter(deserialized_weight.to(device))
         # this is needed because we can't load it correctly when the bias is on the meta device
-        if state_dict.get(prefix + "bias", False):
+        if prefix + "bias" in state_dict:
             self.bias = torch.nn.Parameter(state_dict.pop(prefix + "bias"))
         super()._load_from_state_dict(
             state_dict, prefix, local_metadata, False, missing_keys, unexpected_keys, error_msgs
