@@ -61,3 +61,4 @@ define(
     "udqmm",
     "(Tensor input, Tensor weight, Tensor scales, Tensor zeropoint, int axis, int bits, Any orig_shape, Any unpacked_shape) -> Tensor",
 )
+define("combined_unpack_mm_kernel", "(Tensor input, Tensor weight, Tensor scales, int bits) -> Tensor")
