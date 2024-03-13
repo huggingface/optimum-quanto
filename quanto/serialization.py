@@ -2,7 +2,7 @@ import os
 from typing import Dict, Union
 
 import torch
-from safetensors.torch import safe_open, save_file, _remove_duplicate_names
+from safetensors.torch import _remove_duplicate_names, safe_open, save_file
 
 
 def safe_save(state_dict: Dict[str, Union[torch.Tensor, str]], filename: Union[str, os.PathLike]):
