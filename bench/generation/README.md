@@ -8,7 +8,7 @@ This repository contains scripts to evaluate the performances of quantized model
 
 A `evaluate_model.py` utility script is also provided to evaluate the metrics on a specific model for several quantization configurations, and output the result to a `png` barchart and/or a `json` file.
 
-The paragraphs below display results for some popular models.
+The paragraphs below display results for some popular models on a NVIDIA A100 GPU.
 
 ## facebook/opt-125m
 
