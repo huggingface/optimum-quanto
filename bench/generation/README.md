@@ -137,3 +137,19 @@ The paragraphs below display results for some popular models.
   </div>
  </center>
 </div>
+
+## google/gemma-2b
+
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/google-gemma-2b_Accuracy.png" alt="google-gemma-2b Lambada prediction accuracy">
+  </div>
+ </center>
+</div>
+
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/google-gemma-2b_Perplexity.png" alt="google-gemma-2b Lambada prediction accuracy">
+  </div>
+ </center>
+</div>
