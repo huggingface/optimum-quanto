@@ -1,4 +1,4 @@
-__version__ = "0.0.14dev"
+__version__ = "0.1.1dev"
 
 from .calibrate import *
 from .library import *
