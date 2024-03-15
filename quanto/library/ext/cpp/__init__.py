@@ -33,11 +33,6 @@ def dqmm_cpp(input: torch.Tensor, other: torch.Tensor, other_scale: torch.Tensor
     return ext().dqmm(input, other, other_scale)
 
 
-@torch.library.impl("quanto_ext::quantize_symmetric", ["CPU"])
-def quantize_symmetric_cpp(t: torch.Tensor, scale: torch.Tensor, dtype: torch.Tensor.dtype):
-    return ext().quantize_symmetric(t, scale, dtype)
-
-
 @torch.library.impl("quanto_ext::unpack", ["CPU", "CUDA"])
 def unpack_cpp(t: torch.Tensor, bits: int):
     return ext().unpack(t, bits)

@@ -20,17 +20,6 @@ def get_dqmm_bench(input_dtype, device):
     return bench_fn
 
 
-def get_quantize_symmetric_bench(src_dtype, dst_dtype, per_axis, device):
-    a = torch.rand([10240, 10240], dtype=src_dtype).to(device)
-    scale = torch.ones((10240,)) * 0.5 if per_axis else torch.tensor(0.5)
-    scale = scale.to(src_dtype).to(device)
-
-    def bench_fn():
-        return torch.ops.quanto.quantize_symmetric(a, scale, dst_dtype)
-
-    return bench_fn
-
-
 def get_unpack_bench(bits, device):
     qmax = 2**bits
     a = torch.randint(0, qmax, [10240, 10240], dtype=torch.uint8).to(device)
@@ -92,9 +81,6 @@ def timing(get_bench_func, device, iterations=10):
 
 GET_BENCH_FUNCTIONS = {
     "dqmm_w8a16": lambda device: get_dqmm_bench(torch.float16, device),
-    "quantize_symmetric_fp32_int8_per_tensor": lambda device: get_quantize_symmetric_bench(
-        torch.float32, torch.int8, False, device
-    ),
     "unpack_2bit": lambda device: get_unpack_bench(2, device),
     "unpack_4bit": lambda device: get_unpack_bench(4, device),
 }
