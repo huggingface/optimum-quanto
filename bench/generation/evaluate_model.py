@@ -1,63 +1,50 @@
 import argparse
-import json
 
 import torch
-from gen_barchart import gen_barchart
-from latency import latency
-from perplexity import perplexity
-from prediction import prediction_accuracy
+from datasets import load_dataset
+from metrics.latency import latency
+from metrics.perplexity import perplexity
+from metrics.prediction import prediction_accuracy
 
-from quanto import qfloat8, qint4, qint8, qtype
+from setup.bnb import setup as bnb_setup
+from setup.quanto import setup as quanto_setup
 
 
-def evaluate_model_configurations(
-    model_id: str, metric: str, device: torch.device, batch_size: int = 32, seed: int = 1
+@torch.no_grad()
+def calibrate(model, tokenizer, batch_size, batches):
+    samples = batch_size * batches
+    cal_dataset = load_dataset("lambada", split=["validation"])[0]
+    model.eval()
+    total = 0
+    for batch in cal_dataset.iter(batch_size=batch_size):
+        inputs = tokenizer(batch["text"], return_tensors="pt", padding=True)
+        input_ids = inputs.input_ids.to(model.device)
+        attention_mask = inputs.attention_mask.to(model.device)
+        model(input_ids, attention_mask=attention_mask)
+        total += input_ids.size(0)
+        if total >= samples:
+            break
+
+
+def evaluate(
+    model_id: str, metric: str, quantizer: str, weights: str, activations: str, batch_size: int, device: torch.device
 ):
-    weights = [
-        qint4,
-        qint8,
-        qfloat8,
-    ]
-
-    activations = [
-        None,
-        qint8,
-        qfloat8,
-    ]
-
-    def short_name(qtype: qtype):
-        return {
-            None: "f16",
-            qint4: "i4",
-            qint8: "i8",
-            qfloat8: "f8",
-        }[qtype]
-
-    results = {}
-
-    def get_results(model_id: str, w: qtype, a: qtype, device: torch.device, seed: int = 1):
-        if metric == "latency":
-            return latency(model_id, w, a, device, batch_size=batch_size, seed=seed)
-        elif metric == "prediction":
-            return prediction_accuracy(model_id, w, a, device, batch_size=batch_size, seed=seed)
-        elif metric == "perplexity":
-            return perplexity(model_id, w, a, device, batch_size=batch_size, seed=seed)
-
-    # Evaluate float16 model
-    print(f"{model_id}[Wf16Af16]:")
-    results["Wf16Af16"] = get_results(model_id, None, None, device, seed=seed)
-    # Evaluate quantized models
-    for w in weights:
-        for a in activations:
-            config_name = f"W{short_name(w)}A{short_name(a)}"
-            print(f"{model_id}[{config_name}]:")
-            results[config_name] = get_results(model_id, w, a, device, seed=seed)
-
-    return results
+    if quantizer == "quanto":
+        model, tokenizer = quanto_setup(model_id, weights, activations, batch_size, device)
+    elif quantizer == "bnb":
+        model, tokenizer = bnb_setup(model_id, weights, activations, device)
+    else:
+        raise ValueError(f"Unsupported quantizer {quantizer}")
+    if metric == "latency":
+        return latency(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512, iterations=5)
+    elif metric == "prediction":
+        return prediction_accuracy(model, tokenizer, batch_size)
+    elif metric == "perplexity":
+        return perplexity(model, tokenizer)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluate quantized model predictions on Lambada Dataset")
+    parser = argparse.ArgumentParser(description="Evaluate quantized model metrics")
     parser.add_argument("--seed", type=int, default=1, metavar="S", help="random seed (default: 1)")
     parser.add_argument(
         "--model",
@@ -67,9 +54,20 @@ def main():
     )
     parser.add_argument("--device", type=str, default=None, help="The device to use for generation.")
     parser.add_argument("--metric", type=str, default="prediction", choices=["latency", "prediction", "perplexity"])
+    parser.add_argument("--quantizer", type=str, default="quanto", choices=["quanto", "bnb"])
+    parser.add_argument(
+        "--weights",
+        type=str,
+        default="none",
+        choices=["none", "int4", "int8", "float8"],
+    )
+    parser.add_argument(
+        "--activations",
+        type=str,
+        default="none",
+        choices=["none", "int8", "float8"],
+    )
     parser.add_argument("--batch_size", type=int, default=32, help="The batch size during evaluation.")
-    parser.add_argument("--json", action="store_true", help="Dump the results to a json file.")
-    parser.add_argument("--png", action="store_true", help="Generate a PNG.")
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -83,26 +81,7 @@ def main():
             device = torch.device("cpu")
     else:
         device = torch.device(args.device)
-
-    results = evaluate_model_configurations(
-        args.model, args.metric, device, batch_size=args.batch_size, seed=args.seed
-    )
-    if args.json:
-        model_name = args.model.split("/")[-1]
-        json_path = f"{model_name}-{args.metric}.json"
-        with open(json_path, "w") as fp:
-            json.dump({model_name: results}, fp, indent=4)
-    if args.png:
-        if args.metric == "latency":
-            title = f"{args.model}: Mean latency per token"
-            label = "Latency (ms)"
-        elif args.metric == "prediction":
-            title = f"{args.model}: Prediction accuracy on Lambada dataset"
-            label = "Accuracy"
-        elif args.metric == "perplexity":
-            title = f"{args.model}: Perplexity evaluated on WikiText dataset"
-            label = "Perplexity"
-        gen_barchart(args.model, title, label, results)
+    evaluate(args.model, args.metric, args.quantizer, args.weights, args.activations, args.batch_size, device)
 
 
 if __name__ == "__main__":
