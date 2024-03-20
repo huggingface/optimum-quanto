@@ -18,13 +18,13 @@ bigger_models=(
 )
 
 for m in ${small_models[@]}; do
-    python ${SCRIPT_PATH}/evaluate_model.py --model $m --metric prediction --png
-    python ${SCRIPT_PATH}/evaluate_model.py --model $m --metric perplexity --png
-    python ${SCRIPT_PATH}/evaluate_model.py --model $m --metric latency --png
+    python ${SCRIPT_PATH}/evaluate_configurations.py --model $m --metric prediction --png
+    python ${SCRIPT_PATH}/evaluate_configurations.py --model $m --metric perplexity --png
+    python ${SCRIPT_PATH}/evaluate_configurations.py --model $m --metric latency --png
 done
 
 for m in ${bigger_models[@]}; do
-    python ${SCRIPT_PATH}/evaluate_model.py --model $m --metric prediction --png --json --batch_size 16
-    python ${SCRIPT_PATH}/evaluate_model.py --model $m --metric perplexity --png --json --batch_size 16
-    python ${SCRIPT_PATH}/evaluate_model.py --model $m --metric latency --png --json --batch_size 16
+    python ${SCRIPT_PATH}/evaluate_configurations.py --model $m --metric prediction --png --json --batch_size 16
+    python ${SCRIPT_PATH}/evaluate_configurations.py --model $m --metric perplexity --png --json --batch_size 16
+    python ${SCRIPT_PATH}/evaluate_configurations.py --model $m --metric latency --png --json --batch_size 16
 done
