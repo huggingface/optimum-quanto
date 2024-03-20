@@ -181,7 +181,7 @@ def mm(op, input, other):
     n, m = input.shape
     p = other.shape[-1]
     if (
-        input.device.type == "cuda"
+        (input.device.type == "cuda" or input.device.type == "cpu")
         and input.qtype == qint8
         and other.qtype == qint8
         and n > 16
