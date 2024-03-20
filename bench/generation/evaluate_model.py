@@ -7,6 +7,7 @@ from metrics.perplexity import perplexity
 from metrics.prediction import prediction_accuracy
 
 from setup.bnb import setup as bnb_setup
+from setup.hqq import setup as hqq_setup
 from setup.quanto import setup as quanto_setup
 
 
@@ -33,6 +34,8 @@ def evaluate(
         model, tokenizer = quanto_setup(model_id, weights, activations, batch_size, device)
     elif quantizer == "bnb":
         model, tokenizer = bnb_setup(model_id, weights, activations, device)
+    elif quantizer == "hqq":
+        model, tokenizer = hqq_setup(model_id, weights, activations, device)
     else:
         raise ValueError(f"Unsupported quantizer {quantizer}")
     if metric == "latency":
@@ -54,7 +57,7 @@ def main():
     )
     parser.add_argument("--device", type=str, default=None, help="The device to use for generation.")
     parser.add_argument("--metric", type=str, default="prediction", choices=["latency", "prediction", "perplexity"])
-    parser.add_argument("--quantizer", type=str, default="quanto", choices=["quanto", "bnb"])
+    parser.add_argument("--quantizer", type=str, default="quanto", choices=["quanto", "bnb", "hqq"])
     parser.add_argument(
         "--weights",
         type=str,
