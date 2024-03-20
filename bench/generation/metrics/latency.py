@@ -45,7 +45,8 @@ def latency(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens
         do_sample=False,
         eos_token_id=None,  # This is required for min_new_tokens to actually have an effect.
     )
-    model.generation_config.eos_token_id = None  # greedy_search falls back on this eos_token_id that we need to set to None as well for min_new_tokens to have an effect.
+    if getattr(model, "generation_config", None) is not None:
+        model.generation_config.eos_token_id = None  # greedy_search falls back on this eos_token_id that we need to set to None as well for min_new_tokens to have an effect.
 
     synchronize(device)
     if device.type == "cuda":
