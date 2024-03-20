@@ -62,6 +62,13 @@ def main():
     parser.add_argument("--batch_size", type=int, default=32, help="The batch_size for evaluation (and calibration).")
     parser.add_argument("--validation_batch", type=int, default=4, help="The number of batch to use for calibration.")
     parser.add_argument(
+        "--load_dtype",
+        type=str,
+        default="float16",
+        choices=["float16", "float32", "bfloat16"],
+        help="Precision to load the initial model",
+    )
+    parser.add_argument(
         "--weights",
         type=str,
         default="int8",
@@ -96,7 +103,12 @@ def main():
     else:
         device = torch.device(args.device)
 
-    model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float16, low_cpu_mem_usage=True).to(
+    torch_dtype = (
+        torch.float16
+        if args.load_dtype == "float16"
+        else torch.bfloat16 if args.load_dtype == "bfloat16" else torch.float32
+    )
+    model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch_dtype, low_cpu_mem_usage=True).to(
         device
     )
     tokenizer = AutoTokenizer.from_pretrained(args.model)

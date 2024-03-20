@@ -24,7 +24,7 @@ def main():
         device = torch.device(args.device)
 
     def get_int_matmul(device):
-        if device.type == ("cuda"):
+        if device.type == ("cuda") or device.type == ("cpu"):
             return torch._int_mm
         return torch.matmul
 

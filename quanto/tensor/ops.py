@@ -3,6 +3,7 @@ from functools import partial
 from typing import Callable, List
 
 import torch
+from packaging import version
 
 from .core import dtype_info
 from .qtensor import QTensor, qfallback
@@ -181,7 +182,13 @@ def mm(op, input, other):
     n, m = input.shape
     p = other.shape[-1]
     if (
-        input.device.type == "cuda"
+        (
+            input.device.type == "cuda"
+            or (
+                input.device.type == "cpu"
+                and version.parse(torch.__version__).release >= version.parse("2.4.0").release
+            )
+        )
         and input.qtype == qint8
         and other.qtype == qint8
         and n > 16
