@@ -181,8 +181,13 @@ def mm(op, input, other):
     n, m = input.shape
     p = other.shape[-1]
     if (
-        (input.device.type == "cuda" or 
-         (input.device.type == "cpu" and version.parse(torch.__version__).release >= version.parse('2.4.0').release))
+        (
+            input.device.type == "cuda"
+            or (
+                input.device.type == "cpu"
+                and version.parse(torch.__version__).release >= version.parse("2.4.0").release
+            )
+        )
         and input.qtype == qint8
         and other.qtype == qint8
         and n > 16

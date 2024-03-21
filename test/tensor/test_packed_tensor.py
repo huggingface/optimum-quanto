@@ -11,7 +11,7 @@ from quanto import PackedTensor
 @pytest.mark.parametrize("bits", [2, 4], ids=["int2", "int4"])
 def test_pack_tensor(shape, bits, device):
     """This test verifies that an integer tensor in the correct range is preserved."""
-    qmax = 2**bits
+    qmax = 2 ** bits
     t = torch.randint(0, qmax, shape, dtype=torch.uint8).to(device)
     packed = PackedTensor.pack(t, bits=bits)
 
@@ -23,7 +23,7 @@ def test_pack_tensor(shape, bits, device):
 
 @pytest.mark.parametrize("bits", [2, 4], ids=["int2", "int4"])
 def test_packed_tensor_serialization(bits, device):
-    qmax = 2**bits
+    qmax = 2 ** bits
     shape = (10, 32)
     t = torch.randint(0, qmax, shape, dtype=torch.uint8).to(device)
     packed = PackedTensor.pack(t, bits=bits)

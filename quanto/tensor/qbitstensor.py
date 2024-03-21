@@ -35,7 +35,7 @@ class AffineQuantizer(Function):
         qmax = 2 ** (bits - 1) - 1
         scale = (rmax - rmin) / (qmax - qmin)
         zeropoint = torch.round(-rmin / scale).to(torch.int8)
-        data = torch.clamp(torch.round((base - rmin) / scale), min=0, max=2**bits - 1).to(torch.uint8)
+        data = torch.clamp(torch.round((base - rmin) / scale), min=0, max=2 ** bits - 1).to(torch.uint8)
         packed = PackedTensor.pack(data, bits)
 
         return QBitsTensor(qtype, axis, size, stride, packed, scale, zeropoint)

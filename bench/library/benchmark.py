@@ -21,7 +21,7 @@ def get_dqmm_bench(input_dtype, device):
 
 
 def get_unpack_bench(bits, device):
-    qmax = 2**bits
+    qmax = 2 ** bits
     a = torch.randint(0, qmax, [10240, 10240], dtype=torch.uint8).to(device)
 
     def bench_fn():

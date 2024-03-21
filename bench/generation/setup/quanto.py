@@ -24,11 +24,7 @@ def calibrate(model, tokenizer, batch_size, batches):
 
 
 def setup(
-    model_id: str,
-    weights: str,
-    activations: str,
-    batch_size: int,
-    device: torch.device,
+    model_id: str, weights: str, activations: str, batch_size: int, device: torch.device,
 ):
     weights = keyword_to_qtype(weights)
     activations = keyword_to_qtype(activations)
@@ -52,9 +48,4 @@ def setup(
 
 
 def keyword_to_qtype(k):
-    return {
-        "none": None,
-        "int4": qint4,
-        "int8": qint8,
-        "float8": qfloat8,
-    }[k]
+    return {"none": None, "int4": qint4, "int8": qint8, "float8": qfloat8,}[k]

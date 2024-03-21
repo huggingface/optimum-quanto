@@ -43,7 +43,7 @@ def pack_weights(intweights: torch.Tensor, bits: int) -> torch.Tensor:
     def lshift(t: torch.Tensor, bits: int):
         if t.device.type == "mps":
             # lshift is not supported on MPS device
-            return t * (2**bits)
+            return t * (2 ** bits)
         return t << bits
 
     it = min(values_per_item, (original_shape[0] // row_dim) + 1)

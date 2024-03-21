@@ -3,10 +3,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 
 def setup(
-    model_id: str,
-    weights: str,
-    activations: str,
-    device: torch.device,
+    model_id: str, weights: str, activations: str, device: torch.device,
 ):
     if activations != "none":
         raise ValueError("Activation quantization is not supported by BitsAndBytes")

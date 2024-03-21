@@ -205,9 +205,7 @@ class Perplexity:
 
 
 def perplexity(
-    model,
-    tokenizer,
-    stride: int = 512,
+    model, tokenizer, stride: int = 512,
 ):
     print("Evaluating perplexity")
     ppl = Perplexity(model, tokenizer)

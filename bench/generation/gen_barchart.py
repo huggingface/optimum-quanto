@@ -37,9 +37,7 @@ def gen_barchart(model_id, title, label, results):
     weights = ("i4", "i8", "f8")
     series = {}
     reference = round(results["Wf16Af16"], 2)
-    series["Weights f16"] = [
-        reference,
-    ] * len(activations)
+    series["Weights f16"] = [reference,] * len(activations)
     for w in weights:
         name = f"Weights {w}"
         series[name] = []

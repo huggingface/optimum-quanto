@@ -83,10 +83,7 @@ class Calibration(TorchFunctionMode):
             return input
 
     def calibrate_output(
-        self,
-        module: torch.nn.Module,
-        input,
-        output,
+        self, module: torch.nn.Module, input, output,
     ):
         if isinstance(module, (QModuleMixin)) and module.activation_qtype is not None:
             # Re-evaluate raw module output

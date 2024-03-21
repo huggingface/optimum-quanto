@@ -22,12 +22,7 @@ def evaluate_model_configurations(model_id: str, metric: str, device: torch.devi
     ]
 
     def short_name(qtype: qtype):
-        return {
-            "none": "f16",
-            "int4": "i4",
-            "int8": "i8",
-            "float8": "f8",
-        }[qtype]
+        return {"none": "f16", "int4": "i4", "int8": "i8", "float8": "f8",}[qtype]
 
     results = {}
 
@@ -48,10 +43,7 @@ def main():
     parser = argparse.ArgumentParser(description="Evaluate quantized model predictions on Lambada Dataset")
     parser.add_argument("--seed", type=int, default=1, metavar="S", help="random seed (default: 1)")
     parser.add_argument(
-        "--model",
-        type=str,
-        default="facebook/opt-350m",
-        help="The name of the trained Model.",
+        "--model", type=str, default="facebook/opt-350m", help="The name of the trained Model.",
     )
     parser.add_argument("--device", type=str, default=None, help="The device to use for generation.")
     parser.add_argument("--metric", type=str, default="prediction", choices=["latency", "prediction", "perplexity"])

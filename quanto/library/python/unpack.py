@@ -26,7 +26,7 @@ def unpack(packed: torch.Tensor, bits: int) -> torch.Tensor:
     def rshift(t: torch.Tensor, bits: int):
         if t.device.type == "mps":
             # rshift is not supported on MPS device
-            return t // (2**bits)
+            return t // (2 ** bits)
         return t >> bits
 
     # Unpack each set of values independently

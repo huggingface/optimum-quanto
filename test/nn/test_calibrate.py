@@ -34,9 +34,7 @@ def test_calibrate_qlinear_activations_int8(batch_size, tokens, embeddings, use_
 @pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize(
-    "activations",
-    [qfloat8_e5m2, qfloat8_e4m3fn],
-    ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3"],
+    "activations", [qfloat8_e5m2, qfloat8_e4m3fn], ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3"],
 )
 @pytest.mark.skip_device("mps")
 def test_calibrate_qlinear_activations_float8(batch_size, tokens, embeddings, use_bias, activations, device):
@@ -74,9 +72,7 @@ def test_calibrate_custom_module_activations_int8(device):
 
 
 @pytest.mark.parametrize(
-    "activations",
-    [qfloat8_e5m2, qfloat8_e4m3fn],
-    ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3"],
+    "activations", [qfloat8_e5m2, qfloat8_e4m3fn], ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3"],
 )
 @pytest.mark.skip_device("mps")
 def test_calibrate_custom_module_activations_float8(activations, device):

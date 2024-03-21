@@ -108,9 +108,7 @@ class Attention(nn.Module):
         self.v_proj = nn.Linear(self.hidden_size, self.num_heads * self.head_dim, bias=bias)
         self.o_proj = nn.Linear(self.num_heads * self.head_dim, self.hidden_size, bias=bias)
         self.rotary_emb = RotaryEmbedding(
-            self.head_dim,
-            max_position_embeddings=self.max_position_embeddings,
-            base=self.rope_theta,
+            self.head_dim, max_position_embeddings=self.max_position_embeddings, base=self.rope_theta,
         )
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
@@ -188,9 +186,7 @@ def test_quantize_attention_activations_int8(weights, device):
 
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize(
-    "activations",
-    [qfloat8_e5m2, qfloat8_e4m3fn],
-    ids=["a-float8-e5m2", "a-float8-e4m3"],
+    "activations", [qfloat8_e5m2, qfloat8_e4m3fn], ids=["a-float8-e5m2", "a-float8-e4m3"],
 )
 @pytest.mark.skip_device("mps")
 def test_quantize_attention_activations_float8(weights, activations, device):

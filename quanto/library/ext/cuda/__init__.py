@@ -15,13 +15,7 @@ def ext():
     global _ext
     if _ext is None:
         module_path = os.path.dirname(__file__)
-        _ext = load(
-            name="quanto_cuda",
-            sources=[
-                f"{module_path}/unpack.cu",
-                f"{module_path}/pybind_module.cpp",
-            ],
-        )
+        _ext = load(name="quanto_cuda", sources=[f"{module_path}/unpack.cu", f"{module_path}/pybind_module.cpp",],)
     return _ext
 
 

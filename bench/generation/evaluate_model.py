@@ -53,25 +53,16 @@ def main():
     parser = argparse.ArgumentParser(description="Evaluate quantized model metrics")
     parser.add_argument("--seed", type=int, default=1, metavar="S", help="random seed (default: 1)")
     parser.add_argument(
-        "--model",
-        type=str,
-        default="facebook/opt-350m",
-        help="The name of the trained Model.",
+        "--model", type=str, default="facebook/opt-350m", help="The name of the trained Model.",
     )
     parser.add_argument("--device", type=str, default=None, help="The device to use for generation.")
     parser.add_argument("--metric", type=str, default="prediction", choices=["latency", "prediction", "perplexity"])
     parser.add_argument("--quantizer", type=str, default="quanto", choices=["quanto", "awq", "bnb", "hqq"])
     parser.add_argument(
-        "--weights",
-        type=str,
-        default="none",
-        choices=["none", "int4", "int8", "float8"],
+        "--weights", type=str, default="none", choices=["none", "int4", "int8", "float8"],
     )
     parser.add_argument(
-        "--activations",
-        type=str,
-        default="none",
-        choices=["none", "int8", "float8"],
+        "--activations", type=str, default="none", choices=["none", "int8", "float8"],
     )
     parser.add_argument("--batch_size", type=int, default=32, help="The batch size during evaluation.")
     args = parser.parse_args()
