@@ -7,7 +7,7 @@ import torch
 from .core import dtype_info
 from .qtensor import QTensor, qfallback
 from .qtype import qint8
-
+from packaging import version
 
 __all__ = ["get_qtensor_op_dispatch", "register_qtensor_op"]
 
@@ -181,7 +181,8 @@ def mm(op, input, other):
     n, m = input.shape
     p = other.shape[-1]
     if (
-        (input.device.type == "cuda" or input.device.type == "cpu")
+        (input.device.type == "cuda" or 
+         (input.device.type == "cpu" and version.parse(torch.__version__).release >= version.parse('2.4.0').release))
         and input.qtype == qint8
         and other.qtype == qint8
         and n > 16
