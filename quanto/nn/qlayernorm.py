@@ -2,7 +2,7 @@ from typing import Optional
 
 import torch
 
-from ..tensor import qtype
+from ..tensor import Optimizer, qtype
 from .qmodule import QModuleMixin, register_qmodule
 
 
@@ -12,7 +12,13 @@ __all__ = ["QLayerNorm"]
 @register_qmodule(torch.nn.LayerNorm)
 class QLayerNorm(QModuleMixin, torch.nn.LayerNorm):
     @classmethod
-    def qcreate(cls, module, weights: Optional[qtype] = None, activations: Optional[qtype] = None):
+    def qcreate(
+        cls,
+        module,
+        weights: Optional[qtype] = None,
+        activations: Optional[qtype] = None,
+        optimizer: Optional[Optimizer] = None,
+    ):
         if activations is None:
             return None
         return cls(
@@ -24,6 +30,7 @@ class QLayerNorm(QModuleMixin, torch.nn.LayerNorm):
             device=module.weight.device,
             weights=None,  # We never quantize QLayerNorm weights
             activations=activations,
+            optimizer=None,  # We never quantize QLayerNorm weights
         )
 
     def qforward(self, input: torch.Tensor) -> torch.Tensor:

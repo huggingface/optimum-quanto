@@ -4,7 +4,7 @@ from typing import Optional, Union
 
 import torch
 
-from ..tensor import QBitsTensor, QTensor, absmax_scale, qint2, qint4, qtype, qtypes
+from ..tensor import Optimizer, QBitsTensor, QTensor, qint2, qint4, qtype, qtypes
 
 
 __all__ = ["QModuleMixin", "register_qmodule", "quantize_module"]
@@ -77,6 +77,7 @@ class QModuleMixin(ABC):
         *args,
         weights: Optional[Union[qtype, str]] = None,
         activations: Optional[Union[qtype, str]] = None,
+        optimizer: Optional[Optimizer] = None,
         **kwargs,
     ):
         # The tests below are meant to help people writing their own quantized Module class
@@ -103,6 +104,7 @@ class QModuleMixin(ABC):
                     group_size = group_size // 2
                 self.weight_group_size = group_size
         self.activation_qtype = activations
+        self.optimizer = optimizer
         self.register_buffer("input_scale", torch.ones(()))
         self.register_buffer("output_scale", torch.ones(()))
 
@@ -183,9 +185,13 @@ class QModuleMixin(ABC):
 
     @classmethod
     def from_module(
-        cls, module: torch.nn.Module, weights: Optional[qtype] = None, activations: Optional[qtype] = None
+        cls,
+        module: torch.nn.Module,
+        weights: Optional[qtype] = None,
+        activations: Optional[qtype] = None,
+        optimizer: Optional[Optimizer] = None,
     ):
-        qmodule = cls.qcreate(module, weights, activations)
+        qmodule = cls.qcreate(module, weights, activations, optimizer)
         if qmodule is None:
             return None
         with torch.no_grad():
@@ -217,11 +223,16 @@ class QModuleMixin(ABC):
         # Quantize dynamically the weights per-axis
         if self.weight_qtype in (qint2, qint4):
             return QBitsTensor.quantize(
-                self.weight, qtype=self.weight_qtype, axis=0, group_size=self.weight_group_size
+                self.weight,
+                qtype=self.weight_qtype,
+                axis=0,
+                group_size=self.weight_group_size,
+                optimizer=self.optimizer,
             )
         elif isinstance(self.weight_qtype, qtype):
-            wscale = absmax_scale(self.weight, axis=0)
-            return QTensor.quantize(self.weight, qtype=self.weight_qtype, axis=0, group_size=None, scale=wscale)
+            return QTensor.quantize(
+                self.weight, qtype=self.weight_qtype, axis=0, group_size=None, optimizer=self.optimizer
+            )
         raise ValueError(f"Invalid quantized weights type {self.weight_qtype}")
 
     def qforward(self, input: torch.Tensor) -> torch.Tensor:
