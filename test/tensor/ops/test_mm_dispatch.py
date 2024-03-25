@@ -23,7 +23,7 @@ def test_matmul(dtype, in_features, hidden, out_features, device):
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16], ids=["fp32", "fp16"])
 @pytest.mark.parametrize("batch_size", [1, 10])
 @pytest.mark.parametrize("a_shape, b_shape", [[(16, 32), (32, 24)], [(5, 10), (10, 6)]])
-@pytest.mark.parametrize("b_axis", [None, 2], ids=["b_per_tensor", "b_per_axis"])
+@pytest.mark.parametrize("b_axis", [None, -1], ids=["b_per_tensor", "b_per_axis"])
 def test_bmm(dtype, batch_size, a_shape, b_shape, b_axis, device):
     if dtype == torch.float16 and device.type == "cpu":
         pytest.skip("Matrix multiplication is not supported for float16 on CPU.")
@@ -40,7 +40,7 @@ def test_bmm(dtype, batch_size, a_shape, b_shape, b_axis, device):
     [
         [random_tensor((10, 32, 48)), random_qtensor((10, 48, 32))],
         [random_qtensor((10, 32, 48)), random_tensor((10, 48, 32))],
-        [random_qtensor((10, 32, 48), axis=2), random_qtensor((10, 48, 32))],
+        [random_qtensor((10, 32, 48), axis=-1), random_qtensor((10, 48, 32))],
     ],
     ids=["input_float", "other_float", "input_per_axis"],
 )
