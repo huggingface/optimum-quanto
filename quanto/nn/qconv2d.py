@@ -2,7 +2,7 @@ from typing import Optional
 
 import torch
 
-from ..tensor import QTensor, qtype
+from ..tensor import Optimizer, QTensor, qtype
 from .qmodule import QModuleMixin, register_qmodule
 
 
@@ -12,7 +12,9 @@ __all__ = ["QConv2d"]
 @register_qmodule(torch.nn.Conv2d)
 class QConv2d(QModuleMixin, torch.nn.Conv2d):
     @classmethod
-    def qcreate(cls, module, weights: qtype, activations: Optional[qtype] = None):
+    def qcreate(
+        cls, module, weights: qtype, activations: Optional[qtype] = None, optimizer: Optional[Optimizer] = None
+    ):
         return cls(
             in_channels=module.in_channels,
             out_channels=module.out_channels,
@@ -27,6 +29,7 @@ class QConv2d(QModuleMixin, torch.nn.Conv2d):
             device=module.weight.device,
             weights=weights,
             activations=activations,
+            optimizer=optimizer,
         )
 
     def qforward(self, input: torch.Tensor) -> torch.Tensor:

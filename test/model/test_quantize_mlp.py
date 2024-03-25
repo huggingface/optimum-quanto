@@ -6,12 +6,15 @@ import torch
 from helpers import assert_similar, get_device_memory, random_qtensor, random_tensor
 
 from quanto import (
+    AbsmaxOptimizer,
     Calibration,
+    MaxOptimizer,
     QLinear,
     QTensor,
     freeze,
     qfloat8_e4m3fn,
     qfloat8_e5m2,
+    qint4,
     qint8,
     quantize,
     safe_load,
@@ -48,10 +51,10 @@ def get_outputs(model, batch_size, input_features, device):
     return model(qinputs)
 
 
-def _test_quantize_mlp(weights, activations, frozen, device):
+def _test_quantize_mlp(weights, activations, optimizer, frozen, device):
     model = MLP(32, 10, 128).to(device)
     output = get_outputs(model, 1, 32, device)
-    quantize(model, weights=weights, activations=activations)
+    quantize(model, weights=weights, activations=activations, optimizer=optimizer)
     if frozen:
         freeze(model)
     check_mlp(model, frozen)
@@ -66,14 +69,14 @@ def _test_quantize_mlp(weights, activations, frozen, device):
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
 def test_quantize_mlp_weights_only(weights, frozen, device):
-    _test_quantize_mlp(weights, None, frozen, device)
+    _test_quantize_mlp(weights, None, None, frozen, device)
 
 
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
 @pytest.mark.skip_device("mps")
 def test_quantize_mlp_int8_activations(weights, frozen, device):
-    _test_quantize_mlp(weights, qint8, frozen, device)
+    _test_quantize_mlp(weights, qint8, None, frozen, device)
 
 
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
@@ -85,7 +88,7 @@ def test_quantize_mlp_int8_activations(weights, frozen, device):
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
 @pytest.mark.skip_device("mps")
 def test_quantize_mlp_float8_activations(weights, activations, frozen, device):
-    _test_quantize_mlp(weights, activations, frozen, device)
+    _test_quantize_mlp(weights, activations, None, frozen, device)
 
 
 def save_and_reload_state_dict(state_dict, serialization):
@@ -171,3 +174,19 @@ def test_quantized_mlp_device_memory(weights, dtype, weights_only, device):
     reloaded_memory = get_device_memory(device)
     # Device memory can be lower when reloading (less fragmentation ?)
     assert reloaded_memory <= quantized_memory
+
+
+@pytest.mark.parametrize(
+    "weights, optimizer", [[qint8, AbsmaxOptimizer()], [qint4, MaxOptimizer()]], ids=["w-qint8", "w-qint4"]
+)
+@pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
+def test_quantize_mlp_weights_only_optimizers(weights, optimizer, frozen, device):
+    _test_quantize_mlp(weights, None, optimizer, frozen, device)
+
+
+@pytest.mark.parametrize(
+    "weights, optimizer", [[qint8, MaxOptimizer()], [qint4, AbsmaxOptimizer()]], ids=["w-qint8", "w-qint4"]
+)
+def test_quantize_mlp_wrong_optimizer(weights, optimizer, device):
+    with pytest.raises(ValueError):
+        _test_quantize_mlp(weights, None, optimizer, False, device)

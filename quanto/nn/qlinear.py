@@ -2,7 +2,7 @@ from typing import Optional
 
 import torch
 
-from ..tensor import QTensor, qtype
+from ..tensor import Optimizer, QTensor, qtype
 from .qmodule import QModuleMixin, register_qmodule
 
 
@@ -12,7 +12,9 @@ __all__ = ["QLinear"]
 @register_qmodule(torch.nn.Linear)
 class QLinear(QModuleMixin, torch.nn.Linear):
     @classmethod
-    def qcreate(cls, module, weights: qtype, activations: Optional[qtype] = None):
+    def qcreate(
+        cls, module, weights: qtype, activations: Optional[qtype] = None, optimizer: Optional[Optimizer] = None
+    ):
         return cls(
             module.in_features,
             module.out_features,
@@ -21,6 +23,7 @@ class QLinear(QModuleMixin, torch.nn.Linear):
             device=module.weight.device,
             weights=weights,
             activations=activations,
+            optimizer=optimizer,
         )
 
     def qforward(self, input: torch.Tensor) -> torch.Tensor:
