@@ -81,11 +81,14 @@ def test_qbitstensor_requires_grad(device):
     assert qweight.requires_grad is True
 
 
-def test_qbitstensor_backward(device):
-    weight = random_tensor((10,), dtype=torch.float32).to(device)
+@pytest.mark.parametrize("qtype", [qint2, qint4], ids=["int2", "int4"])
+@pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
+@pytest.mark.parametrize("group_size", [None, 16], ids=["channel-wise", "group-wise"])
+def test_qbitstensor_backward(qtype, axis, group_size, device):
+    weight = random_tensor((32, 32), dtype=torch.float32).to(device)
     weight.requires_grad = True
-    qweight = QBitsTensor.quantize(weight)
-    gradient = torch.randn((10,)).to(device)
+    qweight = QBitsTensor.quantize(weight, qtype=qtype, axis=axis, group_size=group_size)
+    gradient = torch.randn((32, 32)).to(device)
     # Backpropagate gradient to the inner float weights
     qweight.dequantize().backward(gradient)
     assert torch.equal(weight.grad, gradient)
