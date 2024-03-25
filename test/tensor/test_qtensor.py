@@ -202,7 +202,7 @@ def test_qtensor_contiguous(device):
 
 @pytest.mark.parametrize("input_shape, group_size", [[(4, 6), 2], [(32, 64), 4]], ids=["small", "bigger"])
 def test_qtensor_quantize_transposed_groupwise(input_shape, group_size, device):
-    x = torch.tensor(range(prod(input_shape))).reshape(input_shape).to(device)
+    x = torch.tensor(range(prod(input_shape)), dtype=torch.float32).reshape(input_shape).to(device)
     xt = x.t()
     qx = QTensor.quantize(x, axis=0, group_size=group_size)
     qxt = QTensor.quantize(xt, axis=-1, group_size=group_size)
