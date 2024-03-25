@@ -4,7 +4,8 @@ import torch
 from torch.autograd import Function
 from torch.utils import _pytree as pytree
 
-from .core import absmax_scale, dtype_info, group, ungroup
+from .core import dtype_info, group, ungroup
+from .optimizers import AbsmaxOptimizer, SymmetricOptimizer
 from .qtype import qint8, qtype, qtypes
 
 
@@ -88,6 +89,9 @@ class Dequantizer(Function):
         return gO
 
 
+default_optimizer = AbsmaxOptimizer()
+
+
 class QTensor(torch.Tensor):
     @staticmethod
     def __new__(cls, qtype, axis, size, stride, data, scale, requires_grad=False):
@@ -111,13 +115,28 @@ class QTensor(torch.Tensor):
         return f"QTensor({self._data}, scale={self._scale}, public_dtype={self.dtype}{autograd_info})"
 
     @classmethod
-    def quantize(cls, base, qtype=qint8, axis=None, group_size=None, scale=None):
+    def quantize(cls, base, qtype=qint8, axis=None, group_size=None, scale=None, optimizer=None):
         """Differentiable quantization function
 
-        If the quantization scale is not specified, it uses the absmax scale for the base tensor.
+        Args:
+            base (`torch.Tensor`): the Tensor to quantize
+            qtype (`quanto.qtype`): The target quantization type
+            axis ('Optional[int]`): The quantization axis (None, 0 or -1)
+            group_size (`Optional[int]`): The quantization group size
+            scale (`Optional[torch.Tensor]`): The quantization scale (defaults to None)
+            optimizer (`Optional[quanto.SymmetricOptimizer]`): An optimizer to evaluate the scale if not provided.
+                Defaults to the AbsmaxOptimizer.
+
+        Returns:
+            A quantized Tensor.
         """
         if scale is None:
-            scale = absmax_scale(base, qtype, axis, group_size)
+            if optimizer is None:
+                optimizer = default_optimizer
+            else:
+                if not isinstance(optimizer, SymmetricOptimizer):
+                    raise ValueError("A SymmetricOptimizer is expected")
+            scale = optimizer(base, qtype.bits, axis, group_size)
         return Quantizer.apply(base, qtype, axis, group_size, scale)
 
     def dequantize(self):
