@@ -19,7 +19,6 @@ def ext():
             name="quanto_cpp",
             sources=[
                 f"{module_path}/mm.cpp",
-                f"{module_path}/quantize.cpp",
                 f"{module_path}/unpack.cpp",
                 f"{module_path}/pybind_module.cpp",
             ],
