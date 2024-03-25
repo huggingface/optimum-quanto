@@ -169,6 +169,17 @@ def test_qtensor_chained_backward(device):
     assert torch.allclose(b.grad, qa.dequantize() * gradient)
 
 
+@pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
+def test_qtensor_groupwise_backward(axis, device):
+    weight = random_tensor((32, 32), dtype=torch.float32).to(device)
+    weight.requires_grad = True
+    qweight = QTensor.quantize(weight, qtype=qint8, axis=axis, group_size=16)
+    gradient = torch.randn((32, 32)).to(device)
+    # Backpropagate gradient to the inner float weights
+    qweight.dequantize().backward(gradient)
+    assert torch.equal(weight.grad, gradient)
+
+
 def test_qtensor_stride(device):
     input_shape = (2, 4, 8)
     a = random_tensor(input_shape, dtype=torch.float32).to(device)
