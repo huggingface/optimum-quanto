@@ -6,6 +6,7 @@ from torch.autograd import Function
 from torch.utils import _pytree as pytree
 
 from .core import group
+from .optimizers import AffineOptimizer, MaxOptimizer
 from .packed import PackedTensor
 from .qtensor import QTensor
 from .qtype import qint2, qint4, qint8, qtype, qtypes
@@ -18,7 +19,9 @@ class AffineQuantizer(Function):
     """A standard affine quantizer."""
 
     @staticmethod
-    def forward(ctx, base: torch.Tensor, qtype: qtype, axis: int, group_size: int):
+    def forward(
+        ctx, base: torch.Tensor, qtype: qtype, axis: int, group_size: int, scale: torch.Tensor, zeropoint: torch.Tensor
+    ):
         if qtype not in (qint2, qint4):
             raise ValueError("QBitsTensor can only be of qint2 or qint4 qtype")
         if axis not in (0, -1):
@@ -28,13 +31,6 @@ class AffineQuantizer(Function):
         if group_size is not None:
             base = group(base, axis=axis, group_size=group_size)
         bits = qtype.bits
-        dim = list(range(1, base.ndim)) if (axis == 0) else list(range(0, base.ndim - 1))
-        rmin = torch.amin(base, dim=dim, keepdim=True)
-        rmax = torch.amax(base, dim=dim, keepdim=True)
-        qmin = -(2 ** (bits - 1))
-        qmax = 2 ** (bits - 1) - 1
-        scale = (rmax - rmin) / (qmax - qmin)
-        zeropoint = torch.round(-rmin / scale).to(torch.int8)
         data = torch.clamp(torch.round(base / scale) + zeropoint, min=0, max=2**bits - 1).to(torch.uint8)
         packed = PackedTensor.pack(data, bits)
 
@@ -43,7 +39,7 @@ class AffineQuantizer(Function):
     @staticmethod
     def backward(ctx, gO):
         # For autograd, quantization is a no-op
-        return gO, None, None, None
+        return gO, None, None, None, None, None
 
 
 class QBitsToQTensor(Function):
@@ -56,6 +52,9 @@ class QBitsToQTensor(Function):
     @staticmethod
     def backward(ctx, gO):
         return gO
+
+
+default_optimizer = MaxOptimizer()
 
 
 class QBitsTensor(QTensor):
@@ -79,11 +78,17 @@ class QBitsTensor(QTensor):
         return f"QBitsTensor({self._data}, scale={self._scale}, zeropoint={self._zeropoint}, dtype={self.dtype}{autograd_info})"
 
     @classmethod
-    def quantize(cls, base, qtype=qint4, axis=0, group_size=None):
+    def quantize(cls, base, qtype=qint4, axis=0, group_size=None, optimizer=None):
         """Differentiable quantization function"""
         if axis not in (0, -1):
             raise ValueError("QBitsTensor axis parameter must be 0 (first axis) or -1 (last axis)")
-        return AffineQuantizer.apply(base, qtype, axis, group_size)
+        if optimizer is None:
+            optimizer = default_optimizer
+        else:
+            if not isinstance(optimizer, AffineOptimizer):
+                raise ValueError("An AffineOptimizer is expected")
+        scale, zeropoint = optimizer(base, qtype.bits, axis, group_size)
+        return AffineQuantizer.apply(base, qtype, axis, group_size, scale, zeropoint)
 
     def qtensor(self):
         return QBitsToQTensor.apply(self)
