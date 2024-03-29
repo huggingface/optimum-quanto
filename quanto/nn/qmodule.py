@@ -4,7 +4,7 @@ from typing import Optional, Union
 
 import torch
 
-from ..tensor import Optimizer, QBitsTensor, QTensor, qint2, qint4, qtype, qtypes
+from ..tensor import Optimizer, QTensor, qint2, qint4, qtype, qtypes, quantize_activation, quantize_weight
 
 
 __all__ = ["QModuleMixin", "register_qmodule", "quantize_module"]
@@ -221,19 +221,13 @@ class QModuleMixin(ABC):
             # Frozen QModule
             return self.weight
         # Quantize dynamically the weights per-axis
-        if self.weight_qtype in (qint2, qint4):
-            return QBitsTensor.quantize(
-                self.weight,
-                qtype=self.weight_qtype,
-                axis=0,
-                group_size=self.weight_group_size,
-                optimizer=self.optimizer,
-            )
-        elif isinstance(self.weight_qtype, qtype):
-            return QTensor.quantize(
-                self.weight, qtype=self.weight_qtype, axis=0, group_size=None, optimizer=self.optimizer
-            )
-        raise ValueError(f"Invalid quantized weights type {self.weight_qtype}")
+        return quantize_weight(
+            self.weight,
+            qtype=self.weight_qtype,
+            axis=0,
+            group_size=self.weight_group_size,
+            optimizer=self.optimizer,
+        )
 
     def qforward(self, input: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
@@ -242,9 +236,7 @@ class QModuleMixin(ABC):
         def maybe_requantize(t, scale):
             if t.qtype == self.activation_qtype and t.axis is None:
                 return t
-            return QTensor.quantize(
-                t.dequantize(), qtype=self.activation_qtype, axis=None, group_size=None, scale=scale
-            )
+            return quantize_activation(t.dequantize(), qtype=self.activation_qtype, scale=scale)
 
         if self.activation_qtype is not None and isinstance(input, QTensor):
             input = maybe_requantize(input, self.input_scale)
@@ -253,9 +245,7 @@ class QModuleMixin(ABC):
             if isinstance(output, QTensor):
                 output = maybe_requantize(output, self.output_scale)
             else:
-                output = QTensor.quantize(
-                    output, qtype=self.activation_qtype, axis=None, group_size=None, scale=self.output_scale
-                )
+                output = quantize_activation(output, qtype=self.activation_qtype, scale=self.output_scale)
         return output
 
     def freeze(self):

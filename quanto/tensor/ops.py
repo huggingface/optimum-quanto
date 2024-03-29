@@ -6,6 +6,7 @@ import torch
 from packaging import version
 
 from .core import dtype_info
+from .qactivation import quantize_activation
 from .qtensor import QTensor, qfallback
 from .qtype import qint8
 
@@ -231,7 +232,7 @@ def _softmax(op, input, dim, half_to_float):
     # Since softmax is normalized, we know the optimal scale
 
     out_scale = torch.tensor(1 / dtype_info(input.qtype.dtype).max, dtype=input._scale.dtype).to(input.device)
-    return QTensor.quantize(float_data, qtype=input.qtype, axis=None, group_size=None, scale=out_scale)
+    return quantize_activation(float_data, qtype=input.qtype, scale=out_scale)
 
 
 @register_qtensor_op([torch.ops.aten.stack])
@@ -306,5 +307,5 @@ def where(op, condition, input, other):
     float_data = op(condition, input.dequantize(), other)
     if input.axis is None:
         # We requantize with the input scale
-        return QTensor.quantize(float_data, qtype=input.qtype, axis=None, group_size=None, scale=input._scale)
+        return quantize_activation(float_data, qtype=input.qtype, scale=input._scale)
     return float_data

@@ -3,7 +3,7 @@ from contextlib import nullcontext
 
 import pytest
 import torch
-from helpers import assert_similar, random_qtensor
+from helpers import assert_similar, random_qactivation
 
 from quanto import Calibration, QBitsTensor, QTensor, qfloat8, qfloat8_e4m3fn, qfloat8_e5m2, qint4, qint8
 from quanto.nn import QLinear
@@ -13,7 +13,7 @@ def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, act
     linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(dtype).to(device)
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
     assert qlinear.qweight.qtype == weights
-    qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=dtype).to(device)
+    qinputs = random_qactivation((batch_size,) + (tokens, embeddings), dtype=dtype).to(device)
     inputs = qinputs.dequantize()
     # Run an inference with Calibration to get the correct output dtype
     context = nullcontext if activations is None else Calibration
@@ -111,7 +111,7 @@ def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
     assert qlinear.weight.requires_grad is True
     assert qlinear.bias.requires_grad is True
     # Run an inference with identical inputs
-    qinputs = random_qtensor((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
+    qinputs = random_qactivation((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
     qout = qlinear(qinputs)
     out = linear(qinputs.dequantize())
     # Outputs are not identical because of the quantization
@@ -151,7 +151,7 @@ def test_qlinear_serialization(features, use_bias, activations, weights, dtype, 
     linear = torch.nn.Linear(features, features, bias=use_bias).to(dtype).to(device)
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
     if activations is not None:
-        qinputs = random_qtensor((10, 10, features), dtype=dtype).to(device)
+        qinputs = random_qactivation((10, 10, features), dtype=dtype).to(device)
         with Calibration():
             qlinear(qinputs)
     qlinear.freeze()

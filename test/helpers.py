@@ -5,7 +5,7 @@ import pytest
 import torch
 from packaging import version
 
-from quanto import QBitsTensor, QTensor, qint4, qint8
+from quanto import absmax_scale, qint8, quantize_activation, quantize_weight
 
 
 def torch_min_version(v):
@@ -34,14 +34,15 @@ def random_tensor(shape, dtype=torch.float32):
     return torch.rand(shape, dtype=dtype) * 2 - 1
 
 
-def random_qtensor(shape, qtype=qint8, dtype=torch.float32, axis=None, group_size=None):
+def random_qactivation(shape, qtype=qint8, dtype=torch.float32):
     t = random_tensor(shape, dtype)
-    return QTensor.quantize(t, qtype=qtype, axis=axis, group_size=group_size)
+    scale = absmax_scale(t, qtype=qtype)
+    return quantize_activation(t, qtype=qtype, scale=scale)
 
 
-def random_qbitstensor(shape, qtype=qint4, dtype=torch.float32, axis=0):
+def random_qweight(shape, qtype, dtype=torch.float32, axis=0, group_size=None):
     t = random_tensor(shape, dtype)
-    return QBitsTensor.quantize(t, qtype=qtype, axis=axis)
+    return quantize_weight(t, qtype=qtype, axis=axis, group_size=group_size)
 
 
 def assert_similar(a, b, atol=None, rtol=None):

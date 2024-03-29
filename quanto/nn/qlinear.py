@@ -2,7 +2,7 @@ from typing import Optional
 
 import torch
 
-from ..tensor import Optimizer, QTensor, qtype
+from ..tensor import Optimizer, QTensor, qtype, quantize_activation
 from .qmodule import QModuleMixin, register_qmodule
 
 
@@ -29,8 +29,6 @@ class QLinear(QModuleMixin, torch.nn.Linear):
     def qforward(self, input: torch.Tensor) -> torch.Tensor:
         if self.activation_qtype is not None and not isinstance(input, QTensor):
             # Quantize activations to be able to take advantage of accelerated matmul
-            input = QTensor.quantize(
-                input, qtype=self.activation_qtype, axis=None, group_size=None, scale=self.input_scale
-            )
+            input = quantize_activation(input, qtype=self.activation_qtype, scale=self.input_scale)
         # We always use quantized weights
         return torch.nn.functional.linear(input, self.qweight, bias=self.bias)
