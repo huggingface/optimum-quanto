@@ -3,7 +3,7 @@ from tempfile import NamedTemporaryFile
 
 import pytest
 import torch
-from helpers import assert_similar, get_device_memory, random_qtensor, random_tensor
+from helpers import assert_similar, get_device_memory, random_qactivation, random_tensor
 
 from quanto import (
     AbsmaxOptimizer,
@@ -47,7 +47,7 @@ def check_mlp(model, frozen):
 
 
 def get_outputs(model, batch_size, input_features, device):
-    qinputs = random_qtensor((batch_size, input_features), dtype=torch.float32).to(device)
+    qinputs = random_qactivation((batch_size, input_features), dtype=torch.float32).to(device)
     return model(qinputs)
 
 

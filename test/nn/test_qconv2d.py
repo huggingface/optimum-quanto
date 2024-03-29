@@ -1,6 +1,6 @@
 import pytest
 import torch
-from helpers import assert_similar, random_qtensor
+from helpers import assert_similar, random_qactivation
 
 from quanto import Calibration, QTensor, qfloat8_e4m3fn, qfloat8_e5m2, qint4, qint8
 from quanto.nn import QConv2d
@@ -10,7 +10,7 @@ def _test_quantize_conv2d(batch_size, img_shape, out_channels, use_bias, weights
     conv2d = torch.nn.Conv2d(img_shape[0], out_channels, kernel_size=3, bias=use_bias).to(dtype).to(device)
     qconv2d = QConv2d.from_module(conv2d, weights=weights, activations=activations)
     assert qconv2d.qweight.qtype == weights
-    qinputs = random_qtensor((batch_size,) + img_shape, dtype=dtype).to(device)
+    qinputs = random_qactivation((batch_size,) + img_shape, dtype=dtype).to(device)
     # Run an inference with Calibration to get the correct output dtype
     with torch.no_grad(), Calibration():
         qout = qconv2d(qinputs)
@@ -111,7 +111,7 @@ def test_qconv2d_gradient(img_shape, out_channels, activations, weights, device)
     assert qconv2d.weight.requires_grad is True
     assert qconv2d.bias.requires_grad is True
     # Run an inference with identical inputs
-    qinputs = random_qtensor((batch_size,) + img_shape, dtype=torch.float32).to(device)
+    qinputs = random_qactivation((batch_size,) + img_shape, dtype=torch.float32).to(device)
     qout = qconv2d(qinputs)
     out = conv2d(qinputs.dequantize())
     # Outputs are not identical because of the quantization

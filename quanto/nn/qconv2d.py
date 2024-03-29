@@ -2,7 +2,7 @@ from typing import Optional
 
 import torch
 
-from ..tensor import Optimizer, QTensor, qtype
+from ..tensor import Optimizer, QTensor, qtype, quantize_activation
 from .qmodule import QModuleMixin, register_qmodule
 
 
@@ -35,8 +35,6 @@ class QConv2d(QModuleMixin, torch.nn.Conv2d):
     def qforward(self, input: torch.Tensor) -> torch.Tensor:
         if self.activation_qtype is not None and not isinstance(input, QTensor):
             # Quantize tensor to be able to take advantage of accelerated conv2d
-            input = QTensor.quantize(
-                input, qtype=self.activation_qtype, axis=None, group_size=None, scale=self.input_scale
-            )
+            input = quantize_activation(input, qtype=self.activation_qtype, scale=self.input_scale)
         # We always use quantized weights
         return self._conv_forward(input, self.qweight, self.bias)
