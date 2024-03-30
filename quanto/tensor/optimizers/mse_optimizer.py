@@ -24,7 +24,6 @@ class MseSymmetricOptimizer(SymmetricOptimizer):
         assert p >= 1.0
         assert 0 < iters < 100
 
-    @torch.no_grad()
     def optimize(self, base: torch.Tensor, bits: int, axis: int):
         dim = None if axis is None else axis_to_dim(base, axis)
         rmax = torch.amax(torch.abs(base), dim=dim, keepdim=True)
