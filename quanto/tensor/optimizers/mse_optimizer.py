@@ -43,7 +43,8 @@ class MseSymmetricOptimizer(SymmetricOptimizer):
         return scale
 
 
-class MseAffineOptimizer(AffineOptimizer):
+# QModuleMixin didn't support optimizer for activation yet, we make this internal temporarily
+class _MseAffineOptimizer(AffineOptimizer):
     def __init__(self, p=2.0, iters=80) -> None:
         self.iters = iters
         self.p = p
