@@ -62,10 +62,7 @@ class _MseAffineOptimizer(AffineOptimizer):
             new_rmax = best_rmax * (1 - (i * 0.001))
             scale = (new_rmax - new_rmin) / (qmax - qmin)
             zeropoint = torch.round(-rmin / scale).to(torch.int8)
-            if axis is None:
-                fq_base = torch.fake_quantize_per_tensor_affine(base, scale.item(), zeropoint.item(), qmin, qmax)
-            else:
-                fq_base = torch.fake_quantize_per_channel_affine(base, scale, zeropoint, axis, qmin, qmax)
+            fq_base = _fake_quantize(base, scale, zeropoint, qmin, qmax)
             score = (fq_base - base).abs().pow(self.p).mean(dim) if axis else (fq_base - base).abs().pow(self.p).mean()
             if score.item() < best_score:
                 best_score = score.item()
