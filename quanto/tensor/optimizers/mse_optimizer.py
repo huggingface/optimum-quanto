@@ -7,9 +7,10 @@ from quanto.tensor.core import axis_to_dim
 
 from .affine_optimizer import AffineOptimizer
 from .symmetric_optimizer import SymmetricOptimizer
+from typing import Union, Optional
 
 
-def _fake_quantize(base, scale, zeropoint, qmin, qmax):
+def _fake_quantize(base: Tensor, scale: Tensor, zeropoint: Union[int, Tensor], qmin: int, qmax: int) -> Tensor:
     data = base / scale + zeropoint
     data = torch.round(data)
     data = torch.clamp(data, qmin, qmax)
@@ -18,13 +19,13 @@ def _fake_quantize(base, scale, zeropoint, qmin, qmax):
 
 
 class MseSymmetricOptimizer(SymmetricOptimizer):
-    def __init__(self, p=2.0, iters=80) -> None:
+    def __init__(self, p: float = 2.0, iters: int = 80) -> None:
         self.iters = iters
         self.p = p
         assert p >= 1.0
         assert 0 < iters < 100
 
-    def optimize(self, base: torch.Tensor, bits: int, axis: int):
+    def optimize(self, base: Tensor, bits: int, axis: int) -> Tensor:
         dim = None if axis is None else axis_to_dim(base, axis)
         rmax = torch.amax(torch.abs(base), dim=dim, keepdim=True)
         qmax = 2**bits - 1
@@ -44,7 +45,7 @@ class MseSymmetricOptimizer(SymmetricOptimizer):
 
 # QModuleMixin didn't support optimizer for activation yet, we make this internal temporarily
 class _MseAffineOptimizer(AffineOptimizer):
-    def __init__(self, p=2.0, iters=80) -> None:
+    def __init__(self, p: float = 2.0, iters: int = 80) -> None:
         self.iters = iters
         self.p = p
         assert p >= 1.0
