@@ -1,9 +1,20 @@
 from typing import Tuple
+
 import torch
-from .symmetric_optimizer import SymmetricOptimizer
-from .affine_optimizer import AffineOptimizer
 from torch import Tensor
+
 from quanto.tensor.core import axis_to_dim
+
+from .affine_optimizer import AffineOptimizer
+from .symmetric_optimizer import SymmetricOptimizer
+
+
+def _fake_quantize(base, scale, zeropoint, qmin, qmax):
+    data = base / scale + zeropoint
+    data = torch.round(data)
+    data = torch.clamp(data, qmin, qmax)
+    data = (data - zeropoint) * scale
+    return data
 
 
 class MseSymmetricOptimizer(SymmetricOptimizer):
@@ -13,6 +24,7 @@ class MseSymmetricOptimizer(SymmetricOptimizer):
         assert p >= 1.0
         assert 0 < iters < 100
 
+    @torch.no_grad()
     def optimize(self, base: torch.Tensor, bits: int, axis: int):
         dim = None if axis is None else axis_to_dim(base, axis)
         rmax = torch.amax(torch.abs(base), dim=dim, keepdim=True)
@@ -22,12 +34,7 @@ class MseSymmetricOptimizer(SymmetricOptimizer):
         for i in range(self.iters):
             new_rmax = best_rmax * (1 - (i * 0.001))
             scale = new_rmax / qmax
-            if axis is None:
-                fq_base = torch.fake_quantize_per_tensor_affine(base, scale.item(), 0, -qmax, qmax)
-            else:
-                fq_base = torch.fake_quantize_per_channel_affine(
-                    base, scale, torch.zeros_like(scale), axis, -qmax, qmax
-                )
+            fq_base = _fake_quantize(base, scale, 0, -qmax, qmax)
             score = (fq_base - base).abs().pow(self.p).mean(dim) if axis else (fq_base - base).abs().pow(self.p).mean()
             if score.item() < best_score:
                 best_score = score.item()
@@ -64,5 +71,5 @@ class MseAffineOptimizer(AffineOptimizer):
                 best_score = score.item()
                 best_rmin, best_rmax = new_rmin, new_rmax
         scale = (best_rmax - best_rmin) / (qmax - qmin)
-        zeropoint = torch.round(-best_rmin / scale).to(torch.int8)
+        zeropoint = torch.round(-best_rmin / scale).to(torch.uint8)
         return scale, zeropoint
