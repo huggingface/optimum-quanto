@@ -78,6 +78,8 @@ class QModuleMixin(ABC):
         weights: Optional[Union[qtype, str]] = None,
         activations: Optional[Union[qtype, str]] = None,
         optimizer: Optional[Optimizer] = None,
+        input_optimizer: Optional[Optimizer] = None,
+        output_optimizer: Optional[Optimizer] = None,
         **kwargs,
     ):
         # The tests below are meant to help people writing their own quantized Module class
@@ -105,6 +107,8 @@ class QModuleMixin(ABC):
                 self.weight_group_size = group_size
         self.activation_qtype = activations
         self.optimizer = optimizer
+        self.input_optimizer = input_optimier
+        self.output_optimizer = output_optimizer
         self.register_buffer("input_scale", torch.ones(()))
         self.register_buffer("output_scale", torch.ones(()))
 
@@ -190,8 +194,10 @@ class QModuleMixin(ABC):
         weights: Optional[qtype] = None,
         activations: Optional[qtype] = None,
         optimizer: Optional[Optimizer] = None,
+        input_optimizer: Optional[Optimizer] = None,
+        output_optimizer: Optional[Optimizer] = None,
     ):
-        qmodule = cls.qcreate(module, weights, activations, optimizer)
+        qmodule = cls.qcreate(module, weights, activations, optimizer, input_optimizer, output_optimizer)
         if qmodule is None:
             return None
         with torch.no_grad():
@@ -201,7 +207,7 @@ class QModuleMixin(ABC):
         return qmodule.to(module.weight.device)
 
     @classmethod
-    def qcreate(cls, module: torch.nn.Module, weights: Optional[qtype], activations: Optional[qtype] = None):
+    def qcreate(cls, module: torch.nn.Module, weights: Optional[qtype], activations: Optional[qtype] = None, optimize=None, input_optimizer=None, output_optimizer=None):
         raise NotImplementedError
 
     @property
@@ -243,7 +249,7 @@ class QModuleMixin(ABC):
             if t.qtype == self.activation_qtype and t.axis is None:
                 return t
             return QTensor.quantize(
-                t.dequantize(), qtype=self.activation_qtype, axis=None, group_size=None, scale=scale
+                t.dequantize(), qtype=self.activation_qtype, axis=None, group_size=None, scale=scale, optimizer=self.input_optimizer
             )
 
         if self.activation_qtype is not None and isinstance(input, QTensor):
@@ -254,7 +260,7 @@ class QModuleMixin(ABC):
                 output = maybe_requantize(output, self.output_scale)
             else:
                 output = QTensor.quantize(
-                    output, qtype=self.activation_qtype, axis=None, group_size=None, scale=self.output_scale
+                    output, qtype=self.activation_qtype, axis=None, group_size=None, scale=self.output_scale, optimizer=self.output_optimizer
                 )
         return output
 
