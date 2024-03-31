@@ -107,7 +107,7 @@ class QModuleMixin(ABC):
                 self.weight_group_size = group_size
         self.activation_qtype = activations
         self.optimizer = optimizer
-        self.input_optimizer = input_optimier
+        self.input_optimizer = input_optimizer
         self.output_optimizer = output_optimizer
         self.register_buffer("input_scale", torch.ones(()))
         self.register_buffer("output_scale", torch.ones(()))
@@ -207,7 +207,15 @@ class QModuleMixin(ABC):
         return qmodule.to(module.weight.device)
 
     @classmethod
-    def qcreate(cls, module: torch.nn.Module, weights: Optional[qtype], activations: Optional[qtype] = None, optimize=None, input_optimizer=None, output_optimizer=None):
+    def qcreate(
+        cls,
+        module: torch.nn.Module,
+        weights: Optional[qtype],
+        activations: Optional[qtype] = None,
+        optimize=None,
+        input_optimizer=None,
+        output_optimizer=None,
+    ):
         raise NotImplementedError
 
     @property
@@ -249,7 +257,12 @@ class QModuleMixin(ABC):
             if t.qtype == self.activation_qtype and t.axis is None:
                 return t
             return QTensor.quantize(
-                t.dequantize(), qtype=self.activation_qtype, axis=None, group_size=None, scale=scale, optimizer=self.input_optimizer
+                t.dequantize(),
+                qtype=self.activation_qtype,
+                axis=None,
+                group_size=None,
+                scale=scale,
+                optimizer=self.input_optimizer,
             )
 
         if self.activation_qtype is not None and isinstance(input, QTensor):
@@ -260,7 +273,12 @@ class QModuleMixin(ABC):
                 output = maybe_requantize(output, self.output_scale)
             else:
                 output = QTensor.quantize(
-                    output, qtype=self.activation_qtype, axis=None, group_size=None, scale=self.output_scale, optimizer=self.output_optimizer
+                    output,
+                    qtype=self.activation_qtype,
+                    axis=None,
+                    group_size=None,
+                    scale=self.output_scale,
+                    optimizer=self.output_optimizer,
                 )
         return output
 
