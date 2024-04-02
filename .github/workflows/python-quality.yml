@@ -1,23 +1,6 @@
-name: Python quality
+name: Python code quality
 
-on:
-  push:
-    branches:
-      - main
-    paths:
-      - "bench/**"
-      - "examples/**"
-      - "quanto/**"
-      - "test/**"
-      - "setup.py"
-  pull_request:
-    types: [assigned, opened, synchronize, reopened]
-    paths:
-      - "bench/**"
-      - "examples/**"
-      - "quanto/**"
-      - "test/**"
-      - "setup.py"
+on: [workflow_call]
 
 jobs:
   check_code_quality:
