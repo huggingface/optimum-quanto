@@ -18,7 +18,10 @@ on:
       - "setup.py"
 
 jobs:
+  conventional-commits:
+    uses: ./.github/workflows/conventional-commits.yml
   build-ubuntu:
+    needs: [conventional-commits]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

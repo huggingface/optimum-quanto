@@ -1,0 +1,14 @@
+name: Conventional Commits
+
+on: [workflow_call]
+
+jobs:
+  build:
+    name: Check all commits are conventional
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: webiny/action-conventional-commits@v1.3.0
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
