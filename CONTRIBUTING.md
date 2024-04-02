@@ -154,8 +154,10 @@ You'll need **Python 3.8** or above to contribute to 🤗 Quanto. Follow the ste
    git commit
    ```
 
-   We strongly recommend you to use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/#summary)
+   We kindly request you to use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/#summary)
     to clearly communicate the changes you made (here the full [specification](https://www.conventionalcommits.org/en/v1.0.0/))!
+
+   This article gives a brief [rationale](https://julien.ponge.org/blog/the-power-of-conventional-commits/) of why this will make our life and yours easier.
 
    To keep your copy of the code up to date with the original
    repository, rebase your branch on `upstream/branch` *before* you open a pull request or if requested by a maintainer:
