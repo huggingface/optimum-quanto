@@ -1,0 +1,58 @@
+name: Python examples (CPU)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "quanto/**"
+      - "examples/**"
+      - "pyproject.toml"
+      - "setup.py"
+  pull_request:
+    types: [assigned, opened, synchronize, reopened]
+    paths:
+      - "quanto/**"
+      - "examples/**"
+      - "pyproject.toml"
+      - "setup.py"
+
+jobs:
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # Install dependencies
+      - name: Configure and install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install .[examples]
+
+      # Run examples
+      - name: Run MNIST examples
+        run: |
+          for w in int4 int8 float8; do \
+            for a in none int8 float8; do \
+              python examples/vision/image-classification/mnist/quantize_mnist_model.py \
+                --weights $w --activations $a; \
+            done; \
+          done
+      - name: Run text-classification examples
+        run: |
+          for w in int4 int8; do \
+            for a in none int8; do \
+              python examples/nlp/text-classification/sst2/quantize_sst2_model.py \
+                --weights $w --activations $a; \
+            done; \
+          done
+
