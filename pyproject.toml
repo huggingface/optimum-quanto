@@ -31,7 +31,7 @@ examples = ['torchvision', 'transformers', 'datasets']
 version = {attr = "quanto.__version__"}
 
 [build-system]
-requires = ["setuptools>=61", "setuptools_scm"]
+requires = ["setuptools>65.5.1", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
 
 [tool.black]
