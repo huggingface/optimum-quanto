@@ -25,6 +25,7 @@ homepage = 'https://github.com/huggingface/quanto'
 
 [project.optional-dependencies]
 dev = ['pytest', 'ruff', 'black']
+examples = ['torchvision', 'transformers', 'datasets']
 
 [tool.setuptools.dynamic]
 version = {attr = "quanto.__version__"}
