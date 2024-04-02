@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Union
 
 import torch
 from torch import Tensor
@@ -7,7 +7,6 @@ from quanto.tensor.core import axis_to_dim
 
 from .affine_optimizer import AffineOptimizer
 from .symmetric_optimizer import SymmetricOptimizer
-from typing import Union, Optional
 
 
 def _fake_quantize(base: Tensor, scale: Tensor, zeropoint: Union[int, Tensor], qmin: int, qmax: int) -> Tensor:
