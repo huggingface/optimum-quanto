@@ -20,8 +20,10 @@ on:
 jobs:
   conventional-commits:
     uses: ./.github/workflows/conventional-commits.yml
-  build-ubuntu:
-    needs: [conventional-commits]
+  python-quality:
+    uses: ./.github/workflows/python-quality.yml
+  run-examples:
+    needs: [conventional-commits, python-quality]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
