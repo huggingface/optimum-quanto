@@ -159,7 +159,7 @@ def test_quantized_mlp_device_memory(weights, dtype, weights_only, device):
     # Reload state dict on CPU
     b.seek(0)
     state_dict = torch.load(b, map_location=torch.device("cpu"), weights_only=weights_only)
-    assert get_device_memory(device) == 0
+    assert get_device_memory(device) == base_memory
     # Create an empty model and quantize it with the same parameters
     with torch.device("meta"):
         model_reloaded = MLP(input_features, hidden_features, output_features)

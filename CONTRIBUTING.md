@@ -159,6 +159,20 @@ You'll need **Python 3.8** or above to contribute to 🤗 Quanto. Follow the ste
 
    This article gives a brief [rationale](https://julien.ponge.org/blog/the-power-of-conventional-commits/) of why this will make our life and yours easier.
 
+   The following commit types are allowed:
+   - feat,
+   - fix,
+   - docs,
+   - style,
+   - refactor,
+   - test,
+   - build,
+   - perf,
+   - ci,
+   - chore,
+   - revert,
+   - review.
+
    To keep your copy of the code up to date with the original
    repository, rebase your branch on `upstream/branch` *before* you open a pull request or if requested by a maintainer:
 
