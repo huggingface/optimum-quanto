@@ -12,10 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Dict, Union
+
+import torch
+from torch import device as torch_device
+
 from .nn import QModuleMixin, quantize_module
 
 
-__all__ = ["quantize", "freeze"]
+__all__ = ["quantize", "freeze", "requantize"]
 
 
 def set_module_by_name(parent_module, name, child_module):
@@ -52,3 +57,19 @@ def freeze(model):
     for name, m in model.named_modules():
         if isinstance(m, QModuleMixin):
             m.freeze()
+
+
+def requantize(model: torch.nn.Module, state_dict: Dict[str, Union[torch.Tensor, str]]):
+    # you shouldn't move models that were distributed with accelerate
+    if hasattr(model, "hf_device_map"):
+        raise ValueError(
+            "Model is distributed with accelerate, cannot requantize. Please use an un-distributed model."
+        )
+
+    # empty the model params by moving to the meta device, then quantize
+    model.to(torch_device("meta"))
+    quantize(model)
+
+    # move the quantized but empty model to cpu then load the state_dict
+    model.to_empty(device=torch_device("cpu"))
+    model.load_state_dict(state_dict)
