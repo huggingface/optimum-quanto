@@ -53,9 +53,8 @@ def group(base: torch.Tensor, axis: int, group_size: int):
     # More difficult: reshape to (group_size, axis * groups_per_axis)
     # First, split by groups, preserving the axis dimension
     grouped = base.reshape((groups_per_axis, group_size, axis_dim))
-    # A dual tranposition is required to reorder to (group_size, axis_dim, groups_per_axis)
-    grouped = grouped.transpose(0, 1)
-    grouped = grouped.transpose(1, 2)
+    # Permute to (group_size, axis_dim, groups_per_axis)
+    grouped = grouped.permute(1, 2, 0)
     return grouped.reshape(group_size, axis_dim * groups_per_axis)
 
 
@@ -69,9 +68,8 @@ def ungroup(grouped: torch.Tensor, axis: int, orig_shape: torch.Size):
     axis_dim = orig_shape[axis]
     groups_per_axis = grouped.numel() // axis_dim // group_size
     ungrouped = grouped.reshape(group_size, axis_dim, groups_per_axis)
-    # A dual tranposition is required to reorder to (groups_per_axis, group_size, axis_dim)
-    ungrouped = ungrouped.transpose(1, 2)
-    ungrouped = ungrouped.transpose(0, 1)
+    # Permute to (groups_per_axis, group_size, axis_dim)
+    ungrouped = ungrouped.permute(2, 0, 1)
     return ungrouped.reshape(orig_shape)
 
 
