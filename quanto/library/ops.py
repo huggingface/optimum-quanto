@@ -69,3 +69,16 @@ def define(name, schema):
 
 define("dqmm", "(Tensor input, Tensor other, Tensor other_scale) -> Tensor")
 define("unpack", "(Tensor self, int bits) -> Tensor")
+define(
+    "gemm",
+    "(Tensor input,"
+    " Tensor other,"
+    " Tensor other_scale,"
+    " Tensor other_zeropoint,"
+    " int rows,"
+    " int out_cols,"
+    " int in_cols,"
+    " int bits,"
+    " int group_size)"
+    " -> Tensor",
+)
