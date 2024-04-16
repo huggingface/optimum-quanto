@@ -45,7 +45,7 @@ def group(base: torch.Tensor, axis: int, group_size: int):
     axis_numel = base.numel() // axis_dim
     if group_size > axis_numel or axis_numel % group_size != 0:
         raise ValueError(f"Group size ({group_size}) must be a divisor of ({axis_numel})")
-    # Group-wise quantization further splits max_group_size tensor into multiple groups per axis
+    # Group-wise quantization further splits axis_numel into multiple groups per axis
     axis_groups = axis_numel // group_size
     if axis == 0:
         # Easy-peasy: we simply need to reshape to (axis_dim * axis_groups, group_size)
