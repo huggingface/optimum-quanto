@@ -1,0 +1,6 @@
+quanto
+diffusers
+torch
+transformers
+accelerate
+wandb
