@@ -13,6 +13,8 @@
 // limitations under the License.
 
 #include <torch/extension.h>
+#include "awq/v2/gemm_cuda.h"
+#include "awq/v2/gemv_cuda.h"
 #include "unpack.h"
 
 // !IMPORTANT! Some python objects such as dtype, device, are not mapped to C++ types,
@@ -23,5 +25,7 @@
 // See the binding of quantize_symmetric for instance.
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+  m.def("awq_v2_gemm_f16i4", &awq_v2_gemm_f16i4, "awq_v2_gemm_f16i4");
+  m.def("awq_v2_gemv_f16i4", &awq_v2_gemv_f16i4, "awq_v2_gemv_f16i4");
   m.def("unpack", &unpack, "unpack");
 }
