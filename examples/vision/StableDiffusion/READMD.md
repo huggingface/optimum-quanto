@@ -35,16 +35,16 @@ To better track our training experiments, we're using the following flags in the
 
 Our experiments were conducted on a single 24GB A10 GPU.
 
-<!-- ```bash
+```bash
 bf16-int8
 
-batch_size: 1, torch_dtype: bf16, unet_dtype: int8  in 3.919 seconds.Memory: 2.637GB.
+batch_size: 1, torch_dtype: bf16, unet_dtype: int8  in 3.918 seconds.Memory: 2.644GB.
 ```
 
 ```bash
 fp16-int8
 
-batch_size: 1, torch_dtype: fp16, unet_dtype: int8  in 3.936 seconds.Memory: 2.631GB.
-``` -->
+batch_size: 1, torch_dtype: fp16, unet_dtype: int8  in 3.920 seconds.Memory: 2.634GB.
+``` 
 
 will both get high-quality images at fast speed generation

@@ -5,14 +5,8 @@ import torch
 import torch.utils.benchmark as benchmark
 from diffusers import DiffusionPipeline
 
-# import the autolog function
-from wandb.integration.diffusers import autolog
-
 from quanto import freeze, qfloat8, qint4, qint8, quantize
 
-
-# call the autolog before calling the pipeline
-autolog(init=dict(project="quantize_diffusers_logging"))
 
 CKPT = "runwayml/stable-diffusion-v1-5"
 NUM_INFERENCE_STEPS = 50
@@ -21,8 +15,6 @@ PROMPT = "ghibli style, a fantasy landscape with castles"
 
 TORCH_DTYPES = {"fp32": torch.float32, "fp16": torch.float16, "bf16": torch.bfloat16}
 UNET_QTYPES = {
-    "fp16": torch.float16,
-    "bf16": torch.bfloat16,
     "fp8": qfloat8,
     "int8": qint8,
     "int4": qint4,
