@@ -31,9 +31,14 @@ To better track our training experiments, we're using the following flags in the
 * `batch_size` Batch size is the number of samples used in one iteration of training.
 
 * `torch_dtype` {fp32,fp16,bf16}
-* `unet_qtype` {fp16,bf16,fp8,int8,int4,none}
+* `unet_qtype` {fp8,int8,int4,none}
 
 Our experiments were conducted on a single 24GB A10 GPU.
+```bash
+fp16-fp16
+
+batch_size: 1, torch_dtype: fp16, unet_dtype: none  in 3.307 seconds.Memory: 3.192GB.
+```
 
 ```bash
 bf16-int8

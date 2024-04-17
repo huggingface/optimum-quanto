@@ -22,8 +22,8 @@ UNET_QTYPES = {
 }
 
 
-def load_pipeline(torch_dtype, unet_dtype=None):
-    pipe = DiffusionPipeline.from_pretrained(CKPT, torch_dtype=torch_dtype, use_safetensors=True).to("cuda")
+def load_pipeline(torch_dtype, unet_dtype=None, device="cpu"):
+    pipe = DiffusionPipeline.from_pretrained(CKPT, torch_dtype=torch_dtype, use_safetensors=True).to(device)
 
     if unet_dtype:
         quantize(pipe.unet, weights=unet_dtype)
@@ -83,7 +83,9 @@ if __name__ == "__main__":
     else:
         device = torch.device(args.device)
 
-    pipeline = load_pipeline(TORCH_DTYPES[args.torch_dtype], UNET_QTYPES[args.unet_qtype] if args.unet_qtype else None)
+    pipeline = load_pipeline(
+        TORCH_DTYPES[args.torch_dtype], UNET_QTYPES[args.unet_qtype] if args.unet_qtype else None, device
+    )
 
     for _ in range(WARM_UP_ITERS):
         run_inference(pipeline, args.batch_size)
