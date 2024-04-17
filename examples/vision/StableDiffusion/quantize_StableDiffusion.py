@@ -1,8 +1,18 @@
 import argparse
-from quanto import quantize, freeze, qint4, qint8, qfloat8_e4m3fn
+import gc
+
 import torch
 import torch.utils.benchmark as benchmark
 from diffusers import DiffusionPipeline
+
+# import the autolog function
+from wandb.integration.diffusers import autolog
+
+from quanto import freeze, qfloat8, qint4, qint8, quantize
+
+
+# call the autolog before calling the pipeline
+autolog(init=dict(project="quantize_diffusers_logging"))
 
 CKPT = "runwayml/stable-diffusion-v1-5"
 NUM_INFERENCE_STEPS = 50
@@ -10,12 +20,18 @@ WARM_UP_ITERS = 5
 PROMPT = "ghibli style, a fantasy landscape with castles"
 
 TORCH_DTYPES = {"fp32": torch.float32, "fp16": torch.float16, "bf16": torch.bfloat16}
-UNET_DTYPES = {"fp8": qfloat8_e4m3fn, "int8": qint8, "int4": qint4}
+UNET_QTYPES = {
+    "fp16": torch.float16,
+    "bf16": torch.bfloat16,
+    "fp8": qfloat8,
+    "int8": qint8,
+    "int4": qint4,
+    "none": None,
+}
+
 
 def load_pipeline(torch_dtype, unet_dtype=None):
-    pipe = DiffusionPipeline.from_pretrained(
-        CKPT, torch_dtype=torch_dtype, use_safetensors=True
-    ).to("cuda")
+    pipe = DiffusionPipeline.from_pretrained(CKPT, torch_dtype=torch_dtype, use_safetensors=True).to("cuda")
 
     if unet_dtype:
         quantize(pipe.unet, weights=unet_dtype)
@@ -27,9 +43,9 @@ def load_pipeline(torch_dtype, unet_dtype=None):
 
 def run_inference(pipe, batch_size=1):
     _ = pipe(
-        prompt=PROMPT,
-        num_inference_steps=NUM_INFERENCE_STEPS,
-        num_images_per_prompt=batch_size,
+        prompt=args.prompt,
+        num_inference_steps=args.num_inference_steps,
+        num_images_per_prompt=args.batch_size,
         generator=torch.manual_seed(0),
     )
 
@@ -43,30 +59,54 @@ def bytes_to_giga_bytes(bytes):
     return f"{(bytes / 1024 / 1024 / 1024):.3f}"
 
 
+def get_device_memory(device):
+    gc.collect()
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
+        return torch.cuda.memory_allocated()
+    elif device.type == "mps":
+        torch.mps.empty_cache()
+        return torch.mps.current_allocated_memory()
+    return None
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--prompt", type=str, default="ghibli style, a fantasy landscape with castles")
+    parser.add_argument("--output_path", type=str, default=None)
+    parser.add_argument("--num_inference_steps", type=int, default=50, help="Number of inference steps")
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--torch_dtype", type=str, default="fp32", choices=list(TORCH_DTYPES.keys()))
-    parser.add_argument("--unet_dtype", type=str, default=None, choices=list(UNET_DTYPES.keys()))
+    parser.add_argument("--unet_qtype", type=str, default=None, choices=list(UNET_QTYPES.keys()))
+    parser.add_argument("--device", type=str, default=None, help="The device to use for generation.")
     args = parser.parse_args()
 
-    pipeline = load_pipeline(
-        TORCH_DTYPES[args.torch_dtype], UNET_DTYPES[args.unet_dtype] if args.unet_dtype else None
-    )
+    if args.device is None:
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+        elif torch.backends.mps.is_available():
+            device = torch.device("mps")
+        else:
+            device = torch.device("cpu")
+    else:
+        device = torch.device(args.device)
+
+    pipeline = load_pipeline(TORCH_DTYPES[args.torch_dtype], UNET_QTYPES[args.unet_qtype] if args.unet_qtype else None)
 
     for _ in range(WARM_UP_ITERS):
         run_inference(pipeline, args.batch_size)
 
     time = benchmark_fn(run_inference, pipeline, args.batch_size)
     memory = bytes_to_giga_bytes(torch.cuda.max_memory_allocated())  # in GBs.
+    get_device_memory(device)
     print(
-        f"batch_size: {args.batch_size}, torch_dtype: {args.torch_dtype}, unet_dtype: {args.unet_dtype}  in {time} seconds."
+        f"batch_size: {args.batch_size}, torch_dtype: {args.torch_dtype}, unet_dtype: {args.unet_qtype}  in {time} seconds."
     )
     print(f"Memory: {memory}GB.")
 
-    img_name = f"bs@{args.batch_size}-dtype@{args.torch_dtype}-unet_dtype@{args.unet_dtype}.png"
+    img_name = f"bs@{args.batch_size}-dtype@{args.torch_dtype}-unet_dtype@{args.unet_qtype}.png"
     image = pipeline(
-        prompt=PROMPT,
+        prompt=args.prompt,
         num_inference_steps=NUM_INFERENCE_STEPS,
         num_images_per_prompt=args.batch_size,
     ).images[0]
