@@ -51,11 +51,8 @@ def quantize(model, modules=None, **kwargs):
 
 
 def requantize(model, state_dict):
-    # you shouldn't move models that were distributed with accelerate
-    if hasattr(model, "hf_device_map"):
-        raise ValueError(
-            "Model is distributed with accelerate, cannot requantize. Please use an un-distributed model."
-        )
+    # find device that model is on
+    device = next(model.parameters()).device
 
     # empty the model params by moving to the meta device, then quantize
     model.to(torch_device("meta"))
@@ -64,6 +61,9 @@ def requantize(model, state_dict):
     # move the quantized but empty model to cpu then load the state_dict
     model.to_empty(device=torch_device("cpu"))
     model.load_state_dict(state_dict)
+
+    # move the model back to the original device
+    model.to(device)
 
 
 def freeze(model):

@@ -42,10 +42,9 @@ def test_serialize_requantized_mlp(weights, dtype, serialization, device):
     with Calibration():
         model(inputs)
     freeze(model)
+    model_reloaded = MLP(input_features, hidden_features, output_features).to(device)
     state_dict = save_and_reload_state_dict(model.state_dict(), serialization)
-    model_reloaded = MLP(input_features, hidden_features, output_features)
     requantize(model_reloaded, state_dict)
-    model_reloaded.to(device)
     for name, module in model.named_modules():
         if isinstance(module, QModuleMixin):
             module_reloaded = getattr(model_reloaded, name)
@@ -77,10 +76,9 @@ def test_requantized_mlp_device_memory(weights, dtype, weights_only, device, ser
     state_dict = save_and_reload_state_dict(model.state_dict(), serialization)
     # Free device memory
     del model
-    reloaded_model = MLP(input_features, hidden_features, output_features).to(dtype)
+    reloaded_model = MLP(input_features, hidden_features, output_features).to(dtype).to(device)
     requantize(reloaded_model, state_dict)
     # Free device memory
     del state_dict
-    reloaded_model.to(device)
     requantized_memory = get_device_memory(device)
     assert requantized_memory <= quantized_memory
