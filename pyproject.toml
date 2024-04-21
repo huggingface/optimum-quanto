@@ -1,39 +1,43 @@
+[build-system]
+requires = ["setuptools>65.5.1"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = 'quanto'
-description = 'A quantization toolkit for pytorch.'
+name = "quanto"
+description = "A quantization toolkit for pytorch."
+readme = "README.md"
 classifiers = [
-    'Development Status :: 2 - Pre-Alpha',
-    'License :: OSI Approved :: Apache Software License',
-    'Intended Audience :: Developers',
-    'Intended Audience :: Education',
-    'Intended Audience :: Science/Research',
-    'Operating System :: OS Independent',
-    'Programming Language :: Python :: 3.8',
-    'Programming Language :: Python :: 3.9',
-    'Programming Language :: Python :: 3.10',
-    'Programming Language :: Python :: 3.11',
-    'Topic :: Scientific/Engineering :: Artificial Intelligence'
+    "Development Status :: 2 - Pre-Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence"
 ]
-keywords = ['torch', 'quantization']
-requires-python = '>=3.8.0'
-authors = [{ name = 'David Corvoysier', email = 'david@huggingface.co' }]
-dependencies = ['torch>=2.2.0', 'ninja', 'numpy', 'safetensors']
-license = { text = 'Apache-2.0' }
-dynamic = ['readme', 'version']
+keywords = ["torch", "quantization"]
+requires-python = ">=3.8.0"
+authors = [{ name = "David Corvoysier", email = "david@huggingface.co" }]
+dependencies = ["torch>=2.2.0", "ninja", "numpy", "safetensors"]
+license = { text = "Apache-2.0" }
+dynamic = ["version"]
 
 [project.urls]
-homepage = 'https://github.com/huggingface/quanto'
+homepage = "https://github.com/huggingface/quanto"
 
 [project.optional-dependencies]
-dev = ['pytest', 'ruff', 'black']
-examples = ['torchvision', 'transformers', 'datasets']
+dev = ["pytest", "ruff", "black"]
+examples = ["torchvision", "transformers", "datasets"]
+
+[tool.setuptools]
+packages = ["quanto"]
 
 [tool.setuptools.dynamic]
 version = {attr = "quanto.__version__"}
-
-[build-system]
-requires = ["setuptools>65.5.1", "setuptools_scm"]
-build-backend = "setuptools.build_meta"
 
 [tool.black]
 line-length = 119
