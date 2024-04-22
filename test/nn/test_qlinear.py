@@ -17,9 +17,20 @@ from contextlib import nullcontext
 
 import pytest
 import torch
-from helpers import assert_similar, random_qactivation
+from helpers import assert_similar, random_qactivation, random_tensor
 
-from quanto import Calibration, QBitsTensor, QTensor, qfloat8, qfloat8_e4m3fn, qfloat8_e5m2, qint4, qint8
+from quanto import (
+    Calibration,
+    QBitsTensor,
+    QTensor,
+    absmax_scale,
+    qfloat8,
+    qfloat8_e4m3fn,
+    qfloat8_e5m2,
+    qint4,
+    qint8,
+    quantize_activation,
+)
 from quanto.nn import QLinear
 
 
@@ -124,20 +135,30 @@ def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
     assert qlinear.weight.requires_grad is True
     assert qlinear.bias.requires_grad is True
-    # Run an inference with identical inputs
-    qinputs = random_qactivation((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
+    # Run an inference with quantized inputs
+    inputs = random_tensor((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
+    inputs.requires_grad = True
+    qinputs = quantize_activation(inputs, qtype=qint8, scale=absmax_scale(inputs, qint8))
     qout = qlinear(qinputs)
-    out = linear(qinputs.dequantize())
+    # Run an equivalent inference with float inputs
+    dqinputs = qinputs.dequantize().clone().detach()
+    dqinputs.requires_grad = True
+    out = linear(dqinputs)
     # Outputs are not identical because of the quantization
     assert not torch.equal(qout, out)
     # Compute gradients and compare
     gradient = torch.randn(qout.size()).to(device)
     qout.backward(gradient)
     out.backward(gradient)
-    # Gradients are nearly identical because they depend only on the input
+    # Bias gradients are identical because they don't depend on inputs and weights
+    atol = 1e-6
+    assert_similar(qlinear.bias.grad, linear.bias.grad, atol=atol)
+    # Weights gradients are nearly identical, based on identical inputs through subtly different graphs
     atol = 1e-5
     assert_similar(qlinear.weight.grad, linear.weight.grad, atol=atol)
-    assert_similar(qlinear.bias.grad, linear.bias.grad, atol=atol)
+    # Inputs gradients are slightly different because they depend on the quantized weights
+    atol = {qint8: 1e-5, qint4: 5e-3}[weights]
+    assert_similar(inputs.grad, dqinputs.grad, atol=atol)
 
 
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
