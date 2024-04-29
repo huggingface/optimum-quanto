@@ -1,5 +1,10 @@
 # Quanto
 
+**IMPORTANT**:
+
+After having gathered feedback from our partners and the community, we have decided that `quanto` would not continue as a standalone project but would rather be merged into the [optimum](https://huggingface.co/docs/optimum/en/index) project.
+External contributions to quanto will be suspended until the merge is complete.
+
 **DISCLAIMER**: This package is still beta. Expect breaking changes in API and serialization.
 
 🤗 Quanto is a python quantization toolkit that provides several features that are either not supported or limited by the base [pytorch quantization tools](https://pytorch.org/docs/stable/quantization.html):
