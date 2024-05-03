@@ -295,7 +295,7 @@ def transpose2d(op, input):
     out_data = op(input._data)
     out_scale = input._scale
     out_axis = input.axis
-    # Manually reverse size and stride because we cannot trust the out_data shape when using group-wise quantization
+    # Manually reverse size and stride because we cannot trust the out_data shape
     dim0, dim1 = input.size()
     out_size = torch.Size([dim1, dim0])
     out_stride = input.stride()[::-1]
