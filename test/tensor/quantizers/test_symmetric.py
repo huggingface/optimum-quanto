@@ -40,7 +40,7 @@ from quanto import (
 def test_symmetric_quantize_int(input_shape, dtype, qtype, axis, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
     scale = absmax_scale(a, qtype=qtype, axis=axis)
-    qa = SymmetricQuantizer.apply(a, qtype, axis, None, scale)
+    qa = SymmetricQuantizer.apply(a, qtype, axis, scale)
     assert isinstance(qa, QBytesTensor)
     assert qa.dtype == dtype
     assert qa.qtype == qtype
@@ -62,7 +62,7 @@ def test_symmetric_quantize_int(input_shape, dtype, qtype, axis, device):
 def test_symmetric_quantize_float8(input_shape, dtype, qtype, axis, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
     scale = absmax_scale(a, qtype=qtype, axis=axis)
-    qa = SymmetricQuantizer.apply(a, qtype, axis, None, scale)
+    qa = SymmetricQuantizer.apply(a, qtype, axis, scale)
     assert isinstance(qa, QBytesTensor)
     assert qa.dtype == dtype
     assert qa.qtype == qtype

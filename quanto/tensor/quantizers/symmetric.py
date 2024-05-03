@@ -15,7 +15,7 @@
 import torch
 from torch.autograd import Function
 
-from ..core import dtype_info, group
+from ..core import dtype_info
 from ..qbytes import QBytesTensor
 from ..qtype import qtype
 
@@ -27,15 +27,13 @@ class SymmetricQuantizer(Function):
     """A standard symmetric quantizer."""
 
     @staticmethod
-    def forward(ctx, base: torch.Tensor, qtype: qtype, axis: int, group_size: int, scale: torch.Tensor):
+    def forward(ctx, base: torch.Tensor, qtype: qtype, axis: int, scale: torch.Tensor):
         size = base.size()
         stride = base.stride()
         # Sanity checks
         if axis is None:
             if scale.ndim > 0:
                 raise ValueError("Scale must be a scalar when quantizing per-tensor")
-            if group_size is not None:
-                raise ValueError("Group size can only be specified when quantizing per-axis")
         else:
             if base.ndim == 1:
                 raise ValueError("1D Tensors cannot be quantized per-axis")
@@ -46,11 +44,8 @@ class SymmetricQuantizer(Function):
                 raise ValueError("QBytesTensor can only be quantized along the first or last axis.")
             if base.shape[axis] == 1:
                 raise ValueError(f"Cannot quantize Tensor of shape {base.shape} along axis {axis} of size 1")
-            if group_size is not None:
-                base = group(base, axis=axis, group_size=group_size)
-            else:
-                if torch.squeeze(scale).ndim > 1:
-                    raise ValueError("Quantizing along multiple axis is not supported")
+            if torch.squeeze(scale).ndim > 1:
+                raise ValueError("Quantizing along multiple axis is not supported")
             if scale.ndim != base.ndim:
                 raise ValueError(
                     "When quantizing per-axis, the scale must be broadcastable to the base (Tip: try to add missing dims of length zero)."

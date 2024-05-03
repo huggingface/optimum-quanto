@@ -54,8 +54,10 @@ def quantize_weight(
         else:
             if not isinstance(optimizer, SymmetricOptimizer):
                 raise ValueError("A SymmetricOptimizer is expected")
-        scale = optimizer(t, qtype.bits, axis, group_size)
-        return SymmetricQuantizer.apply(t, qtype, axis, group_size, scale)
+        if group_size is not None:
+            raise ValueError("group_size cannot be specified for 8-bit qtypes.")
+        scale = optimizer(t, qtype.bits, axis)
+        return SymmetricQuantizer.apply(t, qtype, axis, scale)
     if optimizer is None:
         optimizer = default_affine_optimizer
     else:

@@ -36,4 +36,4 @@ def quantize_activation(t: torch.Tensor, qtype: qtype, scale: torch.Tensor):
     """
     if scale.numel() != 1:
         raise ValueError("Parameter scale must be a scalar because activations can only be quantized per-tensor")
-    return SymmetricQuantizer.apply(t, qtype, None, None, scale)
+    return SymmetricQuantizer.apply(t, qtype, None, scale)

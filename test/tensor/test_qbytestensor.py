@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import io
-from math import prod
 
 import pytest
 import torch
@@ -121,17 +120,6 @@ def test_qbytestensor_contiguous(axis, qtype, device):
     assert not tqa.is_contiguous()
     tqa = tqa.contiguous()
     assert tqa.is_contiguous()
-
-
-@pytest.mark.parametrize("input_shape, group_size", [[(4, 6), 2], [(32, 64), 4]], ids=["small", "bigger"])
-def test_qbytestensor_quantize_transposed_groupwise(input_shape, group_size, device):
-    x = torch.tensor(range(prod(input_shape)), dtype=torch.float32).reshape(input_shape).to(device)
-    xt = x.t()
-    qx = quantize_weight(x, qtype=qint8, axis=0, group_size=group_size)
-    qxt = quantize_weight(xt, qtype=qint8, axis=-1, group_size=group_size)
-    dqx = qx.dequantize()
-    dqxt = qxt.dequantize()
-    assert torch.equal(dqx.t(), dqxt)
 
 
 def test_to_device(device):
