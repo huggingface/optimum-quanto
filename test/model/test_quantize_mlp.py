@@ -23,6 +23,7 @@ from quanto import (
     AbsmaxOptimizer,
     Calibration,
     MaxOptimizer,
+    QBytesTensor,
     QLinear,
     QTensor,
     freeze,
@@ -75,7 +76,7 @@ def _test_quantize_mlp(weights, activations, optimizer, frozen, device):
     with Calibration():
         qoutput = get_outputs(model, 1, 32, device)
     if activations is not None:
-        assert isinstance(qoutput, QTensor)
+        assert isinstance(qoutput, QBytesTensor)
     # Don't expect more than a 0.99 similarity
     assert_similar(output, qoutput, atol=1e-2)
 

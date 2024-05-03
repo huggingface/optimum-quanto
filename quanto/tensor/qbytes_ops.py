@@ -21,67 +21,68 @@ from packaging import version
 
 from .core import dtype_info
 from .qactivation import quantize_activation
+from .qbytes import QBytesTensor
 from .qtensor import QTensor, qfallback
 from .qtype import qint8
 
 
-__all__ = ["get_qtensor_op_dispatch", "register_qtensor_op"]
+__all__ = ["get_qbytestensor_op_dispatch", "register_qbytestensor_op"]
 
 
-_QTENSOR_OP_TABLE = {}
+_QBYTESTENSOR_OP_TABLE = {}
 
 
-def register_qtensor_op(aten_ops: List[Callable]):
+def register_qbytestensor_op(aten_ops: List[Callable]):
     """
-    Used for registering a new __torch_dispatch__ aten operation to QTensor.
+    Used for registering a new __torch_dispatch__ aten operation to QBytesTensor.
 
     The code to register a new operation looks like:
 
-    @register_qtensor_op(list_of_ops)
+    @register_qbytestensor_op(list_of_ops)
     def foo(op, *args, **kwargs):
         <implementation>
     """
 
     def wrapper(op):
         for aten_op in aten_ops:
-            _QTENSOR_OP_TABLE[aten_op] = partial(op, aten_op)
+            _QBYTESTENSOR_OP_TABLE[aten_op] = partial(op, aten_op)
 
     return wrapper
 
 
-def get_qtensor_op_dispatch(aten_op):
-    return _QTENSOR_OP_TABLE.get(aten_op, None)
+def get_qbytestensor_op_dispatch(aten_op):
+    return _QBYTESTENSOR_OP_TABLE.get(aten_op, None)
 
 
 def is_scalar(t):
     return isinstance(t, numbers.Number) or type(t) == torch.Tensor and len(t.shape) == 0
 
 
-@register_qtensor_op([torch.ops.aten._to_copy])
+@register_qbytestensor_op([torch.ops.aten._to_copy])
 def _to_copy(op, t, dtype=None, **kwargs):
     # For data, ignore dtype and use the inner type instead
     out_data = op(t._data, dtype=t._data.dtype, **kwargs)
     # Apply the new dtype on the scale only
     out_scale = op(t._scale, dtype=dtype, **kwargs)
-    return QTensor(t.qtype, t.axis, t.size(), t.stride(), out_data, out_scale)
+    return QBytesTensor(t.qtype, t.axis, t.size(), t.stride(), out_data, out_scale)
 
 
-@register_qtensor_op([torch.ops.aten.detach])
+@register_qbytestensor_op([torch.ops.aten.detach])
 def detach(op, t):
     # Detach both data and scale
     out_data = op(t._data)
     out_scale = op(t._scale)
-    return QTensor(t.qtype, t.axis, t.size(), t.stride(), out_data, out_scale)
+    return QBytesTensor(t.qtype, t.axis, t.size(), t.stride(), out_data, out_scale)
 
 
-@register_qtensor_op([torch.ops.aten.cat])
+@register_qbytestensor_op([torch.ops.aten.cat])
 def cat(op, inputs, dim=0):
     if len(inputs) == 2:
         t1, t2 = inputs
         # Only quantized tensors with identical scalar scales can be concatenated
         if (
-            isinstance(t1, QTensor)
-            and isinstance(t2, QTensor)
+            isinstance(t1, QBytesTensor)
+            and isinstance(t2, QBytesTensor)
             and t1.axis is None
             and t2.axis is None
             and torch.equal(t1._scale, t2._scale)
@@ -91,19 +92,19 @@ def cat(op, inputs, dim=0):
                 # Cat is not supported for float8
                 return qfallback(op, inputs, dim)
             out_data = op([t1._data, t2._data], dim)
-            return QTensor(t1.qtype, t1.axis, out_data.size(), out_data.stride(), out_data, t1._scale)
+            return QBytesTensor(t1.qtype, t1.axis, out_data.size(), out_data.stride(), out_data, t1._scale)
     return qfallback(op, inputs, dim)
 
 
-@register_qtensor_op([torch.ops.aten.lt])
+@register_qbytestensor_op([torch.ops.aten.lt])
 def lt(op, input, other):
     # Only quantized tensors with identical scales can be compared
-    if isinstance(input, QTensor) and isinstance(other, QTensor) and torch.equal(input._scale, other._scale):
+    if isinstance(input, QBytesTensor) and isinstance(other, QBytesTensor) and torch.equal(input._scale, other._scale):
         return op(input._data, other._data)
     return qfallback(op, input, other)
 
 
-@register_qtensor_op([torch.ops.aten.clone])
+@register_qbytestensor_op([torch.ops.aten.clone])
 def clone(op, t, memory_format=torch.preserve_format):
     # We need to restore the data original shape before cloning to get the correct strides
     data_shape = t._data.shape
@@ -112,10 +113,10 @@ def clone(op, t, memory_format=torch.preserve_format):
     out_stride = out_data.stride()
     out_data = out_data.reshape(data_shape)
     out_scale = op(t._scale, memory_format=memory_format)
-    return QTensor(t.qtype, t.axis, t.size(), out_stride, out_data, out_scale)
+    return QBytesTensor(t.qtype, t.axis, t.size(), out_stride, out_data, out_scale)
 
 
-@register_qtensor_op([torch.ops.aten.copy_])
+@register_qbytestensor_op([torch.ops.aten.copy_])
 def copy_(op, dest, src):
     assert dest.qtype == src.qtype
     dest._data = op(dest._data, src._data)
@@ -123,24 +124,24 @@ def copy_(op, dest, src):
     return dest
 
 
-@register_qtensor_op([torch.ops.aten.div])
+@register_qbytestensor_op([torch.ops.aten.div])
 def div(op, input, other):
     if not is_scalar(other):
         return op(input.dequantize(), other)
     # We just divide the scale
-    return QTensor(input.qtype, input.axis, input.size(), input.stride(), input._data, op(input._scale, other))
+    return QBytesTensor(input.qtype, input.axis, input.size(), input.stride(), input._data, op(input._scale, other))
 
 
-@register_qtensor_op([torch.ops.aten.neg])
+@register_qbytestensor_op([torch.ops.aten.neg])
 def neg(op, input, *args, **kwargs):
     if input.qtype.is_floating_point:
         # Neg is not supported for float8
         return op(input.dequantize(), *args, **kwargs)
     out_data = op(input._data, *args, **kwargs)
-    return QTensor(input.qtype, input.axis, input.size(), input.stride(), out_data, input._scale)
+    return QBytesTensor(input.qtype, input.axis, input.size(), input.stride(), out_data, input._scale)
 
 
-@register_qtensor_op(
+@register_qbytestensor_op(
     [
         torch.ops.aten.expand,
         torch.ops.aten.permute,
@@ -155,13 +156,13 @@ def unary_type_agnostic_op(op, input, *args, **kwargs):
     # When quantization is per-tensor, these operations can be transparently applied
     # without modifying the scale.
     out_data = op(input._data, *args, **kwargs)
-    return QTensor(input.qtype, input.axis, out_data.size(), out_data.stride(), out_data, input._scale)
+    return QBytesTensor(input.qtype, input.axis, out_data.size(), out_data.stride(), out_data, input._scale)
 
 
-@register_qtensor_op([torch.ops.aten.is_same_size])
+@register_qbytestensor_op([torch.ops.aten.is_same_size])
 def is_same_size(op, input, other):
-    a = input._data if isinstance(input, QTensor) else input
-    b = other._data if isinstance(other, QTensor) else other
+    a = input._data if isinstance(input, QBytesTensor) else input
+    b = other._data if isinstance(other, QBytesTensor) else other
     return op(a, b)
 
 
@@ -170,9 +171,9 @@ def cannot_mm(t: QTensor):
     return t.axis is not None and t.size() != t._data.size()
 
 
-@register_qtensor_op([torch.ops.aten.bmm])
+@register_qbytestensor_op([torch.ops.aten.bmm])
 def bmm(op, input, other):
-    if not isinstance(input, QTensor):
+    if not isinstance(input, QBytesTensor):
         return op(input, other.dequantize())
     if not isinstance(other, QTensor) or input.axis is not None:
         return op(input.dequantize(), other)
@@ -184,9 +185,9 @@ def bmm(op, input, other):
     return (out_data * out_scale).to(input._scale.dtype)
 
 
-@register_qtensor_op([torch.ops.aten.mm])
+@register_qbytestensor_op([torch.ops.aten.mm])
 def mm(op, input, other):
-    if not isinstance(input, QTensor):
+    if not isinstance(input, QBytesTensor):
         if cannot_mm(other):
             return op(input, other.dequantize())
         return torch.ops.quanto.dqmm(input, other._data, other._scale)
@@ -220,26 +221,26 @@ def mm(op, input, other):
     return (out_data * out_scale).to(input._scale.dtype)
 
 
-@register_qtensor_op([torch.ops.aten.mul])
+@register_qbytestensor_op([torch.ops.aten.mul])
 def mul(op, input, other):
     # If one of the multiplicands is a scalar, just multiply the scale
     if is_scalar(input):
-        return QTensor(other.qtype, other.axis, other.size(), other.stride(), other._data, input * other._scale)
+        return QBytesTensor(other.qtype, other.axis, other.size(), other.stride(), other._data, input * other._scale)
     if is_scalar(other):
-        return QTensor(input.qtype, input.axis, input.size(), input.stride(), input._data, other * input._scale)
+        return QBytesTensor(input.qtype, input.axis, input.size(), input.stride(), input._data, other * input._scale)
     return qfallback(op, input, other)
 
 
-@register_qtensor_op([torch.ops.aten.relu])
+@register_qbytestensor_op([torch.ops.aten.relu])
 def relu(op, input):
     if input.qtype.is_floating_point:
         # Relu is not supported for float8 types
         return qfallback(op, input)
     out_data = op(input._data)
-    return QTensor(input.qtype, input.axis, input.size(), input.stride(), out_data, input._scale)
+    return QBytesTensor(input.qtype, input.axis, input.size(), input.stride(), out_data, input._scale)
 
 
-@register_qtensor_op([torch.ops.aten._softmax])
+@register_qbytestensor_op([torch.ops.aten._softmax])
 def _softmax(op, input, dim, half_to_float):
     # Softmax must be performed in float
     float_data = op(input.dequantize(), dim, half_to_float)
@@ -249,36 +250,36 @@ def _softmax(op, input, dim, half_to_float):
     return quantize_activation(float_data, qtype=input.qtype, scale=out_scale)
 
 
-@register_qtensor_op([torch.ops.aten.stack])
+@register_qbytestensor_op([torch.ops.aten.stack])
 def stack(op, inputs, dim=0):
     if len(inputs) == 2:
         t1, t2 = inputs
         # Only quantized tensors with identical scales can be stacked
         if (
-            isinstance(t1, QTensor)
-            and isinstance(t2, QTensor)
+            isinstance(t1, QBytesTensor)
+            and isinstance(t2, QBytesTensor)
             and t1.axis is None
             and t2.axis is None
             and torch.equal(t1._scale, t2._scale)
             and t1.qtype == t2.qtype
         ):
             out_data = op([t1._data, t2._data], dim)
-            return QTensor(t1.qtype, t1.axis, out_data.size(), out_data.stride(), out_data, t1._scale)
+            return QBytesTensor(t1.qtype, t1.axis, out_data.size(), out_data.stride(), out_data, t1._scale)
     return qfallback(inputs, dim)
 
 
-@register_qtensor_op([torch.ops.aten.split])
+@register_qbytestensor_op([torch.ops.aten.split])
 def split(op, input, *args, **kwargs):
     if input.axis is not None:
         return qfallback(op, input, *args, **kwargs)
     out_datas = op(input._data, *args, **kwargs)
     return [
-        QTensor(input.qtype, input.axis, input.size(), input.stride(), out_data, input._scale)
+        QBytesTensor(input.qtype, input.axis, input.size(), input.stride(), out_data, input._scale)
         for out_data in out_datas
     ]
 
 
-@register_qtensor_op([torch.ops.aten.transpose])
+@register_qbytestensor_op([torch.ops.aten.transpose])
 def transpose(op, input, *args):
     if input.axis is not None:
         return op(input.dequantize(), *args)
@@ -286,10 +287,10 @@ def transpose(op, input, *args):
     out_size = out_data.size()
     out_stride = out_data.stride()
     out_scale = input._scale
-    return QTensor(input.qtype, None, out_size, out_stride, out_data, out_scale)
+    return QBytesTensor(input.qtype, None, out_size, out_stride, out_data, out_scale)
 
 
-@register_qtensor_op([torch.ops.aten.t])
+@register_qbytestensor_op([torch.ops.aten.t])
 def transpose2d(op, input):
     out_data = op(input._data)
     out_scale = input._scale
@@ -302,19 +303,19 @@ def transpose2d(op, input):
         # We need to transpose also the scale
         out_scale = op(out_scale)
         out_axis = 0 if out_axis == -1 else -1
-    return QTensor(input.qtype, out_axis, out_size, out_stride, out_data, out_scale)
+    return QBytesTensor(input.qtype, out_axis, out_size, out_stride, out_data, out_scale)
 
 
-@register_qtensor_op([torch.ops.aten.view, torch.ops.aten._unsafe_view])
+@register_qbytestensor_op([torch.ops.aten.view, torch.ops.aten._unsafe_view])
 def view(op, input, *shape):
     if input.axis is None:
         # The view is transparent for QTensor with scalar scales
         out_data = op(input._data, *shape)
-        return QTensor(input.qtype, None, out_data.size(), out_data.stride(), out_data, input._scale)
+        return QBytesTensor(input.qtype, None, out_data.size(), out_data.stride(), out_data, input._scale)
     return qfallback(op, input, *shape)
 
 
-@register_qtensor_op([torch.ops.aten.where])
+@register_qbytestensor_op([torch.ops.aten.where])
 def where(op, condition, input, other):
     if isinstance(condition, QTensor) or isinstance(other, QTensor):
         raise NotImplementedError

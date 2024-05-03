@@ -16,7 +16,7 @@ import torch
 from torch.autograd import Function
 
 from ..core import dtype_info, group
-from ..qtensor import QTensor
+from ..qbytes import QBytesTensor
 from ..qtype import qtype
 
 
@@ -43,7 +43,7 @@ class SymmetricQuantizer(Function):
                 # Align on the general convention to index the last dimension
                 axis = -1
             if axis not in (0, -1):
-                raise ValueError("QTensor can only be quantized along the first or last axis.")
+                raise ValueError("QBytesTensor can only be quantized along the first or last axis.")
             if base.shape[axis] == 1:
                 raise ValueError(f"Cannot quantize Tensor of shape {base.shape} along axis {axis} of size 1")
             if group_size is not None:
@@ -62,7 +62,7 @@ class SymmetricQuantizer(Function):
         data = torch.clamp(data, min=info.min, max=info.max).to(qtype.dtype)
         # The instantiation of the quantized tensor must happen within the context of the Function
         # for the autograd magic to work.
-        return QTensor(qtype, axis, size, stride, data, scale)
+        return QBytesTensor(qtype, axis, size, stride, data, scale)
 
     @staticmethod
     def backward(ctx, gO):

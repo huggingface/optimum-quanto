@@ -18,7 +18,17 @@ from typing import Optional, Union
 
 import torch
 
-from ..tensor import Optimizer, QTensor, qint2, qint4, qtype, qtypes, quantize_activation, quantize_weight
+from ..tensor import (
+    Optimizer,
+    QBytesTensor,
+    QTensor,
+    qint2,
+    qint4,
+    qtype,
+    qtypes,
+    quantize_activation,
+    quantize_weight,
+)
 
 
 __all__ = ["QModuleMixin", "register_qmodule", "quantize_module"]
@@ -252,11 +262,11 @@ class QModuleMixin(ABC):
                 return t
             return quantize_activation(t.dequantize(), qtype=self.activation_qtype, scale=scale)
 
-        if self.activation_qtype is not None and isinstance(input, QTensor):
+        if self.activation_qtype is not None and isinstance(input, QBytesTensor):
             input = maybe_requantize(input, self.input_scale)
         output = self.qforward(input)
         if self.activation_qtype is not None:
-            if isinstance(output, QTensor):
+            if isinstance(output, QBytesTensor):
                 output = maybe_requantize(output, self.output_scale)
             else:
                 output = quantize_activation(output, qtype=self.activation_qtype, scale=self.output_scale)

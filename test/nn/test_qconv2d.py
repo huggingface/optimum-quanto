@@ -16,7 +16,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_qactivation
 
-from quanto import Calibration, QTensor, qfloat8_e4m3fn, qfloat8_e5m2, qint4, qint8
+from quanto import Calibration, QBytesTensor, qfloat8_e4m3fn, qfloat8_e5m2, qint4, qint8
 from quanto.nn import QConv2d
 
 
@@ -29,7 +29,7 @@ def _test_quantize_conv2d(batch_size, img_shape, out_channels, use_bias, weights
     with torch.no_grad(), Calibration():
         qout = qconv2d(qinputs)
     if activations is not None:
-        assert isinstance(qout, QTensor)
+        assert isinstance(qout, QBytesTensor)
         assert qout.qtype == activations
     # Align weights with quantized linear weights for comparison
     conv2d.weight = torch.nn.Parameter(qconv2d.qweight.dequantize())
