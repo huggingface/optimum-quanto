@@ -17,7 +17,7 @@ import torch
 from helpers import assert_similar, device_eq, random_tensor
 
 from quanto import (
-    QTensor,
+    QBytesTensor,
     SymmetricQuantizer,
     absmax_scale,
     qfloat8,
@@ -33,15 +33,15 @@ from quanto import (
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("qtype", [qint2, qint4, qint8], ids=["qint2", "qint4", "qint8"])
 @pytest.mark.parametrize(
-    "axis, group_size",
-    [[None, None], [0, None], [0, 8], [-1, None], [-1, 8]],
-    ids=["per-tensor", "first-axis", "first-axis-group-wise", "last-axis", "last-axis-group-wise"],
+    "axis",
+    [None, 0, -1],
+    ids=["per-tensor", "first-axis", "last-axis"],
 )
-def test_symmetric_quantize_int(input_shape, dtype, qtype, axis, group_size, device):
+def test_symmetric_quantize_int(input_shape, dtype, qtype, axis, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
-    scale = absmax_scale(a, qtype=qtype, axis=axis, group_size=group_size)
-    qa = SymmetricQuantizer.apply(a, qtype, axis, group_size, scale)
-    assert isinstance(qa, QTensor)
+    scale = absmax_scale(a, qtype=qtype, axis=axis)
+    qa = SymmetricQuantizer.apply(a, qtype, axis, None, scale)
+    assert isinstance(qa, QBytesTensor)
     assert qa.dtype == dtype
     assert qa.qtype == qtype
     assert device_eq(qa.device, device)
@@ -55,15 +55,15 @@ def test_symmetric_quantize_int(input_shape, dtype, qtype, axis, group_size, dev
     "qtype", [qfloat8, qfloat8_e4m3fn, qfloat8_e5m2], ids=["qfloat8", "qfloat8_e4m3fn", "qfloat8_e5m2"]
 )
 @pytest.mark.parametrize(
-    "axis, group_size",
-    [[None, None], [0, None], [0, 8], [-1, None], [-1, 8]],
-    ids=["per-tensor", "first-axis", "first-axis-group-wise", "last-axis", "last-axis-group-wise"],
+    "axis",
+    [None, 0, -1],
+    ids=["per-tensor", "first-axis", "last-axis"],
 )
-def test_symmetric_quantize_float8(input_shape, dtype, qtype, axis, group_size, device):
+def test_symmetric_quantize_float8(input_shape, dtype, qtype, axis, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
-    scale = absmax_scale(a, qtype=qtype, axis=axis, group_size=group_size)
-    qa = SymmetricQuantizer.apply(a, qtype, axis, group_size, scale)
-    assert isinstance(qa, QTensor)
+    scale = absmax_scale(a, qtype=qtype, axis=axis)
+    qa = SymmetricQuantizer.apply(a, qtype, axis, None, scale)
+    assert isinstance(qa, QBytesTensor)
     assert qa.dtype == dtype
     assert qa.qtype == qtype
     assert device_eq(qa.device, device)

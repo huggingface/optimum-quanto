@@ -22,7 +22,7 @@ from helpers import assert_similar, random_qactivation, random_tensor
 from quanto import (
     Calibration,
     QBitsTensor,
-    QTensor,
+    QBytesTensor,
     absmax_scale,
     qfloat8,
     qfloat8_e4m3fn,
@@ -45,7 +45,7 @@ def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, act
     with torch.no_grad(), context():
         qout = qlinear(inputs if activations is None else qinputs)
     if activations is not None:
-        assert isinstance(qout, QTensor)
+        assert isinstance(qout, QBytesTensor)
         assert qout.qtype == activations
     # Align linear weights with quantized linear weights for comparison
     linear.weight = torch.nn.Parameter(qlinear.qweight.dequantize())

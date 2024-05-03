@@ -19,13 +19,13 @@ import pytest
 import torch
 from helpers import random_qweight, random_tensor
 
-from quanto import QTensor, qfloat8, qint8, quantize_weight
+from quanto import QBytesTensor, qfloat8, qint8, quantize_weight
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("qtype", [qint8, qfloat8], ids=["qint8", "qfloat8"])
-def test_qtensor_instantiate(input_shape, dtype, qtype, device):
+def test_qbytestensor_instantiate(input_shape, dtype, qtype, device):
     if qtype.is_floating_point:
         if device.type == "mps":
             pytest.skip("float8 types are not supported on MPS device")
@@ -35,9 +35,9 @@ def test_qtensor_instantiate(input_shape, dtype, qtype, device):
     else:
         max_value = torch.iinfo(qtype.dtype).max
         data = torch.randint(-max_value, max_value, input_shape, dtype=qtype.dtype)
-    qa = QTensor(qtype, None, data.size(), data.stride(), data, scale=torch.tensor(1.0 / max_value, dtype=dtype)).to(
-        device
-    )
+    qa = QBytesTensor(
+        qtype, None, data.size(), data.stride(), data, scale=torch.tensor(1.0 / max_value, dtype=dtype)
+    ).to(device)
     assert torch.max(torch.abs(qa.dequantize())) <= 1
     assert qa.dtype == dtype
     assert qa.qtype == qtype
@@ -48,7 +48,7 @@ def test_qtensor_instantiate(input_shape, dtype, qtype, device):
 @pytest.mark.parametrize("qtype", [qint8, qfloat8], ids=["qint8", "qfloat8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
-def test_qtensor_serialization(input_shape, qtype, dtype, axis):
+def test_qbytestensor_serialization(input_shape, qtype, dtype, axis):
     qinputs = random_qweight(input_shape, dtype=dtype, qtype=qtype, axis=axis)
     b = io.BytesIO()
     torch.save(qinputs, b)
@@ -66,14 +66,14 @@ def test_qtensor_serialization(input_shape, qtype, dtype, axis):
     assert qinputs_reloaded.axis == qinputs.axis
 
 
-def test_qtensor_requires_grad(device):
+def test_qbytestensor_requires_grad(device):
     w = random_tensor((10, 10), dtype=torch.float32).to(device)
     w.requires_grad = True
     qw = quantize_weight(w, qtype=qint8, axis=0)
     assert qw.requires_grad is True
 
 
-def test_qtensor_backward(device):
+def test_qbytestensor_backward(device):
     w = random_tensor((10, 10), dtype=torch.float32).to(device)
     w.requires_grad = True
     qw = quantize_weight(w, qtype=qint8, axis=0)
@@ -83,7 +83,7 @@ def test_qtensor_backward(device):
     assert torch.equal(w.grad, gradient)
 
 
-def test_qtensor_chained_backward(device):
+def test_qbytestensor_chained_backward(device):
     a = random_tensor((10, 10), dtype=torch.float32).to(device)
     a.requires_grad = True
     qa = quantize_weight(a, qtype=qint8, axis=0)
@@ -100,19 +100,8 @@ def test_qtensor_chained_backward(device):
 
 
 @pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
-def test_qtensor_groupwise_backward(axis, device):
-    w = random_tensor((32, 32), dtype=torch.float32).to(device)
-    w.requires_grad = True
-    qw = quantize_weight(w, qtype=qint8, axis=axis, group_size=16)
-    gradient = torch.randn((32, 32)).to(device)
-    # Backpropagate gradient to the inner float weights
-    qw.dequantize().backward(gradient)
-    assert torch.equal(w.grad, gradient)
-
-
-@pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
 @pytest.mark.parametrize("qtype", [qint8])
-def test_qtensor_stride(axis, qtype, device):
+def test_qbytestensor_stride(axis, qtype, device):
     input_shape = (2, 4, 8)
     a = random_tensor(input_shape, dtype=torch.float32).to(device)
     qa = quantize_weight(a, qtype=qtype, axis=axis)
@@ -124,7 +113,7 @@ def test_qtensor_stride(axis, qtype, device):
 
 @pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
 @pytest.mark.parametrize("qtype", [qint8])
-def test_qtensor_contiguous(axis, qtype, device):
+def test_qbytestensor_contiguous(axis, qtype, device):
     input_shape = (2, 4, 8)
     qa = random_qweight(input_shape, axis=axis, qtype=qtype, dtype=torch.float32).to(device)
     assert qa.is_contiguous()
@@ -135,7 +124,7 @@ def test_qtensor_contiguous(axis, qtype, device):
 
 
 @pytest.mark.parametrize("input_shape, group_size", [[(4, 6), 2], [(32, 64), 4]], ids=["small", "bigger"])
-def test_qtensor_quantize_transposed_groupwise(input_shape, group_size, device):
+def test_qbytestensor_quantize_transposed_groupwise(input_shape, group_size, device):
     x = torch.tensor(range(prod(input_shape)), dtype=torch.float32).reshape(input_shape).to(device)
     xt = x.t()
     qx = quantize_weight(x, qtype=qint8, axis=0, group_size=group_size)
@@ -148,7 +137,7 @@ def test_qtensor_quantize_transposed_groupwise(input_shape, group_size, device):
 def test_to_device(device):
     qa = random_qweight((32, 32), qtype=qint8, dtype=torch.float)
     qa = qa.to(device)
-    assert isinstance(qa, QTensor)
+    assert isinstance(qa, QBytesTensor)
     assert qa.device.type == device.type
     assert qa._data.device.type == device.type
     assert qa._scale.device.type == device.type

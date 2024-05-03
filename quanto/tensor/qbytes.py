@@ -13,65 +13,55 @@
 # limitations under the License.
 
 import ast
-from copy import copy
 
 import torch
 from torch.autograd import Function
 
-from .core import ungroup
-from .packed import PackedTensor
 from .qtensor import QTensor, qfallback
 from .qtype import qtypes
 
 
-__all__ = ["QBitsTensor"]
+__all__ = ["QBytesTensor"]
 
 
-class QBitsDequantizer(Function):
+class QBytesDequantizer(Function):
     @staticmethod
     def forward(ctx, t):
-        unpacked = t._data.unpack()
-        int8_data = unpacked.to(torch.int8) - t._zeropoint.to(torch.int8)
         if t.qtype.is_floating_point:
             # Upcast explicitly to the scale dtype
-            dqt = t._scale * int8_data.to(t._scale.dtype)
+            dqt = t._scale * t._data.to(t._scale.dtype)
         else:
-            dqt = t._scale * int8_data
-        if t.axis is None:
-            return dqt
-        # Restore the original shape (if needed)
-        return ungroup(dqt, axis=t.axis, orig_shape=t.shape)
+            dqt = t._scale * t._data
+        return dqt
 
     @staticmethod
     def backward(ctx, gO):
+        # For autograd, dequantization is a no-op
         return gO
 
 
-class QBitsTensor(QTensor):
+class QBytesTensor(QTensor):
     @staticmethod
-    def __new__(cls, qtype, axis, size, stride, data, scale, zeropoint, requires_grad=False):
-        assert isinstance(data, PackedTensor)
+    def __new__(cls, qtype, axis, size, stride, data, scale, requires_grad=False):
         assert data.device == scale.device
-        assert data.device == zeropoint.device
         return torch.Tensor._make_wrapper_subclass(
             cls, size, strides=stride, dtype=scale.dtype, device=data.device, requires_grad=requires_grad
         )
 
-    def __init__(self, qtype, axis, size, stride, data, scale, zeropoint, requires_grad=False):
+    def __init__(self, qtype, axis, size, stride, data, scale, requires_grad=False):
         super().__init__(qtype, axis)
         self._data = data
         self._scale = scale
-        self._zeropoint = zeropoint
 
     def __repr__(self):
-        return f"QBitsTensor({self._data}, scale={self._scale}, zeropoint={self._zeropoint}, dtype={self.dtype})"
+        return f"QBytesTensor({self._data}, scale={self._scale}, dtype={self.dtype})"
 
     def dequantize(self):
-        return QBitsDequantizer.apply(self)
+        """Differentiable dequantization function"""
+        return QBytesDequantizer.apply(self)
 
     def __tensor_flatten__(self):
-        inner_tensors = ["_data", "_scale", "_zeropoint"]
-        # Since meta can be used for serialization, use only strings
+        inner_tensors = ["_data", "_scale"]
         meta = {
             "qtype": self._qtype.name,
             "axis": str(self._axis),
@@ -82,15 +72,15 @@ class QBitsTensor(QTensor):
 
     @staticmethod
     def __tensor_unflatten__(inner_tensors, meta, outer_size, outer_stride):
-        assert len(inner_tensors) == 3
+        assert len(inner_tensors) == 2
         assert len(meta) == 4
-        data, scale, zeropoint = inner_tensors["_data"], inner_tensors["_scale"], inner_tensors["_zeropoint"]
+        data, scale = inner_tensors["_data"], inner_tensors["_scale"]
         # Meta should only contain strings, AST compatible except qtype
         qtype = qtypes[meta["qtype"]]
         axis = ast.literal_eval(meta["axis"])
         size = ast.literal_eval(meta["size"])
         stride = ast.literal_eval(meta["stride"])
-        return QBitsTensor(qtype, axis, size, stride, data, scale, zeropoint)
+        return QBytesTensor(qtype, axis, size, stride, data, scale)
 
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
@@ -108,24 +98,16 @@ class QBitsTensor(QTensor):
 
     @classmethod
     def __torch_dispatch__(cls, op, types, args, kwargs=None):
-        if op.overloadpacket is torch.ops.aten.detach:
-            # Detach is required when copying and deserializing
-            t = args[0]
-            data = op(t._data)
-            scale = op(t._scale)
-            zeropoint = op(t._zeropoint)
-            return QBitsTensor(t._qtype, t._axis, t.size(), t.stride(), data, scale, zeropoint)
-        elif op.overloadpacket is torch.ops.aten._to_copy:
-            t = args[0]
-            # Copy scale
-            scale = op(t._scale, **kwargs)
-            # Move data and zeropoint, ignoring dtype (it only applies to scale)
-            data_kwargs = copy(kwargs)
-            data_kwargs["dtype"] = torch.uint8
-            data = op(t._data, **data_kwargs)
-            zeropoint_kwargs = copy(kwargs)
-            zeropoint_kwargs["dtype"] = torch.int8
-            zeropoint = op(t._zeropoint, **data_kwargs)
-            return QBitsTensor(t._qtype, t._axis, t.size(), t.stride(), data, scale, zeropoint)
+        from .qbytes_ops import get_qbytestensor_op_dispatch
+
+        # Do not use directly op, but rather its overload
+        op = op.overloadpacket
+        # Look for a dispatched op accepting QBytesTensor inputs
+        qdispatch = get_qbytestensor_op_dispatch(op)
+        if qdispatch is not None:
+            return qdispatch(*args, **kwargs)
         # No dispatch available: qfallback
         return qfallback(op, *args, **kwargs)
+
+    def numpy(self):
+        return self.dequantize().cpu().numpy()
