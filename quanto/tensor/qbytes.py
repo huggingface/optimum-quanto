@@ -83,20 +83,6 @@ class QBytesTensor(QTensor):
         return QBytesTensor(qtype, axis, size, stride, data, scale)
 
     @classmethod
-    def __torch_function__(cls, func, types, args=(), kwargs=None):
-        from .func import get_qtensor_func
-
-        kwargs = kwargs or {}
-
-        # Look for a func accepting QTensor inputs
-        qfunc = get_qtensor_func(func)
-        if qfunc is not None:
-            return qfunc(*args, **kwargs)
-        # Defer to dispatcher to look instead for QTensor operations
-        with torch._C.DisableTorchFunctionSubclass():
-            return func(*args, **kwargs)
-
-    @classmethod
     def __torch_dispatch__(cls, op, types, args, kwargs=None):
         from .qbytes_ops import get_qbytestensor_op_dispatch
 
@@ -108,6 +94,3 @@ class QBytesTensor(QTensor):
             return qdispatch(*args, **kwargs)
         # No dispatch available: qfallback
         return qfallback(op, *args, **kwargs)
-
-    def numpy(self):
-        return self.dequantize().cpu().numpy()

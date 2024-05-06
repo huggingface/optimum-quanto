@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import ast
-from copy import copy
 
 import torch
 from torch.autograd import Function
@@ -93,39 +92,14 @@ class QBitsTensor(QTensor):
         return QBitsTensor(qtype, axis, size, stride, data, scale, zeropoint)
 
     @classmethod
-    def __torch_function__(cls, func, types, args=(), kwargs=None):
-        from .func import get_qtensor_func
-
-        kwargs = kwargs or {}
-
-        # Look for a func accepting QTensor inputs
-        qfunc = get_qtensor_func(func)
-        if qfunc is not None:
-            return qfunc(*args, **kwargs)
-        # Defer to dispatcher to look instead for QTensor operations
-        with torch._C.DisableTorchFunctionSubclass():
-            return func(*args, **kwargs)
-
-    @classmethod
     def __torch_dispatch__(cls, op, types, args, kwargs=None):
-        if op.overloadpacket is torch.ops.aten.detach:
-            # Detach is required when copying and deserializing
-            t = args[0]
-            data = op(t._data)
-            scale = op(t._scale)
-            zeropoint = op(t._zeropoint)
-            return QBitsTensor(t._qtype, t._axis, t.size(), t.stride(), data, scale, zeropoint)
-        elif op.overloadpacket is torch.ops.aten._to_copy:
-            t = args[0]
-            # Copy scale
-            scale = op(t._scale, **kwargs)
-            # Move data and zeropoint, ignoring dtype (it only applies to scale)
-            data_kwargs = copy(kwargs)
-            data_kwargs["dtype"] = torch.uint8
-            data = op(t._data, **data_kwargs)
-            zeropoint_kwargs = copy(kwargs)
-            zeropoint_kwargs["dtype"] = torch.int8
-            zeropoint = op(t._zeropoint, **data_kwargs)
-            return QBitsTensor(t._qtype, t._axis, t.size(), t.stride(), data, scale, zeropoint)
+        from .qbits_ops import get_qbitstensor_op_dispatch
+
+        # Do not use directly op, but rather its overload
+        op = op.overloadpacket
+        # Look for a dispatched op accepting QBitsTensor inputs
+        qdispatch = get_qbitstensor_op_dispatch(op)
+        if qdispatch is not None:
+            return qdispatch(*args, **kwargs)
         # No dispatch available: qfallback
         return qfallback(op, *args, **kwargs)
