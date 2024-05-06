@@ -53,6 +53,8 @@ def has_compatible_shallow_copy_type(func, input: torch.Tensor, from_: torch.Ten
     return False
 
 
+# Below is a list of functions that we always want to operate on dequantized inputs
+# We therefore provide a dispatched method that does it explicitly.
 @register_qtensor_func(
     [
         torch.nn.functional.cross_entropy,
