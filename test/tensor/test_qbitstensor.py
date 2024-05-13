@@ -60,8 +60,10 @@ def test_qbitstensor_backward(qtype, axis, group_size, device):
     assert torch.equal(weight.grad, gradient)
 
 
-def test_to_device(device):
-    qa = random_qweight((32, 32), qtype=qint4)
+@pytest.mark.parametrize("group_size", [None, 128], ids=["channel-wise", "group-wise"])
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float16], ids=["fp32", "fp16"])
+def test_to_device(dtype, group_size, device):
+    qa = random_qweight((256, 512), dtype=dtype, qtype=qint4, group_size=group_size, device="cpu")
     qa = qa.to(device)
     assert isinstance(qa, QBitsTensor)
     assert qa.device.type == device.type
