@@ -16,6 +16,7 @@ from functools import partial
 
 import torch
 
+from .qbits import AWQBitsTensor
 from .qtensor import qfallback
 
 
@@ -91,7 +92,24 @@ class QTensorLinear(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input, other, bias):
         ctx.save_for_backward(input, other)
-        output = torch.matmul(input, other.t())
+        if isinstance(other, AWQBitsTensor):
+            if type(input) != torch.Tensor:
+                input = input.dequantize()
+            out_features, in_features = other.shape
+            rows = input.numel() // in_features
+            output = torch.ops.quanto.gemm(
+                input,
+                other._data._data,
+                other._scale,
+                other._zeropoint,
+                rows=rows,
+                out_cols=out_features,
+                in_cols=in_features,
+                bits=4,
+                group_size=other._group_size,
+            )
+        else:
+            output = torch.matmul(input, other.t())
         if bias is not None:
             output = output + bias
         return output
