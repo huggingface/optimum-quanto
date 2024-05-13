@@ -58,7 +58,7 @@ def is_scalar(t):
     return isinstance(t, numbers.Number) or type(t) == torch.Tensor and len(t.shape) == 0
 
 
-@register_qbytestensor_op([torch.ops.aten._to_copy])
+@register_qbytestensor_op([torch.ops.aten._to_copy, torch.ops.aten.to])
 def _to_copy(op, t, dtype=None, **kwargs):
     # For data, ignore dtype and use the inner type instead
     out_data = op(t._data, dtype=t._data.dtype, **kwargs)

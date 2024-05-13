@@ -136,7 +136,7 @@ class PackedTensor(torch.Tensor):
             t = args[0]
             data = op(t._data)
             return PackedTensor(data, t._bits, t.size(), t.stride())
-        elif op.overloadpacket is torch.ops.aten._to_copy:
+        elif op.overloadpacket in (torch.ops.aten._to_copy, torch.ops.aten.to):
             t = args[0]
             dtype = kwargs.get("dtype", torch.uint8)
             if dtype != torch.uint8:
