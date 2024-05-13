@@ -60,7 +60,7 @@ def _to_copy(op, t, dtype=None, **kwargs):
     zeropoint_kwargs = copy(kwargs)
     zeropoint_kwargs["dtype"] = torch.int8
     zeropoint = op(t._zeropoint, **data_kwargs)
-    return QBitsTensor(t._qtype, t._axis, t.size(), t.stride(), data, scale, zeropoint)
+    return QBitsTensor(t._qtype, t._axis, t._group_size, t.size(), t.stride(), data, scale, zeropoint)
 
 
 @register_qbitstensor_op([torch.ops.aten.detach])
@@ -69,4 +69,4 @@ def detach(op, t):
     data = op(t._data)
     scale = op(t._scale)
     zeropoint = op(t._zeropoint)
-    return QBitsTensor(t._qtype, t._axis, t.size(), t.stride(), data, scale, zeropoint)
+    return QBitsTensor(t._qtype, t._axis, t._group_size, t.size(), t.stride(), data, scale, zeropoint)
