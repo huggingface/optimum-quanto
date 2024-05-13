@@ -43,19 +43,19 @@ def device_eq(a, b):
     return a_index == b_index
 
 
-def random_tensor(shape, dtype=torch.float32):
+def random_tensor(shape, dtype=torch.float32, device="cpu"):
     # Return a random tensor between -1. and 1.
-    return torch.rand(shape, dtype=dtype) * 2 - 1
+    return torch.rand(shape, dtype=dtype, device=device) * 2 - 1
 
 
-def random_qactivation(shape, qtype=qint8, dtype=torch.float32):
-    t = random_tensor(shape, dtype)
+def random_qactivation(shape, qtype=qint8, dtype=torch.float32, device="cpu"):
+    t = random_tensor(shape, dtype, device=device)
     scale = absmax_scale(t, qtype=qtype)
     return quantize_activation(t, qtype=qtype, scale=scale)
 
 
-def random_qweight(shape, qtype, dtype=torch.float32, axis=0, group_size=None):
-    t = random_tensor(shape, dtype)
+def random_qweight(shape, qtype, dtype=torch.float32, axis=0, group_size=None, device="cpu"):
+    t = random_tensor(shape, dtype, device=device)
     return quantize_weight(t, qtype=qtype, axis=axis, group_size=group_size)
 
 
