@@ -48,7 +48,7 @@ class QBitsDequantizer(Function):
 
 class QBitsTensor(QTensor):
     @staticmethod
-    def __new__(cls, qtype, axis, size, stride, data, scale, zeropoint, requires_grad=False):
+    def __new__(cls, qtype, axis, group_size, size, stride, data, scale, zeropoint, requires_grad=False):
         assert isinstance(data, PackedTensor)
         assert data.device == scale.device
         assert data.device == zeropoint.device
@@ -56,11 +56,12 @@ class QBitsTensor(QTensor):
             cls, size, strides=stride, dtype=scale.dtype, device=data.device, requires_grad=requires_grad
         )
 
-    def __init__(self, qtype, axis, size, stride, data, scale, zeropoint, requires_grad=False):
+    def __init__(self, qtype, axis, group_size, size, stride, data, scale, zeropoint, requires_grad=False):
         super().__init__(qtype, axis)
         self._data = data
         self._scale = scale
         self._zeropoint = zeropoint
+        self._group_size = group_size
 
     def __repr__(self):
         return f"QBitsTensor({self._data}, scale={self._scale}, zeropoint={self._zeropoint}, dtype={self.dtype})"
@@ -74,6 +75,7 @@ class QBitsTensor(QTensor):
         meta = {
             "qtype": self._qtype.name,
             "axis": str(self._axis),
+            "group_size": str(self._group_size),
             "size": str(list(self.size())),
             "stride": str(list(self.stride())),
         }
@@ -82,14 +84,15 @@ class QBitsTensor(QTensor):
     @staticmethod
     def __tensor_unflatten__(inner_tensors, meta, outer_size, outer_stride):
         assert len(inner_tensors) == 3
-        assert len(meta) == 4
+        assert len(meta) == 5
         data, scale, zeropoint = inner_tensors["_data"], inner_tensors["_scale"], inner_tensors["_zeropoint"]
         # Meta should only contain strings, AST compatible except qtype
         qtype = qtypes[meta["qtype"]]
         axis = ast.literal_eval(meta["axis"])
+        group_size = ast.literal_eval(meta["group_size"])
         size = ast.literal_eval(meta["size"])
         stride = ast.literal_eval(meta["stride"])
-        return QBitsTensor(qtype, axis, size, stride, data, scale, zeropoint)
+        return QBitsTensor(qtype, axis, group_size, size, stride, data, scale, zeropoint)
 
     @classmethod
     def __torch_dispatch__(cls, op, types, args, kwargs=None):
