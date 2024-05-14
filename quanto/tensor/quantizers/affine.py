@@ -15,9 +15,7 @@
 import torch
 from torch.autograd import Function
 
-from ..core import group
-from ..packed import PackedTensor
-from ..qbits import QBitsTensor
+from ..qbits import QBitsTensor, group
 from ..qtype import qint2, qint4, qtype
 
 
@@ -41,9 +39,8 @@ class AffineQuantizer(Function):
             base = group(base, axis=axis, group_size=group_size)
         bits = qtype.bits
         data = torch.clamp(torch.round(base / scale) + zeropoint, min=0, max=2**bits - 1).to(torch.uint8)
-        packed = PackedTensor.pack(data, bits)
 
-        return QBitsTensor(qtype, axis, group_size, size, stride, packed, scale, zeropoint)
+        return QBitsTensor(qtype, axis, group_size, size, stride, data, scale, zeropoint)
 
     @staticmethod
     def backward(ctx, gO):
