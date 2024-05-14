@@ -73,9 +73,7 @@ def ungroup(grouped: torch.Tensor, axis: int, orig_shape: torch.Size):
     return ungrouped.reshape(orig_shape)
 
 
-def absmax_scale(
-    base: torch.Tensor, qtype: qtype = qint8, axis: Optional[int] = None, group_size: Optional[int] = None
-) -> torch.Tensor:
+def absmax_scale(base: torch.Tensor, qtype: qtype = qint8, axis: Optional[int] = None) -> torch.Tensor:
     """Evaluate the quantization scale using the absmax algorithm.
 
     The Absolute Maximum quantization algorithm is a symmetrical quantization
@@ -88,20 +86,14 @@ def absmax_scale(
         qtype (`quanto.qtype`): the target qtype for quantization.
         axis (`int`): the index of the axis to preserve, or -1 for the last one.
             Defaults to None to reduce all axis.
-        group_size(`int`): the number of elements with the same scale when using
-            group-wise quantization. Defaults to None.
 
     Returns:
         `torch.Tensor`: a scale tensor of the same dtype as the base.
     """
     base = torch.abs(base)
     if axis is None:
-        if group_size is not None:
-            raise ValueError("Group-wise quantization can only be performed per-axis")
         qranges = torch.max(base)
     else:
-        if group_size is not None:
-            base = group(base, axis=axis, group_size=group_size)
         dim = axis_to_dim(base, axis)
         qranges = torch.amax(base, dim=dim, keepdim=True)
     info = dtype_info(qtype.dtype)
