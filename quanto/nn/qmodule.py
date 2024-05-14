@@ -124,7 +124,7 @@ class QModuleMixin(ABC):
             out_features = self.weight.shape[0]
             if out_features >= 128:
                 group_size = self.weight.numel() // out_features
-                while group_size >= 128 and group_size % 2 == 0:
+                while group_size > 128 and group_size % 2 == 0:
                     group_size = group_size // 2
                 self.weight_group_size = group_size
         self.activation_qtype = activations
