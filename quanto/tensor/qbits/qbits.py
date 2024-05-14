@@ -17,10 +17,10 @@ import ast
 import torch
 from torch.autograd import Function
 
-from .core import ungroup
+from ..qtensor import QTensor, qfallback
+from ..qtype import qtypes
+from .group import ungroup
 from .packed import PackedTensor
-from .qtensor import QTensor, qfallback
-from .qtype import qtypes
 
 
 __all__ = ["QBitsTensor"]
@@ -49,7 +49,6 @@ class QBitsDequantizer(Function):
 class QBitsTensor(QTensor):
     @staticmethod
     def __new__(cls, qtype, axis, group_size, size, stride, data, scale, zeropoint, requires_grad=False):
-        assert isinstance(data, PackedTensor)
         assert data.device == scale.device
         assert data.device == zeropoint.device
         return torch.Tensor._make_wrapper_subclass(
@@ -58,6 +57,8 @@ class QBitsTensor(QTensor):
 
     def __init__(self, qtype, axis, group_size, size, stride, data, scale, zeropoint, requires_grad=False):
         super().__init__(qtype, axis)
+        if not isinstance(data, PackedTensor):
+            data = PackedTensor.pack(data, qtype.bits)
         self._data = data
         self._scale = scale
         self._zeropoint = zeropoint

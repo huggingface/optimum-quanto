@@ -16,7 +16,7 @@ from typing import Optional, Tuple
 
 import torch
 
-from ..core import group
+from ..qbits import group
 from .optimizer import Optimizer
 
 
