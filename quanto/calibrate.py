@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Optional
+
 import torch
 from torch.nn.modules.module import (
     register_module_forward_hook,
@@ -20,16 +22,43 @@ from torch.nn.modules.module import (
 from torch.overrides import TorchFunctionMode
 
 from .nn import QModuleMixin
-from .tensor import QBytesTensor, QTensor, absmax_scale
+from .tensor import QBytesTensor, QTensor, axis_to_dim, dtype_info, qint8, qtype
 
 
-__all__ = ["Calibration"]
+__all__ = ["Calibration", "absmax_scale"]
 
 
 def _updated_scale(scale, new_scale, momentum):
     if torch.all(scale == 1):
         return new_scale
     return momentum * scale + new_scale * (1.0 - momentum)
+
+
+def absmax_scale(base: torch.Tensor, qtype: qtype = qint8, axis: Optional[int] = None) -> torch.Tensor:
+    """Evaluate the quantization scale using the absmax algorithm.
+
+    The Absolute Maximum quantization algorithm is a symmetrical quantization
+    algorithm where the scale corresponds to the maximum absolute value of the
+    base divided by the highest positive integer value for the target integer
+    representation.
+
+    Args:
+        base (`torch.Tensor`): the base tensor on which the scale will be applied.
+        qtype (`quanto.qtype`): the target qtype for quantization.
+        axis (`int`): the index of the axis to preserve, or -1 for the last one.
+            Defaults to None to reduce all axis.
+
+    Returns:
+        `torch.Tensor`: a scale tensor of the same dtype as the base.
+    """
+    base = torch.abs(base)
+    if axis is None:
+        qranges = torch.max(base)
+    else:
+        dim = axis_to_dim(base, axis)
+        qranges = torch.amax(base, dim=dim, keepdim=True)
+    info = dtype_info(qtype.dtype)
+    return qranges / info.max
 
 
 class Calibration(TorchFunctionMode):
