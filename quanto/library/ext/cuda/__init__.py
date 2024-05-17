@@ -49,6 +49,8 @@ def ext():
             name="quanto_cuda",
             sources=[
                 f"{module_path}/unpack.cu",
+                f"{module_path}/awq/v1/gemm_cuda_v1.cu",
+                f"{module_path}/awq/v1/gemv_cuda_v1.cu",
                 f"{module_path}/awq/v2/gemm_cuda.cu",
                 f"{module_path}/awq/v2/gemv_cuda.cu",
                 f"{module_path}/pybind_module.cpp",
