@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from copy import copy
 from functools import partial
 from typing import Callable, List
 
@@ -50,17 +49,16 @@ def get_qbitstensor_op_dispatch(aten_op):
 
 
 @register_qbitstensor_op([torch.ops.aten._to_copy])
-def _to_copy(op, t, dtype=None, **kwargs):
-    # Copy scale
-    scale = op(t._scale, **kwargs)
-    # Move data and zeropoint, ignoring dtype (it only applies to scale)
-    data_kwargs = copy(kwargs)
-    data_kwargs["dtype"] = torch.uint8
-    data = op(t._data, **data_kwargs)
-    zeropoint_kwargs = copy(kwargs)
-    zeropoint_kwargs["dtype"] = torch.int8
-    zeropoint = op(t._zeropoint, **data_kwargs)
-    return QBitsTensor(t._qtype, t._axis, t._group_size, t.size(), t.stride(), data, scale, zeropoint)
+def _to_copy(op, t, dtype=None, device=None, **kwargs):
+    if dtype is not None and dtype != t.dtype:
+        raise ValueError("The dtype of a QBitsTensor cannot be changed")
+    if type(t) != QBitsTensor and t.device.type != device.type:
+        # Before moving to another device type, convert back to a QBitsTensor
+        t = t.qbits_tensor()
+    scale = op(t._scale, dtype=dtype, device=device, **kwargs)
+    data = op(t._data, device=device, **kwargs)
+    zeropoint = op(t._zeropoint, device=device, **kwargs)
+    return QBitsTensor.create(t._qtype, t._axis, t._group_size, t.size(), t.stride(), data, scale, zeropoint)
 
 
 @register_qbitstensor_op([torch.ops.aten.detach])
@@ -69,4 +67,4 @@ def detach(op, t):
     data = op(t._data)
     scale = op(t._scale)
     zeropoint = op(t._zeropoint)
-    return QBitsTensor(t._qtype, t._axis, t._group_size, t.size(), t.stride(), data, scale, zeropoint)
+    return t.__class__(t._qtype, t._axis, t._group_size, t.size(), t.stride(), data, scale, zeropoint)

@@ -18,7 +18,7 @@ import pytest
 import torch
 from helpers import random_qweight, random_tensor
 
-from quanto import QBitsTensor, qint2, qint4, quantize_weight
+from quanto import AWQBitsTensor, QBitsTensor, qint2, qint4, quantize_weight
 
 
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["int2", "int4"])
@@ -64,12 +64,21 @@ def test_qbitstensor_backward(qtype, axis, group_size, device):
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16], ids=["fp32", "fp16"])
 def test_to_device(dtype, group_size, device):
     qa = random_qweight((256, 512), dtype=dtype, qtype=qint4, group_size=group_size, device="cpu")
-    qa = qa.to(device)
-    assert isinstance(qa, QBitsTensor)
-    assert qa.device.type == device.type
-    assert qa._data.device.type == device.type
-    assert qa._scale.device.type == device.type
-    assert qa._zeropoint.device.type == device.type
+    # Keep a copy of the dequantized Tensor as a reference
+    dqa_cpu = qa.dequantize()
+    # Move to the target device
+    moved_qa = qa.to(device)
+    assert isinstance(moved_qa, QBitsTensor)
+    assert moved_qa.device.type == device.type
+    assert moved_qa._data.device.type == device.type
+    assert moved_qa._scale.device.type == device.type
+    assert moved_qa._zeropoint.device.type == device.type
+    if dtype == torch.float16 and device.type == "cuda" and group_size == 128:
+        # For specific CUDA configurations, we use an optimized packing
+        assert isinstance(moved_qa, AWQBitsTensor)
+    # Verify the moved dequantized Tensor is identical
+    moved_dqa = moved_qa.dequantize()
+    assert torch.equal(moved_dqa.to("cpu"), dqa_cpu)
 
 
 def test_detach():

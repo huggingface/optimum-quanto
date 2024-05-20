@@ -18,7 +18,7 @@ import torch
 from torch.autograd import Function
 
 from ..qtensor import QTensor, qfallback
-from ..qtype import qtypes
+from ..qtype import qint4, qtypes
 from .group import ungroup
 from .packed import PackedTensor
 
@@ -48,6 +48,48 @@ class QBitsDequantizer(Function):
 
 class QBitsTensor(QTensor):
     @staticmethod
+    def create(qtype, axis, group_size, size, stride, data, scale, zeropoint, requires_grad=False):
+        """Factory method to create a QBitsTensor
+
+        This selects the most appropriate QBitsTensor based on the configuration.
+
+        Args:
+            axis (`int`):
+                The axis that is preserved by quantization (usually zero for linear weights).
+            group_size (`int`):
+                The group size that further splits the data elements for each index along the quantization axis.
+            size ():
+                The Tensor size.
+            stride():
+                The Tensor stride.
+            data (`torch.Tensor`):
+                The tensor data, either as a raw uint8 torch.Tensor or as a PackedTensor.
+            scale (`torch.Tensor`):
+                The floating point scale expressed as a torch.Tensor.
+            zeropoint (`torch.Tensor`):
+                The integer zeropoint expressed as a torch.Tensor.
+            requires_grad (`bool`):
+                If the Tensor must be receive a gradient or not.
+
+        Returns:
+            a `QBitsTensor` (can be a subclass).
+        """
+        from .awq import AWQBitsTensor
+
+        if (
+            qtype == qint4
+            and scale.dtype == torch.float16
+            and axis == 0
+            and group_size == 128
+            and len(size) == 2
+            and data.device.type == "cuda"
+        ):
+            if type(data) == PackedTensor:
+                data = data.unpack()
+            return AWQBitsTensor(qtype, axis, group_size, size, stride, data, scale, zeropoint, requires_grad)
+        return QBitsTensor(qtype, axis, group_size, size, stride, data, scale, zeropoint, requires_grad)
+
+    @staticmethod
     def __new__(cls, qtype, axis, group_size, size, stride, data, scale, zeropoint, requires_grad=False):
         assert data.device == scale.device
         assert data.device == zeropoint.device
@@ -57,7 +99,7 @@ class QBitsTensor(QTensor):
 
     def __init__(self, qtype, axis, group_size, size, stride, data, scale, zeropoint, requires_grad=False):
         super().__init__(qtype, axis)
-        if not isinstance(data, PackedTensor):
+        if type(data) == torch.Tensor:
             data = PackedTensor.pack(data, qtype.bits)
         self._data = data
         self._scale = scale
@@ -65,7 +107,7 @@ class QBitsTensor(QTensor):
         self._group_size = group_size
 
     def __repr__(self):
-        return f"QBitsTensor({self._data}, scale={self._scale}, zeropoint={self._zeropoint}, dtype={self.dtype})"
+        return f"{type(self).__name__}({self._data}, scale={self._scale}, zeropoint={self._zeropoint}, dtype={self.dtype})"
 
     def dequantize(self):
         return QBitsDequantizer.apply(self)
@@ -80,6 +122,24 @@ class QBitsTensor(QTensor):
         for name in meta:
             meta_dict[name] = state_dict.pop(prefix + name)
         return QBitsTensor.__tensor_unflatten__(inner_tensors_dict, meta_dict, None, None)
+
+    def optimize(self):
+        """Allows to convert an existing QBitsTensor to an optimized subclass"""
+        if type(self) != QBitsTensor:
+            return self
+        data = self._data.unpack()
+        # Call dedicated helper to select the best subclass for this device
+        return QBitsTensor.create(
+            self.qtype,
+            self.axis,
+            self._group_size,
+            self.size(),
+            self.stride(),
+            data,
+            self._scale,
+            self._zeropoint,
+            self.requires_grad,
+        )
 
     def save_to_state_dict(self, destination, prefix, keep_vars):
         if type(self) == QBitsTensor:
