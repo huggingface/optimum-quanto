@@ -137,22 +137,8 @@ class QModuleMixin(ABC):
             # Save standard weight Tensor
             destination[prefix + "weight"] = self.weight if keep_vars else self.weight.detach()
         else:
-
-            def serialize_tensor_subclass(t, destination, prefix, keep_vars):
-                inner_tensors, meta = t.__tensor_flatten__()
-                for name in inner_tensors:
-                    inner_tensor = getattr(t, name)
-                    if type(inner_tensor) == torch.Tensor:
-                        # Leaf Tensor, we can serialize it
-                        destination[prefix + name] = inner_tensor if keep_vars else inner_tensor.detach()
-                    else:
-                        # Flatten also this inner Tensor
-                        serialize_tensor_subclass(inner_tensor, destination, prefix + name + ".", keep_vars)
-                for name, value in meta.items():
-                    destination[prefix + name] = value
-
-            # Frozen module: flatten QTensor weight into individual tensors
-            serialize_tensor_subclass(self.weight, destination, prefix + "weight.", keep_vars)
+            # Save QTensor using dedicated method
+            self.weight.save_to_state_dict(destination, prefix + "weight.", keep_vars)
         if self.bias is not None:
             destination[prefix + "bias"] = self.bias if keep_vars else self.bias.detach()
         destination[prefix + "input_scale"] = self.input_scale if keep_vars else self.input_scale.detach()
