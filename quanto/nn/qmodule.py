@@ -165,6 +165,7 @@ class QModuleMixin(ABC):
                 deserialized_weight = QBytesTensor.load_from_state_dict(state_dict, weight_prefix)
             else:
                 deserialized_weight = QBitsTensor.load_from_state_dict(state_dict, weight_prefix)
+                deserialized_weight = deserialized_weight.optimize()
 
             assign_to_params_buffers = local_metadata.get("assign_to_params_buffers", False)
             if assign_to_params_buffers:

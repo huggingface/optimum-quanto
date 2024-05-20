@@ -40,7 +40,7 @@ class AffineQuantizer(Function):
         bits = qtype.bits
         data = torch.clamp(torch.round(base / scale) + zeropoint, min=0, max=2**bits - 1).to(torch.uint8)
 
-        return QBitsTensor(qtype, axis, group_size, size, stride, data, scale, zeropoint)
+        return QBitsTensor.create(qtype, axis, group_size, size, stride, data, scale, zeropoint)
 
     @staticmethod
     def backward(ctx, gO):
