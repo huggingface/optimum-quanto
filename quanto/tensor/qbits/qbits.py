@@ -70,6 +70,20 @@ class QBitsTensor(QTensor):
     def dequantize(self):
         return QBitsDequantizer.apply(self)
 
+    def save_to_state_dict(self, destination, prefix, keep_vars):
+        if type(self) == QBitsTensor:
+            super().save_to_state_dict(destination, prefix, keep_vars)
+        else:
+            # Convert back subclass before serializing
+            self.qbits_tensor().save_to_state_dict(destination, prefix, keep_vars)
+
+    def qbits_tensor(self):
+        """Convert back a subclass to a QBitsTensor
+
+        This is required to make sure only standard packing is used when serializing.
+        """
+        raise NotImplementedError
+
     def __tensor_flatten__(self):
         inner_tensors = ["_data", "_scale", "_zeropoint"]
         # Since meta can be used for serialization, use only strings
