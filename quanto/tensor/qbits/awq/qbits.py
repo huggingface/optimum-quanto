@@ -30,8 +30,12 @@ class AWQBitsDequantizer(Function):
     @staticmethod
     def forward(ctx, t):
         unpacked = t._data.unpack()
+        if t._data._packing == AWQPacking.V1:
+            unpacked = unpacked.t()
         scale = t._scale
         zeropoint = t._zeropoint
+        if isinstance(zeropoint, AWQPackedTensor):
+            zeropoint = zeropoint.unpack()
         unpacked = group(unpacked, axis=0, group_size=t._group_size)
         n_scales = scale.numel()
         scale = scale.t().reshape((n_scales, 1))
@@ -65,11 +69,19 @@ class AWQBitsTensor(QBitsTensor):
         if not isinstance(data, AWQPackedTensor):
             assert type(data) == torch.Tensor
             # Format data, scale and zeropoint for optimized CUDA gemm
+            # The order of operations is slighly different for V1 and V2 kernels, but
+            # eventually all tensors are reshaped and transposed to be ready for matmul
             ungrouped = ungroup(data, axis=0, orig_shape=size)
-            data = AWQPackedTensor.pack(ungrouped, packing=AWQPacking.V2)
             out_features, in_features = size
+            # Reshape and transpose scale and zeropoint
             scale = scale.reshape(out_features, in_features // group_size).t().contiguous()
             zeropoint = zeropoint.reshape(out_features, in_features // group_size).t().contiguous()
+            if group_size == 128:
+                data = AWQPackedTensor.pack(ungrouped, packing=AWQPacking.V2)
+            else:
+                data = AWQPackedTensor.pack(ungrouped.t(), packing=AWQPacking.V1, reorder=True)
+                # Note that zeropoint is also packed for V1 kernel
+                zeropoint = AWQPackedTensor.pack(zeropoint, packing=AWQPacking.V1, reorder=True)
         super().__init__(qtype, axis, group_size, size, stride, data, scale, zeropoint)
 
     def dequantize(self):

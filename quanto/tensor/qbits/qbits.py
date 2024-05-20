@@ -80,7 +80,7 @@ class QBitsTensor(QTensor):
             qtype == qint4
             and scale.dtype == torch.float16
             and axis == 0
-            and group_size == 128
+            and group_size is not None
             and len(size) == 2
             and data.device.type == "cuda"
         ):

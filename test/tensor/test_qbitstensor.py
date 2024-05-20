@@ -60,10 +60,14 @@ def test_qbitstensor_backward(qtype, axis, group_size, device):
     assert torch.equal(weight.grad, gradient)
 
 
-@pytest.mark.parametrize("group_size", [None, 128], ids=["channel-wise", "group-wise"])
+@pytest.mark.parametrize(
+    "input_shape, group_size",
+    [((32, 32), None), ((256, 512), 128), ((256, 258), 86)],
+    ids=["channel-wise", "group-wise-128", "group-wise-86"],
+)
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16], ids=["fp32", "fp16"])
-def test_to_device(dtype, group_size, device):
-    qa = random_qweight((256, 512), dtype=dtype, qtype=qint4, group_size=group_size, device="cpu")
+def test_to_device(input_shape, group_size, dtype, device):
+    qa = random_qweight(input_shape, dtype=dtype, qtype=qint4, group_size=group_size, device="cpu")
     # Keep a copy of the dequantized Tensor as a reference
     dqa_cpu = qa.dequantize()
     # Move to the target device
@@ -73,7 +77,7 @@ def test_to_device(dtype, group_size, device):
     assert moved_qa._data.device.type == device.type
     assert moved_qa._scale.device.type == device.type
     assert moved_qa._zeropoint.device.type == device.type
-    if dtype == torch.float16 and device.type == "cuda" and group_size == 128:
+    if dtype == torch.float16 and device.type == "cuda" and group_size is not None:
         # For specific CUDA configurations, we use an optimized packing
         assert isinstance(moved_qa, AWQBitsTensor)
     # Verify the moved dequantized Tensor is identical
