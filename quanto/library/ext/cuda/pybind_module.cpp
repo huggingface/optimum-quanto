@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <torch/extension.h>
+#include "awq/v1/gemm_cuda.h"
 #include "awq/v2/gemm_cuda.h"
 #include "awq/v2/gemv_cuda.h"
 #include "unpack.h"
@@ -25,6 +26,7 @@
 // See the binding of quantize_symmetric for instance.
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+  m.def("gemm_forward_cuda", &gemm_forward_cuda, "gemm_forward_cuda");
   m.def("awq_v2_gemm_f16i4", &awq_v2_gemm_f16i4, "awq_v2_gemm_f16i4");
   m.def("awq_v2_gemv_f16i4", &awq_v2_gemv_f16i4, "awq_v2_gemv_f16i4");
   m.def("unpack", &unpack, "unpack");

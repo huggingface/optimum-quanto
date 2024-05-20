@@ -80,13 +80,16 @@ def gemm_cuda(
 ):
     assert input.dtype == torch.float16
     assert input.numel() == rows * in_cols
-    assert other.dtype == torch.int16
     assert scales.dtype == torch.float16
     assert scales.shape[-1] == out_cols
-    assert zeropoint.dtype == torch.float16
     assert zeropoint.shape[-1] == out_cols
     assert bits == 4
-    assert group_size == 128
+    # V1
+    if group_size != 128:
+        return ext().gemm_forward_cuda(input.reshape(rows, in_cols), other, scales, zeropoint, 8)
+    # V2
+    assert zeropoint.dtype == torch.float16
+    assert other.dtype == torch.int16
     if rows < 8:
         return ext().awq_v2_gemv_f16i4(input, other, scales, zeropoint, rows, out_cols, in_cols, group_size)
     return ext().awq_v2_gemm_f16i4(input, other, scales, zeropoint)

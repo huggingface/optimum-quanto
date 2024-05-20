@@ -77,3 +77,54 @@ def test_gemm_fp16_int4(batch_size, tokens, in_features, out_features):
     pt_outputs = torch.matmul(inputs, other_t)
     # Verify the results are similar
     assert_similar(lib_outputs, pt_outputs, rtol=5e-3)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@pytest.mark.parametrize("in_features, out_features", [(256, 256), (512, 256)])
+@pytest.mark.parametrize("batch_size, tokens", [(4, 1), (10, 128)], ids=["gemv", "gemm"])
+def test_gemm_fp16_int4_v1(batch_size, tokens, in_features, out_features):
+    """This test verifies that the GEMM operation is equivalent to torch.mm."""
+    bits = 4
+    group_size = 86
+    device = torch.device("cuda")
+    input_shape = (batch_size, tokens, in_features)
+    # FIXME: does not work if inputs are negative !!??
+    inputs = torch.rand(input_shape, dtype=torch.float16, device=device)
+    qmax = 2**bits
+    other_shape = (out_features, in_features)
+    other_data = torch.randint(0, qmax, other_shape, dtype=torch.uint8, device=device)
+    # The GEMM kernel works on transposed data
+    other_data_t = other_data.t()
+    packed_other_data = AWQPackedTensor.pack(other_data_t, packing=AWQPacking.V1, reorder=True)._data
+    # The GEMM kernel works on transposed scales
+    scales_shape = (in_features // group_size, out_features)
+    other_scales = torch.rand(scales_shape, dtype=torch.float16, device=device) / qmax
+    # The GEMM kernel works on transposed packed zeropoints
+    qmin = -(2 ** (bits - 1))
+    qmax = 2 ** (bits - 1)
+    other_zeropoints = torch.randint(qmin, qmax, scales_shape, dtype=torch.int8, device=device)
+    # Pack
+    other_zeropoints = AWQPackedTensor.pack(other_zeropoints, packing=AWQPacking.V1, reorder=True)._data
+    breakpoint()
+    # Evaluate mm outputs using the GEMM kernel
+    lib_outputs = torch.ops.quanto.gemm(
+        inputs,
+        packed_other_data,
+        other_scales,
+        other_zeropoints,
+        rows=inputs.numel() // inputs.shape[-1],
+        out_cols=out_features,
+        in_cols=in_features,
+        bits=4,
+        group_size=group_size,
+    )
+    # Reshape other_data to align it with scales and zeros shape
+    other_data_t = other_data_t.reshape(group_size, in_features // group_size, out_features)
+    # Dequantize transposed other
+    other_t = (other_data_t - other_zeropoints) * other_scales
+    # Reshape it as expected by the matmul
+    other_t = other_t.reshape(in_features, out_features)
+    # Evaluate the matrix multiplication using pytorch float16 mm
+    pt_outputs = torch.matmul(inputs, other_t)
+    # Verify the results are similar
+    assert_similar(lib_outputs, pt_outputs, rtol=5e-3)
