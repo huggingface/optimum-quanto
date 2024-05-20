@@ -48,7 +48,7 @@ def evaluate(
     if quantizer == "quanto":
         model, tokenizer = quanto_setup(model_id, weights, activations, batch_size, device)
     elif quantizer == "awq":
-        model, tokenizer = awq_setup(model_id, weights, activations)
+        model, tokenizer = awq_setup(model_id, weights, activations, group_size=128)
     elif quantizer == "bnb":
         model, tokenizer = bnb_setup(model_id, weights, activations, device)
     elif quantizer == "hqq":

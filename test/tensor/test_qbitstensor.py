@@ -16,7 +16,7 @@ import io
 
 import pytest
 import torch
-from helpers import random_qweight, random_tensor
+from helpers import assert_similar, random_qweight, random_tensor
 
 from quanto import QBitsTensor, qint2, qint4, quantize_weight
 
@@ -64,12 +64,22 @@ def test_qbitstensor_backward(qtype, axis, group_size, device):
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16], ids=["fp32", "fp16"])
 def test_to_device(dtype, group_size, device):
     qa = random_qweight((256, 512), dtype=dtype, qtype=qint4, group_size=group_size, device="cpu")
-    qa = qa.to(device)
-    assert isinstance(qa, QBitsTensor)
-    assert qa.device.type == device.type
-    assert qa._data.device.type == device.type
-    assert qa._scale.device.type == device.type
-    assert qa._zeropoint.device.type == device.type
+    # Keep a copy of the dequantized Tensor as a reference
+    dqa = qa.dequantize()
+    # Move to the target device
+    moved_qa = qa.to(device)
+    assert isinstance(moved_qa, QBitsTensor)
+    assert moved_qa.device.type == device.type
+    assert moved_qa._data.device.type == device.type
+    assert moved_qa._scale.device.type == device.type
+    assert moved_qa._zeropoint.device.type == device.type
+    moved_dqa = moved_qa.dequantize().to("cpu")
+    if type(moved_qa) != QBitsTensor:
+        # Since we use an optimized packing, the order of operations during
+        # dequantization might differ, but the moved dequantized Tensor should be nearly identical
+        assert_similar(moved_dqa, dqa)
+    else:
+        assert torch.equal(moved_dqa, dqa)
 
 
 def test_detach():

@@ -66,7 +66,7 @@ def prepare_inputs_for_generation(input_ids, past_key_values=None, attention_mas
     return model_inputs
 
 
-def setup(model_id: str, weights: str, activations: str, group_size: int = 64, version="GEMV"):
+def setup(model_id: str, weights: str, activations: str, group_size: int = 64, version="GEMV_FAST"):
     if activations != "none":
         raise ValueError("Activation quantization is not supported by HQQ")
     if weights != "int4":
