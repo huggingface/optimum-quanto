@@ -38,6 +38,23 @@ class QTensor(torch.Tensor):
     def dequantize(self):
         raise NotImplementedError
 
+    def save_to_state_dict(self, destination, prefix, keep_vars):
+        def serialize_tensor_subclass(t, destination, prefix, keep_vars):
+            inner_tensors, meta = t.__tensor_flatten__()
+            for name in inner_tensors:
+                inner_tensor = getattr(t, name)
+                if type(inner_tensor) == torch.Tensor:
+                    # Leaf Tensor, we can serialize it
+                    destination[prefix + name] = inner_tensor if keep_vars else inner_tensor.detach()
+                else:
+                    # Flatten also this inner Tensor
+                    serialize_tensor_subclass(inner_tensor, destination, prefix + name + ".", keep_vars)
+            for name, value in meta.items():
+                destination[prefix + name] = value
+
+        # Recursively flatten QTensor into individual tensors
+        serialize_tensor_subclass(self, destination, prefix, keep_vars)
+
     @property
     def axis(self):
         return self._axis
