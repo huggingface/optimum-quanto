@@ -70,6 +70,17 @@ class QBitsTensor(QTensor):
     def dequantize(self):
         return QBitsDequantizer.apply(self)
 
+    @staticmethod
+    def load_from_state_dict(state_dict, prefix):
+        inner_tensors_dict = {"_data": PackedTensor.load_from_state_dict(state_dict, prefix + "_data.")}
+        for name in ["_scale", "_zeropoint"]:
+            inner_tensors_dict[name] = state_dict.pop(prefix + name)
+        meta = [name.replace(prefix, "") for name in state_dict.keys() if name.startswith(prefix)]
+        meta_dict = {}
+        for name in meta:
+            meta_dict[name] = state_dict.pop(prefix + name)
+        return QBitsTensor.__tensor_unflatten__(inner_tensors_dict, meta_dict, None, None)
+
     def save_to_state_dict(self, destination, prefix, keep_vars):
         if type(self) == QBitsTensor:
             super().save_to_state_dict(destination, prefix, keep_vars)
