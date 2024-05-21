@@ -20,6 +20,7 @@ import torch
 
 from ..tensor import (
     Optimizer,
+    QBitsTensor,
     QBytesTensor,
     QTensor,
     qint2,
@@ -159,25 +160,12 @@ class QModuleMixin(ABC):
         weight_name = prefix + "weight"
         if self.weight_qtype is not None and weight_name not in state_dict:
             # The weight Tensor is not present because it is a flattened QTensor
-            def deserialize_tensor_subclass(t, state_dict, prefix):
-                inner_tensors, meta = t.__tensor_flatten__()
-                inner_tensors_dict = {}
-                meta_dict = {}
-                for name in inner_tensors:
-                    if (prefix + name) in state_dict:
-                        # Leaf Tensor, we can deserialize it
-                        inner_tensors_dict[name] = state_dict.pop(prefix + name)
-                    else:
-                        # Flattened inner Tensor
-                        inner_tensor = getattr(t, name)
-                        inner_tensors_dict[name] = deserialize_tensor_subclass(
-                            inner_tensor, state_dict, prefix + name + "."
-                        )
-                for name in meta:
-                    meta_dict[name] = state_dict.pop(prefix + name)
-                return t.__class__.__tensor_unflatten__(inner_tensors_dict, meta_dict, None, None)
+            weight_prefix = weight_name + "."
+            if self.weight_qtype.bits == 8:
+                deserialized_weight = QBytesTensor.load_from_state_dict(state_dict, weight_prefix)
+            else:
+                deserialized_weight = QBitsTensor.load_from_state_dict(state_dict, weight_prefix)
 
-            deserialized_weight = deserialize_tensor_subclass(self.qweight, state_dict, weight_name + ".")
             assign_to_params_buffers = local_metadata.get("assign_to_params_buffers", False)
             if assign_to_params_buffers:
                 self.weight = torch.nn.Parameter(deserialized_weight)
