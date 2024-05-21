@@ -110,6 +110,15 @@ class PackedTensor(torch.Tensor):
     def dtype(self):
         return torch.uint8
 
+    @staticmethod
+    def load_from_state_dict(state_dict, prefix):
+        inner_tensors_dict = {"_data": state_dict.pop(prefix + "_data")}
+        meta = [name.replace(prefix, "") for name in state_dict.keys() if name.startswith(prefix)]
+        meta_dict = {}
+        for name in meta:
+            meta_dict[name] = state_dict.pop(prefix + name)
+        return PackedTensor.__tensor_unflatten__(inner_tensors_dict, meta_dict, None, None)
+
     def __tensor_flatten__(self):
         inner_tensors = ["_data"]
         # Since meta can be used for serialization, use only AST compatible strings
