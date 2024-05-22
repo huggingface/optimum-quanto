@@ -123,11 +123,13 @@ class QModuleMixin(ABC):
         self.weight_group_size = None
         if self.weight_qtype in (qint2, qint4):
             out_features = self.weight.shape[0]
-            if out_features >= 128:
-                group_size = self.weight.numel() // out_features
-                while group_size > 128 and group_size % 2 == 0:
-                    group_size = group_size // 2
-                self.weight_group_size = group_size
+            in_features = self.weight.numel() // out_features
+            group_size = 128
+            if in_features > group_size:
+                while in_features % group_size != 0 and group_size > 32:
+                    group_size -= 32
+                if in_features % group_size == 0:
+                    self.weight_group_size = group_size
         self.activation_qtype = activations
         self.optimizer = optimizer
         self.register_buffer("input_scale", torch.ones(()))
