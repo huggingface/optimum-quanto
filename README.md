@@ -16,7 +16,7 @@ External contributions to quanto will be suspended until the merge is complete.
 - automatically inserts quantized modules (see below the list of supported modules),
 - provides a seamless workflow from a float model to a dynamic to a static quantized model,
 - serialization compatible with pytorch `weight_only` and 🤗 `safetensors`,
-- uses integer matrix multiplications (`mm`) on CUDA devices,
+- accelerated matrix multiplications on CUDA devices (int8-int8, fp16-int4),
 - supports int2, int4, int8 and float8 weights,
 - supports int8 and float8 activations.
 
