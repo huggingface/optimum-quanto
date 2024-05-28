@@ -54,7 +54,10 @@ def setup(
     if weights is not None or activations is not None:
         print("Quantizing")
         start = time.time()
-        quantize(model, weights=weights, activations=activations)
+        quantization_root = model
+        if hasattr(model, "model"):
+            quantization_root = model.model
+        quantize(quantization_root, weights=weights, activations=activations)
         if activations is not None:
             print("Calibrating")
             with Calibration():
