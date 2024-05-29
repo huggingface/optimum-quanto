@@ -89,16 +89,23 @@ Activations are dynamically quantized using static scales (defaults to the range
 In a nutshell:
 
 - accuracy: models compiled with `int8`/`float8` weights and `float8` activations are very close to the `16-bit` models,
-- latency: all models are at least `2x` slower than the `16-bit` models due to the lack of optimized kernels (for now).
+- latency: all models but those using int4 weights are at least `2x` slower than the `16-bit` models due to the lack of optimized kernels (for now).
 - device memory: approximately divided by float bits / integer bits.
 
 The paragraph below is just an example. Please refer to the `bench` folder for detailed results per use-case of model.
 
-### NousResearch/Llama-2-7b-hf
+### meta-llama/Meta-Llama-3-8B
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/NousResearch-Llama-2-7b-hf_Perplexity.png" alt="NousResearch/Llama-2-7b-hf WikiText perplexity">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3-8B_Perplexity.png" alt="meta-llama/Meta-Llama-3-8B WikiText perplexity">
+  </div>
+ </center>
+</div>
+
+<div class="row"><center>
+  <div class="column">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3-8B_Latency__ms_.png" alt="meta-llama/Meta-Llama-3-8B Latency">
   </div>
  </center>
 </div>
