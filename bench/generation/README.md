@@ -16,7 +16,7 @@ The paragraphs below display results for some popular models on a NVIDIA A10 GPU
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/meta-llama-Meta-llama-3-8B_Accuracy.png" alt="meta-llama/Meta-llama-3-8B Lambada prediction accuracy">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3-8B_Accuracy.png" alt="meta-llama/Meta-llama-3-8B Lambada prediction accuracy">
   </div>
  </center>
 </div>
@@ -99,7 +99,7 @@ The paragraphs below display results for some popular models on a NVIDIA A10 GPU
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/EleutherAI-pythia-1b_Latency_ms_.png" alt="EleutherAI-pythia-1b Latency">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/EleutherAI-pythia-1b_Latency__ms_.png" alt="EleutherAI-pythia-1b Latency">
   </div>
  </center>
 </div>
