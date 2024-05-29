@@ -5,16 +5,14 @@ SCRIPT=$(readlink -f "$0")
 SCRIPT_PATH=$(dirname "$SCRIPT")
 
 small_models=(
-    facebook/opt-125m
-    facebook/opt-350m
-    facebook/opt-1.3b
     EleutherAI/pythia-1b
     princeton-nlp/Sheared-LLaMA-1.3B
 )
 
 bigger_models=(
-    NousResearch/Llama-2-7b-hf
-    HuggingFaceH4/zephyr-7b-beta
+    google/gemma-2b
+    meta-llama/Meta-Llama-3-8B
+    mistralai/Mistral-7B-Instruct-v0.3
 )
 
 for m in ${small_models[@]}; do
