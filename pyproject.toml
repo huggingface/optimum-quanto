@@ -29,25 +29,25 @@ dev = ['pytest', 'ruff', 'black']
 examples = ['torchvision', 'transformers==4.40.2', 'datasets']
 
 [tool.setuptools.dynamic]
-version = {attr = "quanto.__version__"}
+version = {attr = 'quanto.__version__'}
 
 [build-system]
-requires = ["setuptools>65.5.1", "setuptools_scm"]
-build-backend = "setuptools.build_meta"
+requires = ['setuptools>65.5.1', 'setuptools_scm']
+build-backend = 'setuptools.build_meta'
 
 [tool.black]
 line-length = 119
 
 [tool.ruff]
 # Never enforce `E501` (line length violations).
-lint.ignore = ["C901", "E501", "E741"]
-lint.select = ["C", "E", "F", "I", "W"]
+lint.ignore = ['C901', 'E501', 'E741']
+lint.select = ['C', 'E', 'F', 'I', 'W']
 line-length = 119
 
 # Ignore import violations in all `__init__.py` files.
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["E402", "F401", "F403", "F811"]
+'__init__.py' = ['E402', 'F401', 'F403', 'F811']
 
 [tool.ruff.lint.isort]
 lines-after-imports = 2
-known-first-party = ["quanto"]
+known-first-party = ['quanto']
