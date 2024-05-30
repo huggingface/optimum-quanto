@@ -29,6 +29,11 @@ homepage = 'https://github.com/huggingface/quanto'
 dev = ['pytest', 'ruff', 'black']
 examples = ['torchvision', 'transformers==4.40.2', 'datasets']
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["quanto*"]
+namespaces = false
+
 [tool.setuptools.dynamic]
 version = {attr = 'quanto.__version__'}
 
