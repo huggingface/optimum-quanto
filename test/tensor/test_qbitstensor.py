@@ -18,7 +18,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_qweight, random_tensor
 
-from quanto import QBitsTensor, qint2, qint4, quantize_weight
+from optimum.quanto import QBitsTensor, qint2, qint4, quantize_weight
 
 
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["int2", "int4"])

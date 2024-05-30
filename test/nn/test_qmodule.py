@@ -15,8 +15,8 @@
 import pytest
 import torch
 
-from quanto import QTensor, qint8, qtypes
-from quanto.nn import QLinear
+from optimum.quanto import QTensor, qint8, qtypes
+from optimum.quanto.nn import QLinear
 
 
 @pytest.mark.parametrize("in_features", [8, 16])

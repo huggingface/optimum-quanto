@@ -16,7 +16,7 @@ import pytest
 import torch
 from helpers import random_tensor, torch_min_version
 
-from quanto import QBytesTensor, absmax_scale, qint8, quantize_activation
+from optimum.quanto import QBytesTensor, absmax_scale, qint8, quantize_activation
 
 
 def compile_for_device(f, device):

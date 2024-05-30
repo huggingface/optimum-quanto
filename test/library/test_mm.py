@@ -16,7 +16,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_tensor
 
-from quanto import AWQPackedTensor, AWQPacking
+from optimum.quanto import AWQPackedTensor, AWQPacking
 
 
 @pytest.mark.parametrize("input_shape", [[10, 32], [32, 32]])

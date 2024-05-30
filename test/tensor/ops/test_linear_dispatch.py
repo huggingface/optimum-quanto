@@ -16,7 +16,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_qactivation, random_qweight, random_tensor
 
-from quanto import qint2, qint4, qint8
+from optimum.quanto import qint2, qint4, qint8
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])

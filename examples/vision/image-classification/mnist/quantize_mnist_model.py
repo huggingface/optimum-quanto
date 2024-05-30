@@ -21,7 +21,7 @@ import torch.nn.functional as F
 from torchvision import datasets, transforms
 from transformers import AutoModel
 
-from quanto import Calibration, QTensor, freeze, qfloat8, qint4, qint8, quantize
+from optimum.quanto import Calibration, QTensor, freeze, qfloat8, qint4, qint8, quantize
 
 
 def test(model, device, test_loader):

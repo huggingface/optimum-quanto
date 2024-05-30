@@ -19,7 +19,7 @@ import pytest
 import torch
 from helpers import assert_similar, get_device_memory, random_qactivation, random_tensor
 
-from quanto import (
+from optimum.quanto import (
     AbsmaxOptimizer,
     Calibration,
     MaxOptimizer,
@@ -35,7 +35,7 @@ from quanto import (
     safe_load,
     safe_save,
 )
-from quanto.nn import QModuleMixin
+from optimum.quanto.nn import QModuleMixin
 
 
 class MLP(torch.nn.Module):

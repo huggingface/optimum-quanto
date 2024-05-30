@@ -19,7 +19,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_qactivation, random_tensor
 
-from quanto import (
+from optimum.quanto import (
     Calibration,
     QBitsTensor,
     QBytesTensor,
@@ -31,7 +31,7 @@ from quanto import (
     qint8,
     quantize_activation,
 )
-from quanto.nn import QLinear
+from optimum.quanto.nn import QLinear
 
 
 def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, dtype, device):

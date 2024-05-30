@@ -16,7 +16,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_qactivation, random_tensor
 
-from quanto import QBytesTensor, quantize_activation
+from optimum.quanto import QBytesTensor, quantize_activation
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])

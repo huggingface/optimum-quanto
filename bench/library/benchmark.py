@@ -20,7 +20,7 @@ import numpy as np
 import torch
 from tqdm.auto import tqdm
 
-from quanto.library import disable_extensions
+from optimum.quanto.library import disable_extensions
 
 
 def get_dqmm_bench(input_dtype, device):

@@ -1,6 +1,6 @@
 [project]
-name = 'quanto'
-description = 'A quantization toolkit for pytorch.'
+name = 'optimum-quanto'
+description = 'A pytorch quantization backend for optimum.'
 classifiers = [
     'Development Status :: 2 - Pre-Alpha',
     'License :: OSI Approved :: Apache Software License',
@@ -23,7 +23,7 @@ readme = 'README.md'
 dynamic = ['version']
 
 [project.urls]
-homepage = 'https://github.com/huggingface/quanto'
+homepage = 'https://github.com/huggingface/optimum-quanto'
 
 [project.optional-dependencies]
 dev = ['pytest', 'ruff', 'black']
@@ -31,11 +31,10 @@ examples = ['torchvision', 'transformers==4.40.2', 'datasets']
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["quanto*"]
-namespaces = false
+include = ["optimum*"]
 
 [tool.setuptools.dynamic]
-version = {attr = 'quanto.__version__'}
+version = {attr = 'optimum.quanto.__version__'}
 
 [build-system]
 requires = ['setuptools>65.5.1', 'setuptools_scm']
@@ -56,4 +55,4 @@ line-length = 119
 
 [tool.ruff.lint.isort]
 lines-after-imports = 2
-known-first-party = ['quanto']
+known-first-party = ['optimum.quanto']

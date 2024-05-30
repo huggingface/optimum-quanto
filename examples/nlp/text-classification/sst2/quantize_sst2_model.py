@@ -22,7 +22,7 @@ from datasets import load_dataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
 from transformers.pipelines.pt_utils import KeyDataset
 
-from quanto import Calibration, freeze, qint4, qint8, quantize
+from optimum.quanto import Calibration, freeze, qint4, qint8, quantize
 
 
 def evaluate_model(model, tokenizer, dataset, device, batch_size):

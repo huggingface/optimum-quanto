@@ -17,7 +17,7 @@ import torch
 
 from pack_intweight import pack_intweight
 from packing_utils import pack_awq, reverse_awq_order, unpack_awq
-from quanto import AWQPackedTensor, AWQPacking
+from optimum.quanto import AWQPackedTensor, AWQPacking
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")

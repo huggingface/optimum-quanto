@@ -18,7 +18,7 @@ import pytest
 import torch
 from helpers import device_eq
 
-from quanto import AWQPackedTensor, AWQPacking
+from optimum.quanto import AWQPackedTensor, AWQPacking
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
