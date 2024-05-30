@@ -19,7 +19,6 @@ from datasets import load_dataset
 from metrics.latency import latency
 from metrics.perplexity import perplexity
 from metrics.prediction import prediction_accuracy
-
 from setup.awq import setup as awq_setup
 from setup.bnb import setup as bnb_setup
 from setup.hqq import setup as hqq_setup

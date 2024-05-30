@@ -19,7 +19,7 @@ import pytest
 import torch
 from packaging import version
 
-from quanto import absmax_scale, qint8, quantize_activation, quantize_weight
+from optimum.quanto import absmax_scale, qint8, quantize_activation, quantize_weight
 
 
 def torch_min_version(v):

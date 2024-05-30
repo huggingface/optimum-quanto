@@ -18,7 +18,7 @@ import pytest
 import torch
 from helpers import random_qweight, random_tensor
 
-from quanto import QBytesTensor, qfloat8, qint8, quantize_weight
+from optimum.quanto import QBytesTensor, qfloat8, qint8, quantize_weight
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (10, 32, 32)])

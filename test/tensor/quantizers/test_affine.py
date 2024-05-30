@@ -16,7 +16,7 @@ import pytest
 import torch
 from helpers import assert_similar, device_eq, random_tensor
 
-from quanto import (
+from optimum.quanto import (
     AffineQuantizer,
     MaxOptimizer,
     QBitsTensor,

@@ -16,8 +16,8 @@ import pytest
 import torch
 from helpers import random_qactivation
 
-from quanto import Calibration, qfloat8_e4m3fn, qfloat8_e5m2, qint8
-from quanto.nn import QLinear
+from optimum.quanto import Calibration, qfloat8_e4m3fn, qfloat8_e5m2, qint8
+from optimum.quanto.nn import QLinear
 
 
 def _test_calibrate_qlinear(batch_size, tokens, embeddings, use_bias, activations, device):

@@ -15,7 +15,7 @@ import pytest
 import torch
 
 from pack import pack_awq
-from quanto import AffineQuantizer, MaxOptimizer, qint4, ungroup
+from optimum.quanto import AffineQuantizer, MaxOptimizer, qint4, ungroup
 
 
 def assert_similar(a, b, atol=None, rtol=None):

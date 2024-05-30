@@ -21,7 +21,7 @@ import torch.utils.checkpoint
 from helpers import assert_similar, random_tensor
 from torch import nn
 
-from quanto import Calibration, qfloat8_e4m3fn, qfloat8_e5m2, qint8, quantize
+from optimum.quanto import Calibration, qfloat8_e4m3fn, qfloat8_e5m2, qint8, quantize
 
 
 class RotaryEmbedding(nn.Module):

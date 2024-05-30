@@ -16,7 +16,7 @@ import pytest
 import torch
 from helpers import random_tensor
 
-from quanto import absmax_scale, qfloat8, qint8
+from optimum.quanto import absmax_scale, qfloat8, qint8
 
 
 @pytest.mark.parametrize("input_shape", [(10,), (1, 10), (2, 10), (10, 32, 32)])

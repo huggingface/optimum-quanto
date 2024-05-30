@@ -5,7 +5,7 @@ import torch
 import torch.utils.benchmark as benchmark
 from diffusers import DiffusionPipeline
 
-from quanto import freeze, qfloat8, qint4, qint8, quantize
+from optimum.quanto import freeze, qfloat8, qint4, qint8, quantize
 
 
 CKPT = "runwayml/stable-diffusion-v1-5"

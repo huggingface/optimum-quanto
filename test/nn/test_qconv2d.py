@@ -16,8 +16,8 @@ import pytest
 import torch
 from helpers import assert_similar, random_qactivation
 
-from quanto import Calibration, QBytesTensor, qfloat8_e4m3fn, qfloat8_e5m2, qint4, qint8
-from quanto.nn import QConv2d
+from optimum.quanto import Calibration, QBytesTensor, qfloat8_e4m3fn, qfloat8_e5m2, qint4, qint8
+from optimum.quanto.nn import QConv2d
 
 
 def _test_quantize_conv2d(batch_size, img_shape, out_channels, use_bias, weights, activations, dtype, device):

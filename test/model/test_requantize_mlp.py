@@ -17,14 +17,14 @@ import torch
 from helpers import get_device_memory, random_tensor
 from test_quantize_mlp import MLP, save_and_reload_state_dict
 
-from quanto import (
+from optimum.quanto import (
     Calibration,
     freeze,
     qint8,
     quantize,
     requantize,
 )
-from quanto.nn import QModuleMixin
+from optimum.quanto.nn import QModuleMixin
 
 
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])

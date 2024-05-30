@@ -17,8 +17,8 @@ from contextlib import nullcontext
 import pytest
 import torch
 
-from quanto.library import disable_extensions
-from quanto.tensor.qbits.packed import pack_weights
+from optimum.quanto.library import disable_extensions
+from optimum.quanto.tensor.qbits.packed import pack_weights
 
 
 @pytest.mark.parametrize("bits", [2, 4], ids=["int2", "int4"])

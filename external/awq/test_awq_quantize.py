@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from quanto import AffineQuantizer, MaxOptimizer, qint4, ungroup
+from optimum.quanto import AffineQuantizer, MaxOptimizer, qint4, ungroup
 
 
 def awq_quantize(base, scales, zeros, group_size):

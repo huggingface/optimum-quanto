@@ -19,7 +19,7 @@ import torch
 from evaluate_model import evaluate
 from gen_barchart import gen_barchart
 
-from quanto import qtype
+from optimum.quanto import qtype
 
 
 def evaluate_model_configurations(model_id: str, metric: str, device: torch.device, batch_size: int = 32):
