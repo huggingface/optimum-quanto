@@ -19,7 +19,8 @@ requires-python = '>=3.8.0'
 authors = [{ name = 'David Corvoysier', email = 'david@huggingface.co' }]
 dependencies = ['torch>=2.2.0', 'ninja', 'numpy', 'safetensors']
 license = { text = 'Apache-2.0' }
-dynamic = ['readme', 'version']
+readme = 'README.md'
+dynamic = ['version']
 
 [project.urls]
 homepage = 'https://github.com/huggingface/quanto'
