@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Contribute to 🤗 Quanto
+# Contribute to optimum-quanto
 
 Everyone is welcome to contribute, and we value everybody's contribution. Code
 contributions are not the only way to help the community. Answering questions, helping
@@ -31,7 +31,7 @@ However you choose to contribute, please be mindful and respect our
 
 ## Ways to contribute
 
-There are several ways you can contribute to 🤗 Quanto:
+There are several ways you can contribute:
 
 * Fix outstanding issues with the existing code.
 * Submit issues related to bugs or desired new features.
@@ -41,7 +41,7 @@ There are several ways you can contribute to 🤗 Quanto:
 
 ## Fixing outstanding issues
 
-If you notice an issue with the existing code and have a fix in mind, feel free to [start contributing](https://github.com/huggingface/quanto/blob/main/CONTRIBUTING.md/#create-a-pull-request) and open a Pull Request!
+If you notice an issue with the existing code and have a fix in mind, feel free to [start contributing](https://github.com/huggingface/optimum-quanto/blob/main/CONTRIBUTING.md/#create-a-pull-request) and open a Pull Request!
 
 ## Submitting a bug-related issue or feature request
 
@@ -51,7 +51,7 @@ feedback.
 
 ### Did you find a bug?
 
-The 🤗 Quanto library will become more robust and reliable thanks to users who will report the problems they encounter.
+The `optimum-quanto` backend will become more robust and reliable thanks to users who will report the problems they encounter.
 
 Before you report an issue, we would really appreciate it if you could **make sure the bug was not
 already reported** (use the search bar on GitHub under Issues). Your issue should also be related to bugs in the library itself, and not your code. If you're unsure whether the bug is in your code or the library, please ask in the [forum](https://discuss.huggingface.co/) first. This helps us respond quicker to fixing issues related to the library versus general questions.
@@ -66,7 +66,7 @@ Once you've confirmed the bug hasn't already been reported, please include the f
 
 ### Do you want a new feature?
 
-If there is a new feature you'd like to see in 🤗 Quanto, please open an issue and describe:
+If there is a new feature you'd like to see, please open an issue and describe:
 
 1. What is the *motivation* behind this feature? Is it related to a problem or frustration with the library? Is it a feature related to something you need for a project? Is it something you worked on and think it could benefit the community?
 
@@ -85,7 +85,7 @@ With the constant evolution of hardware backends, there is always a need for upd
 * The hardware configuration(s) it will apply to.
 * If any, a short description of the novel techniques that should be used to implement the kernel.
 
-If you are willing to contribute the kernel yourself, let us know so we can help you add it to 🤗 Quanto!
+If you are willing to contribute the kernel yourself, let us know so we can help you add it to `optimum-quanto`!
 
 ## Create a Pull Request
 
@@ -93,23 +93,20 @@ Before writing any code, we strongly advise you to search through the existing P
 issues to make sure nobody is already working on the same thing. If you are
 unsure, it is always a good idea to open an issue to get some feedback.
 
-You will need basic `git` proficiency to contribute to
-🤗 Quanto. While `git` is not the easiest tool to use, it has the greatest
-manual. Type `git --help` in a shell and enjoy! If you prefer books, [Pro
-Git](https://git-scm.com/book/en/v2) is a very good reference.
+You will need basic `git` proficiency to contribute. While `git` is not the easiest tool to use, it has the greatest manual. Type `git --help` in a shell and enjoy! If you prefer books, [Pro Git](https://git-scm.com/book/en/v2) is a very good reference.
 
-You'll need **Python 3.8** or above to contribute to 🤗 Quanto. Follow the steps below to start contributing:
+You'll need **Python 3.8** or above to contribute. Follow the steps below to start contributing:
 
-1. Fork the [repository](https://github.com/huggingface/quanto) by
-   clicking on the **[Fork](https://github.com/huggingface/quanto/fork)** button on the repository's page. This creates a copy of the code
+1. Fork the [repository](https://github.com/huggingface/optimum-quanto) by
+   clicking on the **[Fork](https://github.com/huggingface/optimum-quanto/fork)** button on the repository's page. This creates a copy of the code
    under your GitHub user account.
 
 2. Clone your fork to your local disk, and add the base repository as a remote:
 
    ```bash
-   git clone git@github.com:<your Github handle>/quanto.git
-   cd quanto
-   git remote add upstream https://github.com/huggingface/quanto.git
+   git clone git@github.com:<your Github handle>/optimum-quanto.git
+   cd optimum-quanto
+   git remote add upstream https://github.com/huggingface/optimum-quanto.git
    ```
 
 3. Create a new branch to hold your development changes:
@@ -126,8 +123,8 @@ You'll need **Python 3.8** or above to contribute to 🤗 Quanto. Follow the ste
    pip install -e ".[dev]"
    ```
 
-   If 🤗 Quanto was already installed in the virtual environment, remove
-   it with `pip uninstall quanto` before reinstalling it in editable
+   If `optimum-quanto` was already installed in the virtual environment, remove
+   it with `pip uninstall optimum-quanto` before reinstalling it in editable
    mode with the `-e` flag.
 
 5. Develop the features in your branch.
@@ -139,7 +136,7 @@ You'll need **Python 3.8** or above to contribute to 🤗 Quanto. Follow the ste
    pytest test/<TEST_TO_RUN>.py
    ```
 
-   🤗 Quanto relies on `black` and `ruff` to format its source code
+   `optimum-quanto` relies on `black` and `ruff` to format its source code
    consistently. After you make changes, apply automatic style corrections and code verifications
    that can't be automated in one go with:
 
@@ -191,7 +188,7 @@ You'll need **Python 3.8** or above to contribute to 🤗 Quanto. Follow the ste
 
    If you've already opened a pull request, you'll need to force push with the `--force` flag. Otherwise, if the pull request hasn't been opened yet, you can just push your changes normally.
 
-6. Now you can go to your fork of the repository on GitHub and click on **Pull Request** to open a pull request. Make sure you tick off all the boxes on our [checklist](https://github.com/huggingface/quanto/blob/main/CONTRIBUTING.md/#pull-request-checklist) below. When you're ready, you can send your changes to the project maintainers for review.
+6. Now you can go to your fork of the repository on GitHub and click on **Pull Request** to open a pull request. Make sure you tick off all the boxes on our [checklist](https://github.com/huggingface/optimum-quanto/blob/main/CONTRIBUTING.md/#pull-request-checklist) below. When you're ready, you can send your changes to the project maintainers for review.
 
 7. It's ok if maintainers request changes, it happens to our core contributors
    too! So everyone can see the changes in the pull request, work in your local
@@ -212,7 +209,7 @@ useful to avoid duplicated work, and to differentiate it from PRs ready to be me
 
 ### Tests
 
-An extensive test suite is included to test the library behavior in the [test](https://github.com/huggingface/quanto/tree/main/test) folder.
+An extensive test suite is included to test the library behavior in the [test](https://github.com/huggingface/optimum-quanto/tree/main/test) folder.
 
 From the root of the repository, specify a *path to a subfolder or a test file* to run the test.
 
@@ -228,6 +225,6 @@ make test
 
 ### Style guide
 
-For documentation strings, 🤗 Quanto follows the [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html).
-Check 🤗 Transformers [documentation writing guide](https://github.com/huggingface/transformers/tree/main/docs#writing-documentation---specification)
+For documentation strings, `optimum-quanto` follows the [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html).
+Check `transformers` [documentation writing guide](https://github.com/huggingface/transformers/tree/main/docs#writing-documentation---specification)
 for more information.
