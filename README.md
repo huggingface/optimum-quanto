@@ -65,9 +65,10 @@ Quanto does not support the conversion of a Tensor using mixed destination types
 
 ### Modules
 
-Quanto provides a generic mechanism to replace torch modules by quanto modules that are able to process quanto tensors.
+Quanto provides a generic mechanism to replace `torch` modules by `optimum-quanto` modules that are able to process quanto tensors.
 
-Quanto modules dynamically convert their weights until a model is frozen, which slows down inference a bit but is
+
+`optimum-quanto` modules dynamically convert their weights until a model is frozen, which slows down inference a bit but is
 required if the model needs to be tuned.
 
 Biases are not converted because to preserve the accuracy of a typical `addmm` operation, they must be converted with a
@@ -91,24 +92,24 @@ The paragraph below is just an example. Please refer to the `bench` folder for d
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3-8B_Perplexity.png" alt="meta-llama/Meta-Llama-3-8B WikiText perplexity">
+    <img src="https://github.com/huggingface/optimum-quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3-8B_Perplexity.png" alt="meta-llama/Meta-Llama-3-8B WikiText perplexity">
   </div>
  </center>
 </div>
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3-8B_Latency__ms_.png" alt="meta-llama/Meta-Llama-3-8B Latency">
+    <img src="https://github.com/huggingface/optimum-quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3-8B_Latency__ms_.png" alt="meta-llama/Meta-Llama-3-8B Latency">
   </div>
  </center>
 </div>
 
 ## Installation
 
-Quanto is available as a pip package.
+Optimum Quanto is available as a pip package.
 
 ```sh
-pip install quanto
+pip install optimum-quanto
 ```
 
 ## Quantization workflow
@@ -123,7 +124,9 @@ A typical quantization workflow would consist of the following steps:
 The first step converts a standard float model into a dynamically quantized model.
 
 ```python
-quantize(model, weights=quanto.qint8, activations=quanto.qint8)
+from optimum.quanto import qint8
+
+quantize(model, weights=qint8, activations=qint8)
 ```
 
 At this stage, only the inference of the model is modified to dynamically quantize the weights.
