@@ -5,17 +5,15 @@ on:
     branches:
       - main
     paths:
-      - "quanto/**"
+      - "optimum/quanto/**"
       - "examples/**"
       - "pyproject.toml"
-      - "setup.py"
   pull_request:
     types: [assigned, opened, synchronize, reopened]
     paths:
-      - "quanto/**"
+      - "optimum/quanto/**"
       - "examples/**"
       - "pyproject.toml"
-      - "setup.py"
 
 jobs:
   conventional-commits:

@@ -16,5 +16,5 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install .[dev]
-      - run: black --check bench examples quanto test
-      - run: ruff quanto bench examples quanto test
+      - run: black --check bench examples optimum test
+      - run: ruff bench examples optimum test
