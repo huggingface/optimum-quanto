@@ -16,7 +16,10 @@ classifiers = [
 ]
 keywords = ['torch', 'quantization']
 requires-python = '>=3.8.0'
-authors = [{ name = 'David Corvoysier', email = 'david@huggingface.co' }]
+authors = [{ name = 'David Corvoysier' }]
+maintainers = [
+    {name = "HuggingFace Inc. Special Ops Team", email="hardware@huggingface.co"},
+]
 dependencies = ['torch>=2.2.0', 'ninja', 'numpy', 'safetensors']
 license = { text = 'Apache-2.0' }
 readme = 'README.md'
