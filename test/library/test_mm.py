@@ -31,7 +31,10 @@ def test_dqmm(input_shape, output_features, dtype, device):
     assert torch.equal(expected, output)
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@pytest.mark.skipif(
+    not torch.cuda.is_available() or torch.cuda.get_device_capability()[0] < 8,
+    reason="CUDA device >= sm80 not available",
+)
 @pytest.mark.parametrize("in_features, out_features", [(256, 256), (512, 256)])
 @pytest.mark.parametrize("batch_size, tokens", [(4, 1), (10, 128)], ids=["gemv", "gemm"])
 def test_gemm_fp16_int4(batch_size, tokens, in_features, out_features):
