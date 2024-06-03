@@ -83,6 +83,7 @@ class QBitsTensor(QTensor):
             and group_size == 128
             and len(size) == 2
             and data.device.type == "cuda"
+            and torch.cuda.get_device_capability(data.device)[0] >= 8
         ):
             if type(data) == PackedTensor:
                 data = data.unpack()
