@@ -56,6 +56,9 @@ def quantize_weight(
                 raise ValueError("A SymmetricOptimizer is expected")
         if group_size is not None:
             raise ValueError("group_size cannot be specified for 8-bit qtypes.")
+        if axis is not None and t.shape[axis] == 1:
+            # Quantizing along an axis of dimension 1 means quantizing per-tensor
+            axis = None
         scale = optimizer(t, qtype.bits, axis)
         return SymmetricQuantizer.apply(t, qtype, axis, scale)
     if optimizer is None:
