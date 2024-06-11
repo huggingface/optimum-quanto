@@ -5,7 +5,7 @@
 #include <torch/extension.h>
 #include <cuda_pipeline_primitives.h>
 
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 800
+#if defined(QUANTO_CUDA_ARCH) and QUANTO_CUDA_ARCH >= 800
 // The following GEMMs requires m16n8k16 which is only supported for CUDA arch after sm80
 
 #define kInterleave 4
