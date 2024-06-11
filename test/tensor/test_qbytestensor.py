@@ -129,3 +129,12 @@ def test_to_device(device):
     assert qa.device.type == device.type
     assert qa._data.device.type == device.type
     assert qa._scale.device.type == device.type
+
+
+@pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
+def test_quantize_weight_axis_dim_1(axis, device):
+    input_shape = (1, 32) if axis == 0 else (32, 1)
+    a = random_tensor(input_shape, dtype=torch.float32).to(device)
+    qa = quantize_weight(a, qtype=qint8, axis=axis)
+    # Quantizing along an axis of dimension 1 actually means per-tensor
+    assert qa.axis is None
