@@ -50,6 +50,14 @@ jobs:
                 --weights $w --activations $a; \
             done; \
           done
+      - name: Run OWL detection examples
+        run: |
+          for w in int4 int8 float8; do \
+            python examples/vision/object-detection/quantize_owl_model.py \
+              --image http://images.cocodataset.org/val2017/000000039769.jpg \
+              --texts "a photo of a cat" "a remote" \
+              --weights $w; \
+          done
       - name: Run text-classification examples
         run: |
           for w in int4 int8; do \
