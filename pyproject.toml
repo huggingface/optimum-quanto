@@ -30,7 +30,7 @@ homepage = 'https://github.com/huggingface/optimum-quanto'
 
 [project.optional-dependencies]
 dev = ['pytest', 'ruff', 'black']
-examples = ['torchvision', 'transformers==4.40.2', 'datasets']
+examples = ['torchvision', 'transformers==4.40.2', 'datasets', 'accelerate', 'scipy']
 
 [tool.setuptools.packages.find]
 where = ["."]
