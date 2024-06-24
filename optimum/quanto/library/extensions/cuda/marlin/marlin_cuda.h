@@ -20,6 +20,7 @@ void mul(
   const torch::Tensor& B,
         torch::Tensor& C,
   const torch::Tensor& s,
+  const torch::Tensor& sz,
         torch::Tensor& workspace,
   int thread_k = -1,
   int thread_n = -1,
