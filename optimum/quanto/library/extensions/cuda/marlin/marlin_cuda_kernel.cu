@@ -136,9 +136,13 @@ __device__ inline FragB dequant(int q) {
   int lo = lop3<(0xf0 & 0xcc) | 0xaa>(q, LO, EX);
   int hi = lop3<(0xf0 & 0xcc) | 0xaa>(q, HI, EX);
   // We want signed int4 outputs, hence we fuse the `-8` symmetric zero point directly into `SUB` and `ADD`.
-  const int SUB = 0x64086408;
+  // const int SUB = 0x64086408;
+  // const int MUL = 0x2c002c00;
+  // const int ADD = 0xd480d480;
+  // MODIFIED: use scaled zero point so do not need to map to [-8, 7]
+  const int SUB = 0x64006400;
   const int MUL = 0x2c002c00;
-  const int ADD = 0xd480d480;
+  const int ADD = 0xd400d400;
   FragB frag_b;
   frag_b[0] = __hsub2(
     *reinterpret_cast<half2*>(&lo),
@@ -152,10 +156,14 @@ __device__ inline FragB dequant(int q) {
 }
 
 // Multiply dequantized values by the corresponding quantization scale; used only for grouped quantization.
-__device__ inline void scale(FragB& frag_b, FragS& frag_s, int i) {
+// MODIFIED: add scaled zero point
+__device__ inline void scale(FragB& frag_b, FragS& frag_s, FragS& frag_sz, int i) {
   half2 s = __half2half2(reinterpret_cast<__half*>(&frag_s)[i]);
-  frag_b[0] = __hmul2(frag_b[0], s);
-  frag_b[1] = __hmul2(frag_b[1], s);
+  half2 sz = __half2half2(reinterpret_cast<__half*>(&frag_sz)[i]);
+  // frag_b[0] = __hmul2(frag_b[0], s);
+  // frag_b[1] = __hmul2(frag_b[1], s);
+  frag_b[0] = __hfma2(frag_b[0], s, sz);
+  frag_b[1] = __hfma2(frag_b[1], s, sz);
 }
 
 // Wait until barrier reaches `count`, then lock for current threadblock.
@@ -199,6 +207,8 @@ __global__ void Marlin(
   const int4* __restrict__ B, // 4bit quantized weight matrix of shape kxn
         int4* __restrict__ C, // fp16 output buffer of shape mxn
   const int4* __restrict__ s, // fp16 quantization scales of shape (k/groupsize)xn
+  // ADDED: add scaled zero point
+  const int4* __restrict__ sz, // fp16 quantization scaled zero points of shape (k/groupsize)xn
   int  prob_m, // batch dimension m
   int  prob_n, // output dimension n
   int  prob_k, // reduction dimension k
@@ -370,11 +380,15 @@ __global__ void Marlin(
   int4* sh_a = sh;
   int4* sh_b = sh_a + (stages * a_sh_stage);
   int4* sh_s = sh_b + (stages * b_sh_stage);
+  // ADDED: shared memory storage for scaled zero points
+  int4* sh_sz = sh_s + (stages * s_sh_stage);
   // Register storage for double buffer of shared memory reads.
   FragA frag_a[2][thread_m_blocks];
   I4 frag_b_quant[2];
   FragC frag_c[thread_m_blocks][4][2];
   FragS frag_s[2][4];
+  // ADDED: register storage for scaled zero points
+  FragS frag_sz[2][4];
 
   // Zero accumulators.
   auto zero_accums = [&] () {
@@ -403,9 +417,13 @@ __global__ void Marlin(
       }
       // Only fetch scales if this tile starts a new group
       if (group_blocks != -1 && pipe % (group_blocks / thread_k_blocks) == 0) {
+        // ADDED: fetch scaled zero pointers too
         int4* sh_s_stage = sh_s + s_sh_stage * pipe;
-        if (s_sh_wr_pred)
+        int4* sh_sz_stage = sh_sz + s_sh_stage * pipe;
+        if (s_sh_wr_pred) {
           cp_async4_stream(&sh_s_stage[s_sh_wr], &s[s_gl_rd]);
+          cp_async4_stream(&sh_sz_stage[s_sh_wr], &sz[s_gl_rd]);
+        }
         s_gl_rd += s_gl_rd_delta;
       }
     }
@@ -427,8 +445,11 @@ __global__ void Marlin(
     // significant bottleneck, while some theoretically better attempts have lead to bad instruction ordering by the
     // compiler and correspondingly a noticable drop in performance.
     if (group_blocks != -1) {
+      // ADDED: load scaled zero pointers too
       int4* sh_s_stage = sh_s + s_sh_stage * ((group_blocks / thread_k_blocks) * (pipe / (group_blocks / thread_k_blocks)));
+      int4* sh_sz_stage = sh_sz + s_sh_stage * ((group_blocks / thread_k_blocks) * (pipe / (group_blocks / thread_k_blocks)));
       reinterpret_cast<int4*>(&frag_s[k % 2])[0] = sh_s_stage[s_sh_rd];
+      reinterpret_cast<int4*>(&frag_sz[k % 2])[0] = sh_sz_stage[s_sh_rd];
     }
     int4* sh_a_stage = sh_a + a_sh_stage * pipe;
     #pragma unroll
@@ -447,11 +468,12 @@ __global__ void Marlin(
       int b_quant_shift = b_quant >> 8;
       FragB frag_b0 = dequant(b_quant);
       // If there are no groups, we can just scale the final output once and can avoid doing so for each weight.
+      // MODIFIED: add scaled zero point
       if (group_blocks != -1)
-        scale(frag_b0, frag_s[k % 2][j], 0);
+        scale(frag_b0, frag_s[k % 2][j], frag_sz[k % 2][j], 0);
       FragB frag_b1 = dequant(b_quant_shift);
       if (group_blocks != -1)
-        scale(frag_b1, frag_s[k % 2][j], 1);
+        scale(frag_b1, frag_s[k % 2][j], frag_sz[k % 2][j], 1);
       #pragma unroll
       for (int i = 0; i < thread_m_blocks; i++) {
         mma(frag_a[k % 2][i], frag_b0, frag_c[i][j][0]);
@@ -658,8 +680,11 @@ __global__ void Marlin(
       bool last = slice_idx == slice_count - 1;
       // For per-column scales, we only fetch them here in the final step before write-out
       if (group_blocks == -1 && last) {
-        if (s_sh_wr_pred)
+        if (s_sh_wr_pred) {
           cp_async4_stream(&sh_s[s_sh_wr], &s[s_gl_rd]);
+          // ADDED: fetch scaled zero pointers too
+          cp_async4_stream(&sh_sz[s_sh_wr], &sz[s_gl_rd]);
+        }
         cp_async_fence();
       }
       thread_block_reduce();
@@ -669,6 +694,9 @@ __global__ void Marlin(
         if (threadIdx.x / 32 < thread_n_blocks / 4) {
           reinterpret_cast<int4*>(&frag_s)[0] = sh_s[s_sh_rd + 0];
           reinterpret_cast<int4*>(&frag_s)[1] = sh_s[s_sh_rd + 4];
+          // ADDED: load scaled zero pointers too
+          reinterpret_cast<int4*>(&frag_sz)[0] = sh_sz[s_sh_rd + 0];
+          reinterpret_cast<int4*>(&frag_sz)[1] = sh_sz[s_sh_rd + 4];
         }
       }
       if (slice_count > 1) { // only globally reduce if there is more than one block in a slice
@@ -706,6 +734,7 @@ const int THREADS = 256;
 const int STAGES = 4; // 4 pipeline stages fit into shared memory
 const int SHARED_MEM = 96 * 1024; // max shared memory on compute capability 8.6 (< 8.0)
 
+// ADDED: add scaled zero pointer
 #define CALL_IF(THREAD_M_BLOCKS, THREAD_N_BLOCKS, THREAD_K_BLOCKS, GROUP_BLOCKS) \
   else if ( \
     thread_m_blocks == THREAD_M_BLOCKS && thread_n_blocks == THREAD_N_BLOCKS && thread_k_blocks == THREAD_K_BLOCKS && \
@@ -719,7 +748,7 @@ const int SHARED_MEM = 96 * 1024; // max shared memory on compute capability 8.6
     Marlin< \
       THREADS, THREAD_M_BLOCKS, THREAD_N_BLOCKS, THREAD_K_BLOCKS, STAGES, GROUP_BLOCKS \
     ><<<blocks, THREADS, SHARED_MEM, stream>>>( \
-      A_ptr, B_ptr, C_ptr, s_ptr, \
+      A_ptr, B_ptr, C_ptr, s_ptr, sz_ptr,\
       prob_m, prob_n, prob_k, \
       locks \
     ); \
@@ -728,11 +757,13 @@ const int SHARED_MEM = 96 * 1024; // max shared memory on compute capability 8.6
 const int ERR_PROB_SHAPE = 1;
 const int ERR_KERN_SHAPE = 2;
 
+// ADDED: add scaled zero pointer
 int marlin_cuda(
   const void* A,
   const void* B,
         void* C,
         void* s,
+        void* sz,
   int prob_m,
   int prob_n,
   int prob_k,
@@ -776,6 +807,8 @@ int marlin_cuda(
   const int4* B_ptr = (const int4*) B;
   int4* C_ptr = (int4*) C;
   const int4* s_ptr = (const int4*) s;
+  // ADDED: add scaled zero pointer
+  const int4* sz_ptr = (const int4*) sz;
 
   int cols = prob_n / thread_n;
   int* locks = (int*) workspace;
