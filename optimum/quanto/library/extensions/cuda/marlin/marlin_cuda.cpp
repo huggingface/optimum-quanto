@@ -30,6 +30,7 @@ void mul(
   const torch::Tensor& B,
         torch::Tensor& C,
   const torch::Tensor& s,
+  const torch::Tensor& sz, // ADDED: add scaled zero point
         torch::Tensor& workspace,
   int thread_k,
   int thread_n,
@@ -50,6 +51,7 @@ void mul(
     B.data_ptr(),
     C.data_ptr(),
     s.data_ptr(),
+    sz.data_ptr(), // ADDED: add scaled zero point
     prob_m, prob_n, prob_k,
     workspace.data_ptr(),
     groupsize,
