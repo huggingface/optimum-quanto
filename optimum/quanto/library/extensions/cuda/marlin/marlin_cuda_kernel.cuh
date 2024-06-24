@@ -20,6 +20,7 @@ int marlin_cuda(
   const void* B,
         void* C,
         void* s,
+        void* sz, // ADDED: add scaled zero point
   int prob_m,
   int prob_n,
   int prob_k,
