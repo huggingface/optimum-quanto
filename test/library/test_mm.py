@@ -19,16 +19,27 @@ from helpers import assert_similar, random_tensor
 from optimum.quanto import AWQPackedTensor, AWQPacking
 
 
-@pytest.mark.parametrize("input_shape", [[10, 32], [32, 32]])
+@pytest.mark.parametrize("batch_size", [1, 10, None], ids=["single", "batched", "static"])
+@pytest.mark.parametrize("input_features", [32, 50])
 @pytest.mark.parametrize("output_features", [48, 64])
-@pytest.mark.parametrize("dtype", [torch.float16, torch.float32])
-def test_dqmm(input_shape, output_features, dtype, device):
-    input = random_tensor(input_shape, dtype=dtype).to(device)
-    other = torch.randint(-127, 127, (input_shape[-1], output_features), dtype=torch.int8).to(device)
-    other_scale = random_tensor((output_features,), dtype=dtype).to(device)
-    output = torch.ops.quanto.dqmm(input, other, other_scale)
-    expected = torch.ops.aten.mm(input, other * other_scale)
-    assert torch.equal(expected, output)
+@pytest.mark.parametrize("input_dtype", [None, torch.int8], ids=["i-as-out", "i-int8"])
+@pytest.mark.parametrize("weight_dtype", [torch.float8_e4m3fn, torch.int8], ids=["w-float8", "w-int8"])
+@pytest.mark.parametrize("output_dtype", [torch.float16, torch.bfloat16], ids=["o-fp16", "o-bf16"])
+def test_qbytes_mm(batch_size, input_features, input_dtype, weight_dtype, output_features, output_dtype, device):
+    if device.type == "mps" and weight_dtype.is_floating_point:
+        pytest.skip("Float8 types are not supported on MPS device")
+    input_shape = (10, input_features)
+    if batch_size is not None:
+        input_shape = (batch_size,) + input_shape
+    if input_dtype is None:
+        input_dtype = output_dtype
+    input = random_tensor(input_shape, dtype=input_dtype, device=device)
+    weight = random_tensor((output_features, input_features), dtype=weight_dtype, device=device)
+    # Use a scale small enough to prevent overflows
+    scale = random_tensor((output_features,), dtype=output_dtype, device=device) / 1e3
+    output = torch.ops.quanto.qbytes_mm(input, weight, scale)
+    expected = torch.matmul(input.to(scale.dtype), weight.to(scale.dtype).t() * scale)
+    assert_similar(expected, output)
 
 
 @pytest.mark.skipif(

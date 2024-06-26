@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include <torch/extension.h>
-#include "mm.h"
 #include "unpack.h"
 
 // !IMPORTANT! Some python objects such as dtype, device, are not mapped to C++ types,
@@ -23,6 +22,5 @@
 // lambda method that converts the unmapped types and calls the C++ method.
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("dqmm", &dqmm, "dqmm");
   m.def("unpack", &unpack, "unpack");
 }
