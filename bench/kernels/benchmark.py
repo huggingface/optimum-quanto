@@ -23,17 +23,6 @@ from tqdm.auto import tqdm
 from optimum.quanto.library import disable_extensions
 
 
-def get_dqmm_bench(input_dtype, device):
-    input = torch.rand([1024, 1024], dtype=input_dtype).to(device)
-    other = torch.randint(-127, 127, [1024, 1024], dtype=torch.int8).to(device)
-    other_scale = torch.ones((1024,), dtype=input_dtype, device=device) * 0.5
-
-    def bench_fn():
-        return torch.ops.quanto.dqmm(input, other, other_scale)
-
-    return bench_fn
-
-
 def get_unpack_bench(bits, device):
     qmax = 2**bits
     a = torch.randint(0, qmax, [10240, 10240], dtype=torch.uint8).to(device)
@@ -94,7 +83,6 @@ def timing(get_bench_func, device, iterations=10):
 
 
 GET_BENCH_FUNCTIONS = {
-    "dqmm_w8a16": lambda device: get_dqmm_bench(torch.float16, device),
     "unpack_2bit": lambda device: get_unpack_bench(2, device),
     "unpack_4bit": lambda device: get_unpack_bench(4, device),
 }

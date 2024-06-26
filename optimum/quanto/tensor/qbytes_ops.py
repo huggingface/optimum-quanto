@@ -187,38 +187,31 @@ def bmm(op, input, other):
 
 @register_qbytestensor_op([torch.ops.aten.mm])
 def mm(op, input, other):
-    if not isinstance(input, QBytesTensor):
-        if cannot_mm(other):
-            return op(input, other.dequantize())
-        return torch.ops.quanto.dqmm(input, other._data, other._scale)
-    if not isinstance(other, QTensor) or input.axis is not None:
-        return op(input.dequantize(), other)
-    if input.qtype != qint8 or other.qtype != qint8 or cannot_mm(other):
-        return qfallback(op, input, other)
-    n, m = input.shape
-    p = other.shape[-1]
-    if (
-        (
-            input.device.type == "cuda"
-            or (
-                input.device.type == "cpu"
-                and version.parse(torch.__version__).release >= version.parse("2.4.0").release
+    if isinstance(input, QBytesTensor) and isinstance(other, QBytesTensor):
+        n, m = input.shape
+        p = other.shape[-1]
+        if (
+            (
+                input.device.type == "cuda"
+                or (
+                    input.device.type == "cpu"
+                    and version.parse(torch.__version__).release >= version.parse("2.4.0").release
+                )
             )
-        )
-        and input.qtype == qint8
-        and other.qtype == qint8
-        and n > 16
-        and n % 8 == 0
-        and m % 8 == 0
-        and p % 8 == 0
-    ):
-        # Use integer GEMM
-        out_data = torch._int_mm(input._data, other._data)
-    else:
-        # Cast data to float32 and do the operation
-        out_data = op(input._data.to(torch.float32), other._data.to(torch.float32))
-    out_scale = (input._scale * other._scale).to(torch.float32)
-    return (out_data * out_scale).to(input._scale.dtype)
+            and input.qtype == qint8
+            and other.qtype == qint8
+            and n > 16
+            and n % 8 == 0
+            and m % 8 == 0
+            and p % 8 == 0
+        ):
+            # Use integer GEMM
+            out_data = torch._int_mm(input._data, other._data)
+            # We must evaluate the output as float32 because the multiplication
+            # of the int32 data by the scales might overflow
+            fp32_output = (input._scale * other._scale).to(torch.float32) * out_data
+            return fp32_output.to(input.dtype)
+    return qfallback(op, input, other)
 
 
 @register_qbytestensor_op([torch.ops.aten.mul])
