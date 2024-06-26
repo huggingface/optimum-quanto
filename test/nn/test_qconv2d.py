@@ -46,7 +46,6 @@ def _test_quantize_conv2d(batch_size, img_shape, out_channels, use_bias, weights
 @pytest.mark.parametrize("out_channels", [3, 10])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-int4", "w-int8"])
-@pytest.mark.skip_device("cpu")
 def test_quantize_conv2d_float16_activations_int8(batch_size, img_shape, out_channels, use_bias, weights, device):
     _test_quantize_conv2d(batch_size, img_shape, out_channels, use_bias, weights, qint8, torch.float16, device)
 
@@ -70,7 +69,6 @@ def test_quantize_conv2d_float32_activations_int8(batch_size, img_shape, out_cha
     [qfloat8_e5m2, qfloat8_e4m3fn],
     ids=["a-float8-e5m2", "a-float8-e4m3"],
 )
-@pytest.mark.skip_device("cpu")
 @pytest.mark.skip_device("mps")
 def test_quantize_conv2d_float16_activations_float8(
     batch_size, img_shape, out_channels, use_bias, weights, activations, device
@@ -100,7 +98,6 @@ def test_quantize_conv2d_float32_activations_float8(
 @pytest.mark.parametrize("out_channels", [3, 10])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-int4", "w-int8"])
-@pytest.mark.skip_device("cpu")
 def test_quantize_conv2d_float16_weight_only(batch_size, img_shape, out_channels, use_bias, weights, device):
     _test_quantize_conv2d(batch_size, img_shape, out_channels, use_bias, weights, None, torch.float16, device)
 

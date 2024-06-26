@@ -43,7 +43,6 @@ def _test_quantize_layernorm(batch_size, tokens, embeddings, dtype, activations,
 
 @pytest.mark.parametrize("batch_size", [1, 10])
 @pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
-@pytest.mark.skip_device("cpu")
 def test_quantize_layernorm_float16_activations_int8(batch_size, tokens, embeddings, device):
     _test_quantize_layernorm(batch_size, tokens, embeddings, torch.float16, qint8, device)
 
@@ -61,7 +60,6 @@ def test_quantize_layernorm_float32_activations_int8(batch_size, tokens, embeddi
     [qfloat8_e5m2, qfloat8_e4m3fn],
     ids=["a-float8-e5m2", "a-float8-e4m3"],
 )
-@pytest.mark.skip_device("cpu")
 @pytest.mark.skip_device("mps")
 def test_quantize_layernorm_float16_activations_float8(batch_size, tokens, embeddings, activations, device):
     _test_quantize_layernorm(batch_size, tokens, embeddings, torch.float16, activations, device)
@@ -74,7 +72,6 @@ def test_quantize_layernorm_float16_activations_float8(batch_size, tokens, embed
     [qfloat8_e5m2, qfloat8_e4m3fn],
     ids=["a-float8-e5m2", "a-float8-e4m3"],
 )
-@pytest.mark.skip_device("cpu")
 @pytest.mark.skip_device("mps")
 def test_quantize_layernorm_float32_activations_float8(batch_size, tokens, embeddings, activations, device):
     _test_quantize_layernorm(batch_size, tokens, embeddings, torch.float32, activations, device)
