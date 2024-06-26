@@ -37,15 +37,8 @@ def main():
     else:
         device = torch.device(args.device)
 
-    def get_int_matmul(device):
-        if device.type == ("cuda") or device.type == ("cpu"):
-            return torch._int_mm
-        return torch.matmul
-
     def avg_time(f, it):
         return timeit.Timer(f).timeit(it) / it
-
-    int_matmul = get_int_matmul(device)
 
     # Resstrictions for accelerated integer matmul:
     # - input matrices must be 2D
@@ -55,9 +48,9 @@ def main():
 
     print(f"Evaluating integer matmul on {device.type}:")
     # Warmup (slow)
-    int_matmul(A, B)
+    torch._int_mm(A, B)
     # Average on several calls
-    t = avg_time(lambda: int_matmul(A, B), args.it) * 1000
+    t = avg_time(lambda: torch._int_mm(A, B), args.it) * 1000
     print(f"Average inference on {args.it} iterations: {t:.4f} ms")
 
     # Convert inputs to float
