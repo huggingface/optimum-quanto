@@ -61,7 +61,6 @@ def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, act
 @pytest.mark.parametrize("tokens, embeddings", [(10, 32), (10, 256)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
-@pytest.mark.skip_device("cpu")
 def test_quantize_linear_float16_activations_int8(batch_size, tokens, embeddings, use_bias, weights, device):
     _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, qint8, torch.float16, device)
 
@@ -83,7 +82,6 @@ def test_quantize_linear_float32_activations_int8(batch_size, tokens, embeddings
     [qfloat8_e5m2, qfloat8_e4m3fn],
     ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3"],
 )
-@pytest.mark.skip_device("cpu")
 @pytest.mark.skip_device("mps")
 def test_quantize_linear_float16_activations_float8(
     batch_size, tokens, embeddings, use_bias, weights, activations, device
@@ -111,7 +109,6 @@ def test_quantize_linear_float32_activations_float8(
 @pytest.mark.parametrize("tokens, embeddings", [(10, 32), (10, 256)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("weights", [qint4, qint8, qfloat8], ids=["w-qint4", "w-qint8", "float8"])
-@pytest.mark.skip_device("cpu")
 def test_quantize_linear_float16_weight_only(batch_size, tokens, embeddings, use_bias, weights, device):
     if device.type == "mps" and weights == qfloat8:
         pytest.skip("Float 8 are not supported on MPS device")
@@ -181,8 +178,6 @@ def test_move_qlinear(use_bias, weights, device):
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("weights_only", [True, False], ids=["weights-only", "pickle"])
 def test_qlinear_serialization(features, use_bias, activations, weights, dtype, weights_only, device):
-    if dtype == torch.float16 and device.type == "cpu":
-        pytest.skip("Matrix multiplication is not supported for float16 on CPU")
     linear = torch.nn.Linear(features, features, bias=use_bias).to(dtype).to(device)
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
     if activations is not None:

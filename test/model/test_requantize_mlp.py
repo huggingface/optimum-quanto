@@ -31,8 +31,6 @@ from optimum.quanto.nn import QModuleMixin
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("serialization", ["weights_only", "pickle", "safetensors"])
 def test_serialize_requantized_mlp(weights, dtype, serialization, device):
-    if dtype == torch.float16 and device.type == "cpu":
-        pytest.skip("Matrix multiplication is not supported for float16 on CPU")
     input_features = 32
     hidden_features = 10
     output_features = 128
