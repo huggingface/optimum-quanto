@@ -44,8 +44,14 @@ def device_eq(a, b):
 
 
 def random_tensor(shape, dtype=torch.float32, device="cpu"):
-    # Return a random tensor between -1. and 1.
-    return torch.rand(shape, dtype=dtype, device=device) * 2 - 1
+    if dtype.is_floating_point:
+        rand_dtype = dtype if dtype.itemsize > 1 else torch.float16
+        # Generate a random tensor between -1. and 1.
+        t = torch.rand(shape, dtype=rand_dtype, device=device) * 2 - 1
+        return t.to(dtype)
+    else:
+        assert dtype == torch.int8
+        return torch.randint(-127, 127, shape, dtype=torch.int8, device=device)
 
 
 def random_qactivation(shape, qtype=qint8, dtype=torch.float32, device="cpu"):
