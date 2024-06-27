@@ -17,6 +17,7 @@ from functools import partial
 import torch
 
 from .qbits import AWQBitsTensor
+from .qbytes import QBytesTensor
 from .qtensor import qfallback
 
 
@@ -108,6 +109,11 @@ class QTensorLinear(torch.autograd.Function):
                 bits=4,
                 group_size=other._group_size,
             )
+        elif isinstance(other, QBytesTensor):
+            if isinstance(input, QBytesTensor):
+                output = torch.ops.quanto.qbytes_mm(input._data, other._data, input._scale * other._scale)
+            else:
+                output = torch.ops.quanto.qbytes_mm(input, other._data, other._scale)
         else:
             output = torch.matmul(input, other.t())
         if bias is not None:
