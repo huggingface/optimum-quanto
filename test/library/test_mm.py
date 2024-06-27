@@ -21,14 +21,14 @@ from optimum.quanto import AWQPackedTensor, AWQPacking
 
 @pytest.mark.parametrize("batch_size", [1, 10, None], ids=["single", "batched", "static"])
 @pytest.mark.parametrize("input_features", [32, 50])
-@pytest.mark.parametrize("output_features", [48, 64])
+@pytest.mark.parametrize("output_features", [48, 50, 64])
 @pytest.mark.parametrize("input_dtype", [None, torch.int8], ids=["i-as-out", "i-int8"])
 @pytest.mark.parametrize("weight_dtype", [torch.float8_e4m3fn, torch.int8], ids=["w-float8", "w-int8"])
 @pytest.mark.parametrize("output_dtype", [torch.float16, torch.bfloat16], ids=["o-fp16", "o-bf16"])
 def test_qbytes_mm(batch_size, input_features, input_dtype, weight_dtype, output_features, output_dtype, device):
     if device.type == "mps" and weight_dtype.is_floating_point:
         pytest.skip("Float8 types are not supported on MPS device")
-    input_shape = (10, input_features)
+    input_shape = (32, input_features)
     if batch_size is not None:
         input_shape = (batch_size,) + input_shape
     if input_dtype is None:

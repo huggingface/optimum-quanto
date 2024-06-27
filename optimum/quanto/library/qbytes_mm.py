@@ -50,6 +50,19 @@ def qbytes_int_mm(activations: torch.Tensor, weights: torch.Tensor, output_scale
     return fp32_output.to(output_scales.dtype)
 
 
+def qbytes_int8pack_mm(activations: torch.Tensor, weights: torch.Tensor, output_scales: torch.Tensor) -> torch.Tensor:
+    # torch._weight_int8pack_mm expects a vector of scales
+    output_scales = output_scales.flatten()
+    if activations.ndim == 2:
+        return torch._weight_int8pack_mm(activations, weights, output_scales)
+    else:
+        in_features = activations.shape[-1]
+        out_features = weights.shape[0]
+        output_shape = activations.shape[:-1] + (out_features,)
+        out_data = torch._weight_int8pack_mm(activations.view(-1, in_features), weights, output_scales)
+        return out_data.view(output_shape)
+
+
 @torch.library.impl("quanto::qbytes_mm", "default")
 def qbytes_mm_impl_default(
     activations: torch.Tensor, weights: torch.Tensor, output_scales: torch.Tensor
@@ -83,4 +96,26 @@ def qbytes_mm_impl_cpu(activations: torch.Tensor, weights: torch.Tensor, output_
         and weights.dtype == torch.int8
     ):
         return qbytes_int_mm(activations, weights, output_scales)
+    in_features = activations.shape[-1]
+    if activations.dtype == torch.bfloat16 and weights.dtype == torch.int8 and in_features % 4 == 0:
+        if type(activations) != torch.Tensor:
+            activations = activations.dequantize()
+        return qbytes_int8pack_mm(activations, weights, output_scales)
+    return qbytes_mm(activations, weights, output_scales)
+
+
+@torch.library.impl("quanto_py::qbytes_mm", "MPS")
+def qbytes_mm_impl_mps(activations: torch.Tensor, weights: torch.Tensor, output_scales: torch.Tensor) -> torch.Tensor:
+    in_features = activations.shape[-1]
+    out_features = weights.shape[0]
+    if (
+        version.parse(torch.__version__).release >= version.parse("2.4.0").release
+        and activations.dtype == torch.bfloat16
+        and weights.dtype == torch.int8
+        and in_features % 32 == 0
+        and out_features % 32 == 0
+    ):
+        if type(activations) != torch.Tensor:
+            activations = activations.dequantize()
+        return qbytes_int8pack_mm(activations, weights, output_scales)
     return qbytes_mm(activations, weights, output_scales)
