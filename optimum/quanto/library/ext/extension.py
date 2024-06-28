@@ -1,5 +1,6 @@
 import os
 import shutil
+import warnings
 from typing import List
 
 import torch
@@ -34,6 +35,9 @@ class Extension(object):
                     pytorch_build_version = f.read().rstrip()
                     if pytorch_build_version != torch.__version__:
                         shutil.rmtree(self.build_directory)
+                        warnings.warn(
+                            f"{self.name} was compiled with pytorch {pytorch_build_version}, but {torch.__version__} is installed: it will be recompiled."
+                        )
             os.makedirs(self.build_directory, exist_ok=True)
             self._lib = load(
                 name=self.name,
