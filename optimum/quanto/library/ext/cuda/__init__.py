@@ -15,13 +15,11 @@
 import os
 
 import torch
-from torch.utils.cpp_extension import load
+
+from ..extension import Extension
 
 
 __all__ = []
-
-
-_ext = None
 
 
 def get_min_cuda_arch():
@@ -42,49 +40,45 @@ def get_min_cuda_arch():
     return f"{min_capability[0]}{min_capability[1]}0"
 
 
-def ext():
-    """Helper to load the CUDA ext only when it is required"""
-    global _ext
-    if _ext is None:
-        extra_cflags = ["-g", "-O3", "-fopenmp", "-lgomp", "-std=c++17", "-DENABLE_BF16"]
-        extra_cuda_cflags = [
-            "-O3",
-            "-std=c++17",
-            "-DENABLE_BF16",  # TODO
-            "-U__CUDA_NO_HALF_OPERATORS__",
-            "-U__CUDA_NO_HALF_CONVERSIONS__",
-            "-U__CUDA_NO_BFLOAT16_OPERATORS__",
-            "-U__CUDA_NO_BFLOAT16_CONVERSIONS__",
-            "-U__CUDA_NO_BFLOAT162_OPERATORS__",
-            "-U__CUDA_NO_BFLOAT162_CONVERSIONS__",
-            "--expt-relaxed-constexpr",
-            "--expt-extended-lambda",
-            "--use_fast_math",
-            "--threads=8",
-        ]
-        # We need to know the minimum CUDA Arch to select only the relevant kernels
-        # but we cannot rely on __CUDA_ARCH__ as it is not set in host code (only on device code)
-        quanto_cuda_arch = get_min_cuda_arch()
-        extra_cuda_cflags += [f"-DQUANTO_CUDA_ARCH={quanto_cuda_arch}"]
-        module_path = os.path.dirname(__file__)
-        sources = [
-            f"{module_path}/unpack.cu",
-            f"{module_path}/awq/v2/gemm_cuda.cu",
-            f"{module_path}/awq/v2/gemv_cuda.cu",
-            f"{module_path}/pybind_module.cpp",
-        ]
-        _ext = load(
-            name="quanto_cuda",
-            sources=sources,
-            extra_cflags=extra_cflags,
-            extra_cuda_cflags=extra_cuda_cflags,
-        )
-    return _ext
+extra_cflags = ["-g", "-O3", "-fopenmp", "-lgomp", "-std=c++17", "-DENABLE_BF16"]
+extra_cuda_cflags = [
+    "-O3",
+    "-std=c++17",
+    "-DENABLE_BF16",  # TODO
+    "-U__CUDA_NO_HALF_OPERATORS__",
+    "-U__CUDA_NO_HALF_CONVERSIONS__",
+    "-U__CUDA_NO_BFLOAT16_OPERATORS__",
+    "-U__CUDA_NO_BFLOAT16_CONVERSIONS__",
+    "-U__CUDA_NO_BFLOAT162_OPERATORS__",
+    "-U__CUDA_NO_BFLOAT162_CONVERSIONS__",
+    "--expt-relaxed-constexpr",
+    "--expt-extended-lambda",
+    "--use_fast_math",
+    "--threads=8",
+]
+# We need to know the minimum CUDA Arch to select only the relevant kernels
+# but we cannot rely on __CUDA_ARCH__ as it is not set in host code (only on device code)
+quanto_cuda_arch = get_min_cuda_arch()
+extra_cuda_cflags += [f"-DQUANTO_CUDA_ARCH={quanto_cuda_arch}"]
+module_path = os.path.dirname(__file__)
+sources = [
+    "unpack.cu",
+    "awq/v2/gemm_cuda.cu",
+    "awq/v2/gemv_cuda.cu",
+    "pybind_module.cpp",
+]
+ext = Extension(
+    "quanto_cuda",
+    root_dir=os.path.dirname(__file__),
+    sources=sources,
+    extra_cflags=extra_cflags,
+    extra_cuda_cflags=extra_cuda_cflags,
+)
 
 
 @torch.library.impl("quanto_ext::unpack", ["CUDA"])
 def unpack_cuda(t: torch.Tensor, bits: int):
-    return ext().unpack(t, bits)
+    return ext.lib.unpack(t, bits)
 
 
 @torch.library.impl("quanto_ext::gemm", ["CUDA"])
@@ -109,5 +103,5 @@ def gemm_cuda(
     assert bits == 4
     assert group_size == 128
     if rows < 8:
-        return ext().awq_v2_gemv_f16i4(input, other, scales, zeropoint, rows, out_cols, in_cols, group_size)
-    return ext().awq_v2_gemm_f16i4(input, other, scales, zeropoint)
+        return ext.lib.awq_v2_gemv_f16i4(input, other, scales, zeropoint, rows, out_cols, in_cols, group_size)
+    return ext.lib.awq_v2_gemm_f16i4(input, other, scales, zeropoint)

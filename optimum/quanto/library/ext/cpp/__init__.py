@@ -15,31 +15,21 @@
 import os
 
 import torch
-from torch.utils.cpp_extension import load
+
+from ..extension import Extension
 
 
 __all__ = []
 
 
-_ext = None
-
-
-def ext():
-    """Helper to load the CPU ext only when it is required"""
-    global _ext
-    if _ext is None:
-        module_path = os.path.dirname(__file__)
-        _ext = load(
-            name="quanto_cpp",
-            sources=[
-                f"{module_path}/unpack.cpp",
-                f"{module_path}/pybind_module.cpp",
-            ],
-            extra_cflags=["-O3"],
-        )
-    return _ext
+ext = Extension(
+    "quanto_cpp",
+    root_dir=os.path.dirname(__file__),
+    sources=["unpack.cpp", "pybind_module.cpp"],
+    extra_cflags=["-O3"],
+)
 
 
 @torch.library.impl("quanto_ext::unpack", ["CPU"])
 def unpack_cpp(t: torch.Tensor, bits: int):
-    return ext().unpack(t, bits)
+    return ext.lib.unpack(t, bits)
