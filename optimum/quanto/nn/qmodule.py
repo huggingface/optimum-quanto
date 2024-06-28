@@ -173,7 +173,7 @@ class QModuleMixin(ABC):
             if assign_to_params_buffers:
                 self.weight = torch.nn.Parameter(deserialized_weight)
             else:
-                if type(self.weight.data) != type(deserialized_weight):
+                if type(self.weight.data) is not type(deserialized_weight):
                     # Reloading frozen weights into unfrozen module: move to the correct device and force assignment
                     self.weight = torch.nn.Parameter(deserialized_weight.to(self.weight.device))
                 else:
