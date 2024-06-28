@@ -17,4 +17,4 @@ jobs:
           pip install --upgrade pip
           pip install .[dev]
       - run: black --check bench examples optimum test
-      - run: ruff bench examples optimum test
+      - run: ruff check bench examples optimum test
