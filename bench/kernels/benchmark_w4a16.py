@@ -5,6 +5,8 @@ import time
 import torch
 
 from optimum.quanto.tensor.weights.awq import AWQPackedTensor, AWQPacking
+from optimum.quanto.tensor.weights.marlin import marlin_permute
+from optimum.quanto.tensor.weights.marlin.int4 import MarlinInt4PackedTensor
 
 
 def benchmark(f, warmup=1, iter=10):
@@ -28,12 +30,15 @@ def get_problem(m, n, k, groupsize=128):
     A = torch.rand((m, k), dtype=torch.half, device=dev)
     B_4bit = torch.randint(0, 2**4, (n, k), dtype=torch.uint8, device=dev)
     B_awq = AWQPackedTensor.pack(B_4bit, packing=AWQPacking.V2)._data
+    B_marlin = MarlinInt4PackedTensor.pack(B_4bit)._data
     B_ref = torch.rand((k, n), dtype=torch.half, device=dev)
     s = torch.rand((k // groupsize, n), dtype=torch.half, device=dev) / 2**4
+    s_marlin = marlin_permute(s)
     z = torch.randint(-(2 ** (4 - 1)), 2 ** (4 - 1), (k // groupsize, n), dtype=torch.int8, device=dev)
     sz = -z * s
+    sz_marlin = marlin_permute(sz)
     torch.cuda.synchronize()
-    return A, B_ref, B_awq, s, sz
+    return A, B_ref, B_awq, B_marlin, s, s_marlin, sz, sz_marlin
 
 
 def benchmark_dense(A, B, m, n, k):
@@ -53,6 +58,16 @@ def benchmark_awq(A, B, s, sz, m, n, k):
         "s": res,
         "TFLOP/s": 2 * (m * k) * n / res / 10**12,
         "GB/s": (2 * A.numel() + 2 * B.numel() + 2 * (m * n) + 2 * s.numel() + 2 * sz.numel()) / res / 10**9,
+    }
+
+
+def benchmark_marlin(A, B, s, sz, m, n, k):
+    workspace = torch.zeros(n // 128 * 16, dtype=torch.int, device=torch.device("cuda:0"))
+    res = benchmark(lambda: torch.ops.quanto.gemm_f16i4_marlin(A, B, s, sz, workspace))
+    return {
+        "s": res,
+        "TFLOP/s": 2 * (m * k) * n / res / 10**12,
+        "GB/s": (2 * A.numel() + 4 * B.numel() + 2 * (m * n) + 2 * s.numel() + 2 * sz.numel()) / res / 10**9,
     }
 
 
@@ -79,9 +94,10 @@ def run_benchmark(model, tokens=None):
     print(model)
     for m in tokens:
         tot_awq = {"s": 0, "TFLOP/s": 0, "GB/s": 0, "speedup": 0}
+        tot_marlin = {"s": 0, "TFLOP/s": 0, "GB/s": 0, "speedup": 0}
         for layer in layers:
             k, n = layer
-            A, B_ref, B_awq, s, sz = get_problem(m, n, k, groupsize)
+            A, B_ref, B_awq, B_marlin, s, s_marlin, sz, sz_marlin = get_problem(m, n, k, groupsize)
             res_d = benchmark_dense(A, B_ref, m, n, k)
             res_awq = benchmark_awq(A, B_awq, s, sz, m, n, k)
             res_awq["speedup"] = res_d["s"] / res_awq["s"]
@@ -89,12 +105,25 @@ def run_benchmark(model, tokens=None):
             for key in tot_awq:
                 if key != "s":
                     tot_awq[key] += res_awq[key] * res_awq["s"]
+            res_marlin = benchmark_marlin(A, B_marlin, s_marlin, sz_marlin, m, n, k)
+            res_marlin["speedup"] = res_d["s"] / res_marlin["s"]
+            tot_marlin["s"] += res_marlin["s"]
+            for key in tot_marlin:
+                if key != "s":
+                    tot_marlin[key] += res_marlin[key] * res_marlin["s"]
         for key in tot_awq:
             if key != "s":
                 tot_awq[key] /= tot_awq["s"]
+        for key in tot_marlin:
+            if key != "s":
+                tot_marlin[key] /= tot_marlin["s"]
         print(
             "AWQ, tokens=%04d: s=%.5f, TFLOP/s=%07.3f, GB/s=%08.3f, speedup=%.2f"
             % (m, tot_awq["s"], tot_awq["TFLOP/s"], tot_awq["GB/s"], tot_awq["speedup"])
+        )
+        print(
+            "Marlin, batch=%04d: s=%.5f, TFLOP/s=%07.3f, GB/s=%08.3f, speedup=%.2f"
+            % (m, tot_marlin["s"], tot_marlin["TFLOP/s"], tot_marlin["GB/s"], tot_marlin["speedup"])
         )
 
 
