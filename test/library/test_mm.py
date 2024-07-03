@@ -63,18 +63,18 @@ def test_gemm_fp16_int4(batch_size, tokens, in_features, out_features):
     # The GEMM kernel works on transposed scales
     scales_shape = (in_features // group_size, out_features)
     other_scales = torch.rand(scales_shape, dtype=torch.float16, device=device) / qmax
-    # The GEMM kernel works on transposed, negated and scaled zeropoints
+    # The GEMM kernel works on transposed, negated and scaled shifts
     qmin = -(2 ** (bits - 1))
     qmax = 2 ** (bits - 1)
-    other_zeropoints = torch.randint(qmin, qmax, scales_shape, dtype=torch.int8, device=device)
+    other_shifts = torch.randint(qmin, qmax, scales_shape, dtype=torch.int8, device=device)
     # Negate and scale
-    other_scaled_zeropoints = -other_zeropoints * other_scales
+    other_scaled_shifts = -other_shifts * other_scales
     # Evaluate mm outputs using the GEMM kernel
     lib_outputs = torch.ops.quanto.gemm(
         inputs,
         packed_other_data,
         other_scales,
-        other_scaled_zeropoints,
+        other_scaled_shifts,
         rows=inputs.numel() // inputs.shape[-1],
         out_cols=out_features,
         in_cols=in_features,
@@ -84,7 +84,7 @@ def test_gemm_fp16_int4(batch_size, tokens, in_features, out_features):
     # Transpose other data and reshape it to align it with transposed scales and zeros
     other_data_t = other_data.t().reshape(group_size, in_features // group_size, out_features)
     # Dequantize transposed other
-    other_t = (other_data_t - other_zeropoints) * other_scales
+    other_t = (other_data_t - other_shifts) * other_scales
     # Reshape it as expected by the matmul
     other_t = other_t.reshape(in_features, out_features)
     # Evaluate the matrix multiplication using pytorch float16 mm

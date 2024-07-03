@@ -90,7 +90,7 @@ def gemm_cuda(
     input: torch.Tensor,
     other: torch.Tensor,
     scales: torch.Tensor,
-    zeropoint: torch.Tensor,
+    shift: torch.Tensor,
     rows: int,
     out_cols: int,
     in_cols: int,
@@ -102,10 +102,10 @@ def gemm_cuda(
     assert other.dtype == torch.int16
     assert scales.dtype == torch.float16
     assert scales.shape[-1] == out_cols
-    assert zeropoint.dtype == torch.float16
-    assert zeropoint.shape[-1] == out_cols
+    assert shift.dtype == torch.float16
+    assert shift.shape[-1] == out_cols
     assert bits == 4
     assert group_size == 128
     if rows < 8:
-        return ext.lib.awq_v2_gemv_f16i4(input, other, scales, zeropoint, rows, out_cols, in_cols, group_size)
-    return ext.lib.awq_v2_gemm_f16i4(input, other, scales, zeropoint)
+        return ext.lib.awq_v2_gemv_f16i4(input, other, scales, shift, rows, out_cols, in_cols, group_size)
+    return ext.lib.awq_v2_gemm_f16i4(input, other, scales, shift)

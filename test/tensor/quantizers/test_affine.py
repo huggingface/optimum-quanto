@@ -30,15 +30,29 @@ from optimum.quanto import (
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["qint2", "qint4"])
 @pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
 @pytest.mark.parametrize("group_size", [None, 8], ids=["channel-wise", "group-wise"])
-def test_affine_quantize(input_shape, dtype, qtype, axis, group_size, device):
+@pytest.mark.parametrize("shift_mode", ["zeropoint", "float"])
+def test_affine_quantize(input_shape, dtype, qtype, axis, group_size, shift_mode, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
-    scale, zeropoint = MaxOptimizer()(a, bits=qtype.bits, axis=axis, group_size=group_size)
-    qa = AffineQuantizer.apply(a, qtype, axis, group_size, scale, zeropoint)
+    scale, shift = MaxOptimizer()(a, bits=qtype.bits, axis=axis, group_size=group_size)
+    if shift_mode == "zeropoint":
+        shift = torch.round(shift / scale).to(torch.int8)
+    qa = AffineQuantizer.apply(a, qtype, axis, group_size, scale, shift)
     assert isinstance(qa, QBitsTensor)
     assert qa.dtype == dtype
     assert qa.qtype == qtype
     assert device_eq(qa.device, device)
-    atol = 5e-3 if qtype == qint4 else 6e-2
+    atol = {
+        qint4: {
+            "zeropoint": 4e-3,
+            "float": 3e-3,
+        },
+        qint2: {
+            "zeropoint": 6e-2,
+            "float": 5e-2,
+        },
+    }[
+        qtype
+    ][shift_mode]
     assert_similar(a, qa, atol=atol)
 
 
@@ -50,7 +64,8 @@ def test_affine_quantize_integer_tensor(dtype, qtype, device):
     qmin = -(2 ** (bits - 1))
     qmax = 2 ** (bits - 1) - 1
     a = torch.tensor(range(qmin, qmax + 1), dtype=dtype).to(device)
-    scale, zeropoint = MaxOptimizer()(a, bits=qtype.bits, axis=0, group_size=None)
+    scale, shift = MaxOptimizer()(a, bits=qtype.bits, axis=0, group_size=None)
+    zeropoint = torch.round(shift / scale)
     qa = AffineQuantizer.apply(a, qtype, 0, None, scale, zeropoint)
 
     assert qa._data.dtype == torch.uint8

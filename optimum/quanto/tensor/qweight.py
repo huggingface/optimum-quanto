@@ -29,7 +29,12 @@ default_symmetric_optimizer = AbsmaxOptimizer()
 
 
 def quantize_weight(
-    t: torch.Tensor, qtype: qtype, axis: int, group_size: Optional[int] = None, optimizer: Optional[Optimizer] = None
+    t: torch.Tensor,
+    qtype: qtype,
+    axis: int,
+    group_size: Optional[int] = None,
+    optimizer: Optional[Optimizer] = None,
+    zeropoint: bool = True,
 ):
     """Quantize a weight Tensor.
 
@@ -42,6 +47,9 @@ def quantize_weight(
         group_size (`Optional[int]`): The quantization group size
         optimizer (`Optional[quanto.Optimizer]`): An optimizer to evaluate the scale if not provided.
             Defaults to a max Optimizer.
+        zeropoint (`bool`): Allow an exact representation of zero. If True, the shifts are stored as
+            integer instead of float, which results in a slightly smaller model, but might also reduce
+            the model performance. Defaults to True.
 
     Returns:
         A quantized Tensor.
@@ -66,5 +74,8 @@ def quantize_weight(
     else:
         if not isinstance(optimizer, AffineOptimizer):
             raise ValueError("An AffineOptimizer is expected")
-    scale, zeropoint = optimizer(t, qtype.bits, axis, group_size)
-    return AffineQuantizer.apply(t, qtype, axis, group_size, scale, zeropoint)
+    scale, shift = optimizer(t, qtype.bits, axis, group_size)
+    if zeropoint:
+        # Round shift to make sure zero can be represented exactly using 'shift' as quantized value
+        shift = torch.clamp(torch.round(shift / scale), 0, 2**qtype.bits - 1).to(torch.uint8)
+    return AffineQuantizer.apply(t, qtype, axis, group_size, scale, shift)

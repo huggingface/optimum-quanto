@@ -57,8 +57,8 @@ def _to_copy(op, t, dtype=None, device=None, **kwargs):
         t = t.qbits_tensor()
     scale = op(t._scale, dtype=dtype, device=device, **kwargs)
     data = op(t._data, device=device, **kwargs)
-    zeropoint = op(t._zeropoint, device=device, **kwargs)
-    return QBitsTensor.create(t._qtype, t._axis, t._group_size, t.size(), t.stride(), data, scale, zeropoint)
+    shift = op(t._shift, device=device, **kwargs)
+    return QBitsTensor.create(t._qtype, t._axis, t._group_size, t.size(), t.stride(), data, scale, shift)
 
 
 @register_qbitstensor_op([torch.ops.aten.detach])
@@ -66,5 +66,5 @@ def detach(op, t):
     # Detach is required when copying and deserializing
     data = op(t._data)
     scale = op(t._scale)
-    zeropoint = op(t._zeropoint)
-    return t.__class__(t._qtype, t._axis, t._group_size, t.size(), t.stride(), data, scale, zeropoint)
+    shift = op(t._shift)
+    return t.__class__(t._qtype, t._axis, t._group_size, t.size(), t.stride(), data, scale, shift)

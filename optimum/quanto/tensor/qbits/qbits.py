@@ -29,13 +29,19 @@ __all__ = ["QBitsTensor"]
 class QBitsDequantizer(Function):
     @staticmethod
     def forward(ctx, t):
-        unpacked = t._data.unpack()
-        int8_data = unpacked.to(torch.int8) - t._zeropoint.to(torch.int8)
+        data = t._data.unpack()
+        shift = t._shift
+        if not shift.dtype.is_floating_point:
+            # Remove shift before multiplying by the scale
+            data = data.to(torch.int8) - shift.to(torch.int8)
         if t.qtype.is_floating_point:
             # Upcast explicitly to the scale dtype
-            dqt = t._scale * int8_data.to(t._scale.dtype)
+            dqt = t._scale * data.to(t._scale.dtype)
         else:
-            dqt = t._scale * int8_data
+            dqt = t._scale * data
+        if shift.dtype.is_floating_point:
+            # Remove scaled shift
+            dqt -= shift
         if t.axis is None:
             return dqt
         # Restore the original shape (if needed)
@@ -48,7 +54,7 @@ class QBitsDequantizer(Function):
 
 class QBitsTensor(QTensor):
     @staticmethod
-    def create(qtype, axis, group_size, size, stride, data, scale, zeropoint, requires_grad=False):
+    def create(qtype, axis, group_size, size, stride, data, scale, shift, requires_grad=False):
         """Factory method to create a QBitsTensor
 
         This selects the most appropriate QBitsTensor based on the configuration.
@@ -66,8 +72,9 @@ class QBitsTensor(QTensor):
                 The tensor data, either as a raw uint8 torch.Tensor or as a PackedTensor.
             scale (`torch.Tensor`):
                 The floating point scale expressed as a torch.Tensor.
-            zeropoint (`torch.Tensor`):
-                The integer zeropoint expressed as a torch.Tensor.
+            shift (`torch.Tensor`):
+                The shift expressed as a torch.Tensor. It can be either an integer representing zero
+                (i.e. zero-point) or a float value.
             requires_grad (`bool`):
                 If the Tensor must be receive a gradient or not.
 
@@ -87,28 +94,28 @@ class QBitsTensor(QTensor):
         ):
             if type(data) == PackedTensor:
                 data = data.unpack()
-            return AWQBitsTensor(qtype, axis, group_size, size, stride, data, scale, zeropoint, requires_grad)
-        return QBitsTensor(qtype, axis, group_size, size, stride, data, scale, zeropoint, requires_grad)
+            return AWQBitsTensor(qtype, axis, group_size, size, stride, data, scale, shift, requires_grad)
+        return QBitsTensor(qtype, axis, group_size, size, stride, data, scale, shift, requires_grad)
 
     @staticmethod
-    def __new__(cls, qtype, axis, group_size, size, stride, data, scale, zeropoint, requires_grad=False):
+    def __new__(cls, qtype, axis, group_size, size, stride, data, scale, shift, requires_grad=False):
         assert data.device == scale.device
-        assert data.device == zeropoint.device
+        assert data.device == shift.device
         return torch.Tensor._make_wrapper_subclass(
             cls, size, strides=stride, dtype=scale.dtype, device=data.device, requires_grad=requires_grad
         )
 
-    def __init__(self, qtype, axis, group_size, size, stride, data, scale, zeropoint, requires_grad=False):
+    def __init__(self, qtype, axis, group_size, size, stride, data, scale, shift, requires_grad=False):
         super().__init__(qtype, axis)
         if type(data) == torch.Tensor:
             data = PackedTensor.pack(data, qtype.bits)
         self._data = data
         self._scale = scale
-        self._zeropoint = zeropoint
+        self._shift = shift
         self._group_size = group_size
 
     def __repr__(self):
-        return f"{type(self).__name__}({self._data}, scale={self._scale}, zeropoint={self._zeropoint}, dtype={self.dtype})"
+        return f"{type(self).__name__}({self._data}, scale={self._scale}, shift={self._shift}, dtype={self.dtype})"
 
     def dequantize(self):
         return QBitsDequantizer.apply(self)
@@ -116,7 +123,7 @@ class QBitsTensor(QTensor):
     @staticmethod
     def load_from_state_dict(state_dict, prefix):
         inner_tensors_dict = {"_data": PackedTensor.load_from_state_dict(state_dict, prefix + "_data.")}
-        for name in ["_scale", "_zeropoint"]:
+        for name in ["_scale", "_shift"]:
             inner_tensors_dict[name] = state_dict.pop(prefix + name)
         meta = [name.replace(prefix, "") for name in state_dict.keys() if name.startswith(prefix)]
         meta_dict = {}
@@ -138,7 +145,7 @@ class QBitsTensor(QTensor):
             self.stride(),
             data,
             self._scale,
-            self._zeropoint,
+            self._shift,
             self.requires_grad,
         )
 
@@ -157,7 +164,7 @@ class QBitsTensor(QTensor):
         raise NotImplementedError
 
     def __tensor_flatten__(self):
-        inner_tensors = ["_data", "_scale", "_zeropoint"]
+        inner_tensors = ["_data", "_scale", "_shift"]
         # Since meta can be used for serialization, use only strings
         meta = {
             "qtype": self._qtype.name,
@@ -172,14 +179,14 @@ class QBitsTensor(QTensor):
     def __tensor_unflatten__(inner_tensors, meta, outer_size, outer_stride):
         assert len(inner_tensors) == 3
         assert len(meta) == 5
-        data, scale, zeropoint = inner_tensors["_data"], inner_tensors["_scale"], inner_tensors["_zeropoint"]
+        data, scale, shift = inner_tensors["_data"], inner_tensors["_scale"], inner_tensors["_shift"]
         # Meta should only contain strings, AST compatible except qtype
         qtype = qtypes[meta["qtype"]]
         axis = ast.literal_eval(meta["axis"])
         group_size = ast.literal_eval(meta["group_size"])
         size = ast.literal_eval(meta["size"])
         stride = ast.literal_eval(meta["stride"])
-        return QBitsTensor(qtype, axis, group_size, size, stride, data, scale, zeropoint)
+        return QBitsTensor(qtype, axis, group_size, size, stride, data, scale, shift)
 
     @classmethod
     def __torch_dispatch__(cls, op, types, args, kwargs=None):
