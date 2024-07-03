@@ -13,15 +13,27 @@
 # limitations under the License.
 
 import argparse
-import io
 import time
+from tempfile import NamedTemporaryFile
 
 import torch
 import torch.nn.functional as F
+from accelerate import init_empty_weights
 from torchvision import datasets, transforms
-from transformers import AutoModel
+from transformers import AutoConfig, AutoModel
 
-from optimum.quanto import Calibration, QTensor, freeze, qfloat8, qint4, qint8, quantize
+from optimum.quanto import (
+    Calibration,
+    QTensor,
+    freeze,
+    qfloat8,
+    qint4,
+    qint8,
+    quantize,
+    requantize,
+    safe_load,
+    safe_save,
+)
 
 
 def test(model, device, test_loader):
@@ -140,13 +152,18 @@ def main():
     print("Quantized frozen model")
     freeze(model)
     test(model, device, test_loader)
-    b = io.BytesIO()
-    torch.save(model.state_dict(), b)
-    b.seek(0)
-    state_dict = torch.load(b)
+    # Serialize model to a state_dict, save it to disk and reload it
+    with NamedTemporaryFile() as tmp_file:
+        safe_save(model.state_dict(), tmp_file.name)
+        state_dict = safe_load(tmp_file.name)
     model_reloaded = AutoModel.from_pretrained(args.model, trust_remote_code=True)
-    quantize(model_reloaded, weights=weights, activations=activations)
-    model_reloaded.load_state_dict(state_dict)
+    requantize(model_reloaded, state_dict)
+    # Create an empty model
+    config = AutoConfig.from_pretrained(args.model, trust_remote_code=True)
+    with init_empty_weights():
+        model_reloaded = AutoModel.from_config(config, trust_remote_code=True)
+    # Requantize it using the serialized state_dict
+    requantize(model_reloaded, state_dict, device)
     print("Serialized quantized model")
     test(model_reloaded, device, test_loader)
 
