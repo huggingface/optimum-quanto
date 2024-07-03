@@ -112,6 +112,13 @@ Optimum Quanto is available as a pip package.
 pip install optimum-quanto
 ```
 
+> :bulb: **NOTE**: `optimum-quanto` was initially released under the 
+> name [`quanto`](https://pypi.org/project/quanto) on PyPI. However, 
+> it was later rebranded under the name 
+> [`optimum-quanto`](https://pypi.org/project/optimum-quanto) on PyPI 
+> and on the GitHub repository. So, if you are using this library, 
+> please use the `optimum-quanto` package and NOT `quanto` from PyPI. 
+
 ## Quantization workflow
 
 Quanto does not make a clear distinction between dynamic and static quantization: models are always dynamically quantized,
@@ -124,7 +131,7 @@ A typical quantization workflow would consist of the following steps:
 The first step converts a standard float model into a dynamically quantized model.
 
 ```python
-from optimum.quanto import qint8
+from optimum.quanto import qint8, quantize
 
 quantize(model, weights=qint8, activations=qint8)
 ```
@@ -136,7 +143,9 @@ At this stage, only the inference of the model is modified to dynamically quanti
 Quanto supports a calibration mode that allows to record the activation ranges while passing representative samples through the quantized model.
 
 ```python
-with calibration(momentum=0.9):
+from optimum.quanto import Calibration
+
+with Calibration(momentum=0.9):
     model(samples)
 ```
 
@@ -163,6 +172,8 @@ for batch_idx, (data, target) in enumerate(train_loader):
 When freezing a model, its float weights are replaced by quantized integer weights.
 
 ```python
+from optimum.quanto import freeze
+
 freeze(model)
 ```
 
