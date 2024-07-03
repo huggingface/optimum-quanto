@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from torch import device as torch_device
+import torch
 
 from .nn import QModuleMixin, quantize_module
 
@@ -45,20 +45,25 @@ def quantize(model, modules=None, **kwargs):
                 del param
 
 
-def requantize(model, state_dict):
-    # find device that model is on
-    device = next(model.parameters()).device
+def requantize(model, state_dict, device=None):
+    # Evaluate the model current device
+    current_device = next(model.parameters()).device
+    if current_device.type != "meta":
+        # empty the model params by moving to the meta device
+        model.to(torch.device("meta"))
+        if device is None:
+            device = current_device
 
-    # empty the model params by moving to the meta device, then quantize
-    model.to(torch_device("meta"))
+    # Quantize the model without parameters to create blank quantized modules
     quantize(model)
 
-    # move the quantized but empty model to cpu then load the state_dict
-    model.to_empty(device=torch_device("cpu"))
+    # Move the quantized but empty model to the CPU device to avoid creating large weights on the device
+    model.to_empty(device=torch.device("cpu"))
+    #  Load the state_dict, applying quantization parameters and thus reducing model weights
     model.load_state_dict(state_dict)
 
-    # move the model back to the original device
-    model.to(device)
+    if device is not None:
+        model.to(device)
 
 
 def freeze(model):
