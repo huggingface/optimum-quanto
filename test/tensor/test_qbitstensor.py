@@ -34,7 +34,7 @@ def test_qbitstensor_serialization(qtype, axis):
     assert qa_reloaded.dtype == qa.dtype
     assert torch.equal(qa_reloaded._data, qa._data)
     assert torch.equal(qa_reloaded._scale, qa._scale)
-    assert torch.equal(qa_reloaded._zeropoint, qa._zeropoint)
+    assert torch.equal(qa_reloaded._shift, qa._shift)
 
 
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["int2", "int4"])
@@ -72,7 +72,7 @@ def test_to_device(dtype, group_size, device):
     assert moved_qa.device.type == device.type
     assert moved_qa._data.device.type == device.type
     assert moved_qa._scale.device.type == device.type
-    assert moved_qa._zeropoint.device.type == device.type
+    assert moved_qa._shift.device.type == device.type
     moved_dqa = moved_qa.dequantize().to("cpu")
     if type(moved_qa) != QBitsTensor:
         # Since we use an optimized packing, the order of operations during

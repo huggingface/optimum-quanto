@@ -85,7 +85,7 @@ class QTensorLinear(torch.autograd.Function):
     such as quanto custom operations.
 
     The drawback is that the extra tensors involved in the quantization graph, such as
-    the scales and zeropoint, cannot be trained.
+    the scales and shift, cannot be trained.
     This is however consistent with the quanto quantizers backward pass, that returns
     a zero gradient for these tensors.
     """
@@ -102,7 +102,7 @@ class QTensorLinear(torch.autograd.Function):
                 input,
                 other._data._data,
                 other._scale,
-                other._zeropoint,
+                other._shift,
                 rows=rows,
                 out_cols=out_features,
                 in_cols=in_features,

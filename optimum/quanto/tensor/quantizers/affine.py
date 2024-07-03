@@ -27,7 +27,7 @@ class AffineQuantizer(Function):
 
     @staticmethod
     def forward(
-        ctx, base: torch.Tensor, qtype: qtype, axis: int, group_size: int, scale: torch.Tensor, zeropoint: torch.Tensor
+        ctx, base: torch.Tensor, qtype: qtype, axis: int, group_size: int, scale: torch.Tensor, shift: torch.Tensor
     ):
         if qtype not in (qint2, qint4):
             raise ValueError("QBitsTensor can only be of qint2 or qint4 qtype")
@@ -38,9 +38,15 @@ class AffineQuantizer(Function):
         if group_size is not None:
             base = group(base, axis=axis, group_size=group_size)
         bits = qtype.bits
-        data = torch.clamp(torch.round(base / scale) + zeropoint, min=0, max=2**bits - 1).to(torch.uint8)
+        if shift.dtype.is_floating_point:
+            data = torch.round((base + shift) / scale)
+        else:
+            # Shift is an integer representing zero (i.e. zero-point)
+            data = torch.round(base / scale) + shift
 
-        return QBitsTensor.create(qtype, axis, group_size, size, stride, data, scale, zeropoint)
+        data = torch.clamp(data, min=0, max=2**bits - 1).to(torch.uint8)
+
+        return QBitsTensor.create(qtype, axis, group_size, size, stride, data, scale, shift)
 
     @staticmethod
     def backward(ctx, gO):

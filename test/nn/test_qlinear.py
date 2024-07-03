@@ -168,7 +168,7 @@ def test_move_qlinear(use_bias, weights, device):
     assert qlinear.weight._data.device.type == device.type
     assert qlinear.weight._scale.device.type == device.type
     if isinstance(qlinear.weight, QBitsTensor):
-        assert qlinear.weight._zeropoint.device.type == device.type
+        assert qlinear.weight._shift.device.type == device.type
 
 
 @pytest.mark.parametrize("features", [10, 256], ids=["per-axis", "per-group"])

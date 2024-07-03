@@ -73,7 +73,7 @@ define(
     "(Tensor input,"
     " Tensor other,"
     " Tensor other_scale,"
-    " Tensor other_zeropoint,"
+    " Tensor other_shift,"
     " int rows,"
     " int out_cols,"
     " int in_cols,"

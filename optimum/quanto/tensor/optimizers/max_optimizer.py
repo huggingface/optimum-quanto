@@ -33,5 +33,5 @@ class MaxOptimizer(AffineOptimizer):
         qmin = -(2 ** (bits - 1))
         qmax = 2 ** (bits - 1) - 1
         scale = (rmax - rmin) / (qmax - qmin)
-        zeropoint = torch.round(-rmin / scale).to(torch.int8)
-        return scale, zeropoint
+        shift = -rmin
+        return scale, shift
