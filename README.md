@@ -166,6 +166,23 @@ When freezing a model, its float weights are replaced by quantized integer weigh
 freeze(model)
 ```
 
+**5. Serialize model**
+
+Quantized models can be serialized to a `state_dict`, and saved to a file.
+Both `pickle` and `safetensors` (recommended) are supported.
+
+```python
+safe_save(model.state_dict(), 'qmodel.safetensors')
+```
+
+**6. Reload quantized model**
+
+A serialized quantized model can be reloaded from a `state_dict` using the `requantize` helper. Note that you need first to instantiate an empty model.
+
+```python
+requantize(model, safe_load('qmodel.safetensors'))
+```
+
 Please refer to the [examples](https://github.com/huggingface/quanto/tree/main/examples) for instantiations of that workflow.
 
 ## Per-axis versus per-tensor
