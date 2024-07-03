@@ -22,7 +22,11 @@ from ..extension import Extension
 __all__ = []
 
 
-def get_min_cuda_arch():
+def get_max_cuda_arch():
+    """Select the maximum CUDA arch supported
+
+    This is a combination of the CUDA and pytorch version and all detected devices capabilities.
+    """
     capability_list = []
     supported_sm = [int(arch.split("_")[1]) for arch in torch.cuda.get_arch_list() if "sm_" in arch]
     if supported_sm:
@@ -36,8 +40,8 @@ def get_min_cuda_arch():
             capability = min(max_supported_sm, capability)
             if capability not in capability_list:
                 capability_list.append(capability)
-    min_capability = min(sorted(capability_list)) if len(capability_list) > 0 else (0, 0)
-    return f"{min_capability[0]}{min_capability[1]}0"
+    max_capability = max(sorted(capability_list)) if len(capability_list) > 0 else (0, 0)
+    return f"{max_capability[0]}{max_capability[1]}0"
 
 
 extra_cflags = ["-g", "-O3", "-fopenmp", "-lgomp", "-std=c++17", "-DENABLE_BF16"]
@@ -58,7 +62,7 @@ extra_cuda_cflags = [
 ]
 # We need to know the minimum CUDA Arch to select only the relevant kernels
 # but we cannot rely on __CUDA_ARCH__ as it is not set in host code (only on device code)
-quanto_cuda_arch = get_min_cuda_arch()
+quanto_cuda_arch = get_max_cuda_arch()
 extra_cuda_cflags += [f"-DQUANTO_CUDA_ARCH={quanto_cuda_arch}"]
 module_path = os.path.dirname(__file__)
 sources = [
