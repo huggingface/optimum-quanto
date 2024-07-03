@@ -34,7 +34,7 @@ def quantize_weight(
     axis: int,
     group_size: Optional[int] = None,
     optimizer: Optional[Optimizer] = None,
-    zeropoint: bool = True,
+    zeropoint: bool = False,
 ):
     """Quantize a weight Tensor.
 
