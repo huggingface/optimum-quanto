@@ -183,6 +183,8 @@ Quantized models can be serialized to a `state_dict`, and saved to a file.
 Both `pickle` and `safetensors` (recommended) are supported.
 
 ```python
+from optimum.quanto import safe_save
+
 safe_save(model.state_dict(), 'qmodel.safetensors')
 ```
 
@@ -191,6 +193,8 @@ safe_save(model.state_dict(), 'qmodel.safetensors')
 A serialized quantized model can be reloaded from a `state_dict` using the `requantize` helper. Note that you need first to instantiate an empty model.
 
 ```python
+from optimum.quanto import requantize, safe_load
+
 requantize(model, safe_load('qmodel.safetensors'))
 ```
 
