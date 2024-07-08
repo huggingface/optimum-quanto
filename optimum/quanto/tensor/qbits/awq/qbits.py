@@ -83,7 +83,7 @@ class AWQBitsTensor(QBitsTensor):
         data = self._data.unpack()
         n_scales = self._scale.numel()
         scale = self._scale.t().reshape((n_scales, 1))
-        shift = self._shift.t().reshape((n_scales, 1))
+        shift = -self._shift.t().reshape((n_scales, 1))
         return QBitsTensor(self._qtype, self._axis, self._group_size, self.size(), self.stride(), data, scale, shift)
 
     def __tensor_flatten__(self):
