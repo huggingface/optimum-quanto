@@ -82,6 +82,7 @@ class QBitsTensor(QTensor):
             a `QBitsTensor` (can be a subclass).
         """
         from .awq import AWQBitsTensor
+        from .tinygemm import TinyGemmQBitsTensor
 
         if (
             qtype == qint4
@@ -95,6 +96,14 @@ class QBitsTensor(QTensor):
             if type(data) == PackedTensor:
                 data = data.unpack()
             return AWQBitsTensor(qtype, axis, group_size, size, stride, data, scale, shift, requires_grad)
+        if qtype == qint4 and scale.dtype == torch.bfloat16 and axis == 0 and group_size == 128 and len(size) == 2:
+            if data.device.type == "cpu" or (
+                data.device.type == "cuda" and torch.cuda.get_device_capability(data.device)[0] >= 8
+            ):
+                if type(data) == PackedTensor:
+                    data = data.unpack()
+                return TinyGemmQBitsTensor(qtype, axis, group_size, size, stride, data, (scale, shift), requires_grad)
+
         return QBitsTensor(qtype, axis, group_size, size, stride, data, scale, shift, requires_grad)
 
     @staticmethod

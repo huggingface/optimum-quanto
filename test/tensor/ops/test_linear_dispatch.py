@@ -47,3 +47,18 @@ def test_linear_gemm_fp16_int4(batch_size, tokens, embeddings, use_bias):
     qout = torch.nn.functional.linear(inputs, qweight, bias)
     out = torch.nn.functional.linear(inputs, qweight.dequantize(), bias)
     assert_similar(out, qout)
+
+
+@pytest.mark.skip_device("mps")  # Only available with pytorch 2.4
+@pytest.mark.parametrize("batch_size", [1, 10])
+@pytest.mark.parametrize("tokens, embeddings", [(256, 256)])
+@pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
+def test_linear_tinygemm(batch_size, tokens, embeddings, use_bias, device):
+    dtype = torch.bfloat16
+    weight_qtype = qint4
+    inputs = torch.rand((batch_size,) + (tokens, embeddings), dtype=dtype, device=device)
+    qweight = random_qweight((embeddings, embeddings), weight_qtype, dtype=dtype, axis=0, group_size=128).to(device)
+    bias = random_tensor((embeddings,), dtype=dtype).to(device) if use_bias else None
+    qout = torch.nn.functional.linear(inputs, qweight, bias)
+    out = torch.nn.functional.linear(inputs, qweight.dequantize(), bias)
+    assert_similar(out, qout)
