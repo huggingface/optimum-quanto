@@ -16,7 +16,7 @@ from functools import partial
 
 import torch
 
-from .qbits import AWQBitsTensor
+from .qbits import AWQBitsTensor, TinyGemmQBitsTensor
 from .qbytes import QBytesTensor
 from .qtensor import qfallback
 
@@ -109,6 +109,16 @@ class QTensorLinear(torch.autograd.Function):
                 bits=4,
                 group_size=other._group_size,
             )
+        elif isinstance(other, TinyGemmQBitsTensor):
+            if type(input) != torch.Tensor:
+                input = input.dequantize()
+            in_features = input.shape[-1]
+            out_features = other.shape[0]
+            output_shape = input.shape[:-1] + (out_features,)
+            output = torch._weight_int4pack_mm(
+                input.view(-1, in_features), other._data._data, other._group_size, other._scale_shift
+            )
+            output = output.view(output_shape)
         elif isinstance(other, QBytesTensor):
             if isinstance(input, QBytesTensor):
                 output = torch.ops.quanto.qbytes_mm(input._data, other._data, input._scale * other._scale)
