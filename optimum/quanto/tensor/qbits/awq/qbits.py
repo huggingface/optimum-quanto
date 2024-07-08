@@ -80,7 +80,7 @@ class AWQBitsTensor(QBitsTensor):
 
         This is required to make sure only standard packing is used when serializing.
         """
-        data = self._data.unpack()
+        data = group(self._data.unpack(), axis=self.axis, group_size=self._group_size)
         n_scales = self._scale.numel()
         scale = self._scale.t().reshape((n_scales, 1))
         shift = -self._shift.t().reshape((n_scales, 1))
