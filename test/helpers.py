@@ -19,7 +19,7 @@ import pytest
 import torch
 from packaging import version
 
-from optimum.quanto import absmax_scale, qint8, quantize_activation, quantize_weight
+from optimum.quanto import QBitsTensor, absmax_scale, qint8, quantize_activation, quantize_weight
 
 
 def torch_min_version(v):
@@ -63,6 +63,22 @@ def random_qactivation(shape, qtype=qint8, dtype=torch.float32, device="cpu"):
 def random_qweight(shape, qtype, dtype=torch.float32, axis=0, group_size=None, device="cpu"):
     t = random_tensor(shape, dtype, device=device)
     return quantize_weight(t, qtype=qtype, axis=axis, group_size=group_size)
+
+
+def random_qbits_tensor(shape, qtype, dtype, group_size, device):
+    bits = qtype.bits
+    qmax = 2**bits
+    out_features, in_features = shape
+    n_scales = out_features * in_features // group_size
+    data_shape = (n_scales, group_size)
+    data = torch.randint(0, qmax, data_shape, dtype=torch.uint8, device=device)
+    scale_shape = (n_scales, 1)
+    scale = torch.rand(scale_shape, dtype=dtype, device=device) / qmax
+    shift_shape = (n_scales, 1)
+    shift = torch.rand(shift_shape, dtype=dtype, device=device)
+    return QBitsTensor(
+        qtype, axis=0, group_size=group_size, size=shape, stride=(in_features, 1), data=data, scale=scale, shift=shift
+    )
 
 
 def assert_similar(a, b, atol=None, rtol=None):
