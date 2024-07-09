@@ -43,10 +43,10 @@ def setup(
     activations: str,
     batch_size: int,
     device: torch.device,
+    dtype: torch.dtype,
 ):
     weights = keyword_to_qtype(weights)
     activations = keyword_to_qtype(activations)
-    dtype = torch.float32 if device.type == "cpu" else torch.float16
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     tokenizer.pad_token_id = tokenizer.eos_token_id
     tokenizer.padding_side = "left"
