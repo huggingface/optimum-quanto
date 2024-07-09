@@ -23,6 +23,7 @@ from setup.awq import setup as awq_setup
 from setup.bnb import setup as bnb_setup
 from setup.hqq import setup as hqq_setup
 from setup.quanto import setup as quanto_setup
+from transformers import AutoConfig
 
 
 @torch.no_grad()
@@ -42,10 +43,20 @@ def calibrate(model, tokenizer, batch_size, batches):
 
 
 def evaluate(
-    model_id: str, metric: str, quantizer: str, weights: str, activations: str, batch_size: int, device: torch.device
+    model_id: str,
+    metric: str,
+    quantizer: str,
+    weights: str,
+    activations: str,
+    batch_size: int,
+    device: torch.device,
+    dtype: torch.dtype = None,
 ):
     if quantizer == "quanto":
-        model, tokenizer = quanto_setup(model_id, weights, activations, batch_size, device)
+        if dtype is None:
+            config = AutoConfig.from_pretrained(model_id)
+            dtype = getattr(config, "torch_dtype", torch.float16)
+        model, tokenizer = quanto_setup(model_id, weights, activations, batch_size, device, dtype)
     elif quantizer == "awq":
         model, tokenizer = awq_setup(model_id, weights, activations, group_size=128)
     elif quantizer == "bnb":
@@ -54,6 +65,10 @@ def evaluate(
         model, tokenizer = hqq_setup(model_id, weights, activations, device)
     else:
         raise ValueError(f"Unsupported quantizer {quantizer}")
+    dtype = next(model.parameters()).dtype
+    weights = dtype if weights == "none" else weights
+    activations = dtype if activations == "none" else activations
+    print(f"Evaluating {model_id} {metric} with {weights} weights and {activations} activations.")
     if metric == "latency":
         return latency(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512, iterations=5)
     elif metric == "prediction":
@@ -87,6 +102,12 @@ def main():
         choices=["none", "int8", "float8"],
     )
     parser.add_argument("--batch_size", type=int, default=32, help="The batch size during evaluation.")
+    parser.add_argument(
+        "--dtype",
+        type=str,
+        default="none",
+        choices=["none", "fp16", "bf16"],
+    )
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -100,7 +121,8 @@ def main():
             device = torch.device("cpu")
     else:
         device = torch.device(args.device)
-    evaluate(args.model, args.metric, args.quantizer, args.weights, args.activations, args.batch_size, device)
+    dtype = {"none": None, "fp16": torch.float16, "bf16": torch.bfloat16}[args.dtype]
+    evaluate(args.model, args.metric, args.quantizer, args.weights, args.activations, args.batch_size, device, dtype)
 
 
 if __name__ == "__main__":
