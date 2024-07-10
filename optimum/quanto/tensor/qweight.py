@@ -49,7 +49,7 @@ def quantize_weight(
             Defaults to a max Optimizer.
         zeropoint (`bool`): Allow an exact representation of zero. If True, the shifts are stored as
             integer instead of float, which results in a slightly smaller model, but might also reduce
-            the model performance. Defaults to True.
+            the model performance. Defaults to False.
 
     Returns:
         A quantized Tensor.
