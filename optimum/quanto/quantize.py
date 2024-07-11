@@ -12,9 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from fnmatch import fnmatch
+from typing import List, Optional, Union
+
 import torch
 
 from .nn import QModuleMixin, quantize_module
+from .tensor import Optimizer, qtype
 
 
 __all__ = ["quantize", "freeze", "requantize"]
@@ -30,12 +34,50 @@ def set_module_by_name(parent_module, name, child_module):
         setattr(parent_module, module_names[-1], child_module)
 
 
-def quantize(model, modules=None, **kwargs):
-    # Quantization happens in-place
+def quantize(
+    model: torch.nn.Module,
+    weights: Optional[Union[str, qtype]] = None,
+    activations: Optional[Union[str, qtype]] = None,
+    optimizer: Optional[Optimizer] = None,
+    include: Optional[Union[str, List[str]]] = None,
+    exclude: Optional[Union[str, List[str]]] = None,
+):
+    """Quantize the specified model submodules
+
+    Recursively quantize the submodules of the specified parent model.
+
+    Only modules that have quantized counterparts will be quantized.
+
+    If include patterns are specified, the submodule name must match one of them.
+
+    If exclude patterns are specified, the submodule must not match one of them.
+
+    Include or exclude patterns are Unix shell-style wildcards which are NOT regular expressions. See
+    https://docs.python.org/3/library/fnmatch.html for more details.
+
+    Note: quantization happens in-place and modifies the original model and its descendants.
+
+    Args:
+        model (`torch.nn.Module`): the model whose submodules will be quantized.
+        weights (`Optional[Union[str, qtype]]`): the qtype for weights quantization.
+        activations (`Optional[Union[str, qtype]]`): the qtype for activations quantization.
+        include (`Optional[Union[str, List[str]]]`):
+            Patterns constituting the allowlist. If provided, module names must match at
+            least one pattern from the allowlist.
+        exclude (`Optional[Union[str, List[str]]]`):
+            Patterns constituting the denylist. If provided, module names must not match
+            any patterns from the denylist.
+    """
+    if include is not None:
+        include = [include] if isinstance(include, str) else exclude
+    if exclude is not None:
+        exclude = [exclude] if isinstance(exclude, str) else exclude
     for name, m in model.named_modules():
-        if modules is not None and m not in modules:
+        if include is not None and not any(fnmatch(name, pattern) for pattern in include):
             continue
-        qmodule = quantize_module(m, **kwargs)
+        if exclude is not None and any(fnmatch(name, pattern) for pattern in exclude):
+            continue
+        qmodule = quantize_module(m, weights=weights, activations=activations, optimizer=optimizer)
         if qmodule is not None:
             set_module_by_name(model, name, qmodule)
             qmodule.name = name
