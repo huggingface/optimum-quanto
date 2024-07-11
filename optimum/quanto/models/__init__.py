@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.2.3dev"
+import importlib
 
-from .calibrate import *
-from .library import *
-from .models import *
-from .nn import *
-from .quantize import *
-from .tensor import *
+
+def is_transformers_available() -> bool:
+    return importlib.util.find_spec("transformers") is not None
+
+
+if is_transformers_available():
+    from .causal_lm import *
