@@ -57,7 +57,7 @@ class SymmetricQuantizer(Function):
         data = torch.clamp(data, min=info.min, max=info.max).to(qtype.dtype)
         # The instantiation of the quantized tensor must happen within the context of the Function
         # for the autograd magic to work.
-        return QBytesTensor(qtype, axis, size, stride, data, scale)
+        return QBytesTensor.create(qtype, axis, size, stride, data, scale)
 
     @staticmethod
     def backward(ctx, gO):

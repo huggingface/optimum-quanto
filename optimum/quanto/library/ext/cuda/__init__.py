@@ -109,3 +109,28 @@ def gemm_cuda(
     if rows < 8:
         return ext.lib.awq_v2_gemv_f16i4(input, other, scales, zeropoint, rows, out_cols, in_cols, group_size)
     return ext.lib.awq_v2_gemm_f16i4(input, other, scales, zeropoint)
+
+@torch.library.impl("quanto_ext::fp8_marlin", ["CUDA"])
+def fp8_marlin_cuda(
+    a: torch.Tensor,
+    b_q_weight: torch.Tensor,
+    b_scales: torch.Tensor,
+    workspace: torch.Tensor,
+    num_bits: int,
+    size_m: int,
+    size_n: int,
+    size_k: int,
+) -> torch.Tensor:
+    return ext.lib.fp8_marlin_gemm(
+        a, b_q_weight, b_scales, workspace, num_bits, size_m, size_n, size_k
+    )
+
+@torch.library.impl("quanto_ext::gptq_marlin_repack", ["CUDA"])
+def gptq_marlin_repack_cuda(
+    b_q_weight: torch.Tensor,
+    perm: torch.Tensor,
+    size_k: int,
+    size_n: int,
+    num_bits: int,
+) -> torch.Tensor:
+    return ext.lib.gptq_marlin_repack(b_q_weight, perm, size_k, size_n, num_bits)

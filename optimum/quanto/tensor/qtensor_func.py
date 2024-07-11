@@ -18,6 +18,7 @@ import torch
 
 from .qbits import AWQBitsTensor
 from .qbytes import QBytesTensor
+from .marlin import MarlinF8QBytesTensor
 from .qtensor import qfallback
 
 
@@ -109,6 +110,19 @@ class QTensorLinear(torch.autograd.Function):
                 bits=4,
                 group_size=other._group_size,
             )
+        elif isinstance(other, MarlinF8QBytesTensor):
+            input_flat = input.view(-1, input.shape[-1])
+            output = torch.ops.quanto.fp8_marlin(
+                input_flat,
+                other._data,
+                other._scale,
+                other._workspace,
+                8,
+                input_flat.shape[0],
+                other._scale.shape[1],
+                input_flat.shape[1],
+            )
+            output = output.reshape(input.shape[:-1] + (other._scale.shape[1],))
         elif isinstance(other, QBytesTensor):
             if isinstance(input, QBytesTensor):
                 output = torch.ops.quanto.qbytes_mm(input._data, other._data, input._scale * other._scale)

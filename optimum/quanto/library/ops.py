@@ -81,3 +81,15 @@ define(
     " int group_size)"
     " -> Tensor",
 )
+
+define("fp8_marlin",
+    "(Tensor a,"
+    " Tensor b_q_weight,"
+    " Tensor b_scales,"
+    " Tensor workspace,"
+    " int num_bits,"
+    " int size_m,"
+    " int size_n,"
+    " int size_k)"
+    " -> Tensor",
+)
