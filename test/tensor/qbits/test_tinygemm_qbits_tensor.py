@@ -56,6 +56,7 @@ def test_tinygemm_qbits_tensor_from_qbits_tensor(in_features, out_features, devi
     assert_similar(tgqbt.dequantize(), qbt.dequantize())
 
 
+@pytest.mark.skip_device("mps")  # Only available with pytorch 2.4
 def test_tinygemm_qbits_tensor_move(device):
     qtype = qint4
     group_size = 128
