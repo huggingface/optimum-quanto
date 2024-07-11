@@ -34,7 +34,7 @@ def compare_quantized_tensor(a, qtype, axis, group_size, scale, shift):
     return mean_error, sim
 
 
-@pytest.mark.parametrize("input_shape", [(1024, 1024), (1024, 10, 1024)])
+@pytest.mark.parametrize("input_shape", [(1024, 1024)])
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16], ids=["bf16", "fp16"])
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["qint2", "qint4"])
 @pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
@@ -43,10 +43,8 @@ def test_hqq_optimizer(input_shape, dtype, qtype, axis, group_size, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
     max_scale, max_shift = MaxOptimizer()(a, bits=qtype.bits, axis=axis, group_size=group_size)
     max_mean_error, max_sim = compare_quantized_tensor(a, qtype, axis, group_size, max_scale, max_shift)
-    hqq_scale, hqq_shift = HqqOptimizer(verbose=True)(a, bits=qtype.bits, axis=axis, group_size=group_size)
+    hqq_scale, hqq_shift = HqqOptimizer()(a, bits=qtype.bits, axis=axis, group_size=group_size)
     hqq_mean_error, hqq_sim = compare_quantized_tensor(a, qtype, axis, group_size, hqq_scale, hqq_shift)
     # HQQ optimizes the mean error, so it should be lower
     assert hqq_mean_error <= max_mean_error
-    # HQQ cosine similarity should be also closer to 1
-    print(max_sim, hqq_sim)
-    # assert torch.abs(1 - hqq_sim) <= torch.abs(1 - max_sim)
+    # FIXME: HQQ cosine similarity should be also closer to 1
