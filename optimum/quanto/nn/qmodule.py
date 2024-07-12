@@ -137,27 +137,33 @@ class QModuleMixin(ABC):
             destination[prefix + "bias"] = self.bias if keep_vars else self.bias.detach()
         destination[prefix + "input_scale"] = self.input_scale if keep_vars else self.input_scale.detach()
         destination[prefix + "output_scale"] = self.output_scale if keep_vars else self.output_scale.detach()
-        destination[prefix + "weight_qtype"] = "none" if self.weight_qtype is None else self.weight_qtype.name
-        destination[prefix + "activation_qtype"] = (
-            "none" if self.activation_qtype is None else self.activation_qtype.name
-        )
 
     def _load_from_state_dict(
         self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
     ):
-        weight_qtype = state_dict.pop(prefix + "weight_qtype")
-        self.weight_qtype = None if weight_qtype == "none" else qtypes[weight_qtype]
-        activation_qtype = state_dict.pop(prefix + "activation_qtype")
-        self.activation_qtype = None if activation_qtype == "none" else qtypes[activation_qtype]
-
         weight_name = prefix + "weight"
         if self.weight_qtype is not None and weight_name not in state_dict:
             # The weight Tensor is not present because it is a flattened QTensor
             weight_prefix = weight_name + "."
             if self.weight_qtype.bits == 8:
-                deserialized_weight = QBytesTensor.load_from_state_dict(state_dict, weight_prefix)
+                deserialized_weight = QBytesTensor.load_from_state_dict(
+                    state_dict,
+                    weight_prefix,
+                    qtype=self.weight_qtype,
+                    axis=0,
+                    size=self.weight.size(),
+                    stride=self.weight.stride(),
+                )
             else:
-                deserialized_weight = QBitsTensor.load_from_state_dict(state_dict, weight_prefix)
+                deserialized_weight = QBitsTensor.load_from_state_dict(
+                    state_dict,
+                    weight_prefix,
+                    qtype=self.weight_qtype,
+                    axis=0,
+                    group_size=self.weight_group_size,
+                    size=self.weight.size(),
+                    stride=self.weight.stride(),
+                )
                 deserialized_weight = deserialized_weight.optimize()
 
             assign_to_params_buffers = local_metadata.get("assign_to_params_buffers", False)

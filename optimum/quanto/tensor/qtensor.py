@@ -49,8 +49,6 @@ class QTensor(torch.Tensor):
                 else:
                     # Flatten also this inner Tensor
                     serialize_tensor_subclass(inner_tensor, destination, prefix + name + ".", keep_vars)
-            for name, value in meta.items():
-                destination[prefix + name] = value
 
         # Recursively flatten QTensor into individual tensors
         serialize_tensor_subclass(self, destination, prefix, keep_vars)

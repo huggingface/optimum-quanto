@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from fnmatch import fnmatch
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import torch
 
@@ -21,7 +21,7 @@ from .nn import QModuleMixin, quantize_module
 from .tensor import Optimizer, qtype
 
 
-__all__ = ["quantize", "freeze", "requantize"]
+__all__ = ["quantize", "freeze", "requantize", "quantization_map"]
 
 
 def set_module_by_name(parent_module, name, child_module):
@@ -32,6 +32,24 @@ def set_module_by_name(parent_module, name, child_module):
         parent_module_name = name[: name.rindex(".")]
         parent_module = parent_module.get_submodule(parent_module_name)
         setattr(parent_module, module_names[-1], child_module)
+
+
+def _quantize_submodule(
+    model: torch.nn.Module,
+    name: str,
+    module: torch.nn.Module,
+    weights: Optional[Union[str, qtype]] = None,
+    activations: Optional[Union[str, qtype]] = None,
+    optimizer: Optional[Optimizer] = None,
+):
+    qmodule = quantize_module(module, weights=weights, activations=activations, optimizer=optimizer)
+    if qmodule is not None:
+        set_module_by_name(model, name, qmodule)
+        qmodule.name = name
+        for name, param in module.named_parameters():
+            # Save device memory by clearing parameters
+            setattr(module, name, None)
+            del param
 
 
 def quantize(
@@ -77,17 +95,15 @@ def quantize(
             continue
         if exclude is not None and any(fnmatch(name, pattern) for pattern in exclude):
             continue
-        qmodule = quantize_module(m, weights=weights, activations=activations, optimizer=optimizer)
-        if qmodule is not None:
-            set_module_by_name(model, name, qmodule)
-            qmodule.name = name
-            for name, param in m.named_parameters():
-                # Save device memory by clearing parameters
-                setattr(m, name, None)
-                del param
+        _quantize_submodule(model, name, m, weights=weights, activations=activations, optimizer=optimizer)
 
 
-def requantize(model, state_dict, device=None):
+def requantize(
+    model: torch.nn.Module,
+    state_dict: Dict[str, Any],
+    quantization_map: Dict[str, Dict[str, str]],
+    device: torch.device = None,
+):
     # Evaluate the model current device
     current_device = next(model.parameters()).device
     if current_device.type != "meta":
@@ -96,8 +112,18 @@ def requantize(model, state_dict, device=None):
         if device is None:
             device = current_device
 
-    # Quantize the model without parameters to create blank quantized modules
-    quantize(model)
+    # Quantize the model with parameters from the quantization map
+    for name, m in model.named_modules():
+        qconfig = quantization_map.get(name, None)
+        if qconfig is None:
+            continue
+        weights = qconfig["weights"]
+        if weights == "none":
+            weights = None
+        activations = qconfig["activations"]
+        if activations == "none":
+            activations = None
+        _quantize_submodule(model, name, m, weights=weights, activations=activations)
 
     # Move the quantized but empty model to the CPU device to avoid creating large weights on the device
     model.to_empty(device=torch.device("cpu"))
@@ -112,3 +138,27 @@ def freeze(model):
     for name, m in model.named_modules():
         if isinstance(m, QModuleMixin):
             m.freeze()
+
+
+def quantization_map(model: torch.nn.Module) -> Dict[str, Dict[str, str]]:
+    """Returns the quantization map of a module
+
+    The quantization map is a dictionary of quantization parameters indexed
+    by the module submodule names (including prefix).
+
+    This is mainly used for serialization.
+
+    Args:
+        model (`torch.nn.Module`): the root module to map.
+
+    Returns:
+        a dictionary of quantization parameters indexed by layer names.
+    """
+    config = {}
+    for name, m in model.named_modules():
+        if isinstance(m, QModuleMixin):
+            config[name] = {
+                "weights": m.weight_qtype.name,
+                "activations": "none" if m.activation_qtype is None else m.activation_qtype.name,
+            }
+    return config

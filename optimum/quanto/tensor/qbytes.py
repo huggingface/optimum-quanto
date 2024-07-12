@@ -61,15 +61,17 @@ class QBytesTensor(QTensor):
         return QBytesDequantizer.apply(self)
 
     @staticmethod
-    def load_from_state_dict(state_dict, prefix):
+    def load_from_state_dict(state_dict, prefix, qtype, axis, size, stride):
         inner_tensors_dict = {}
         for name in ["_data", "_scale"]:
             inner_tensors_dict[name] = state_dict.pop(prefix + name)
-        meta = [name.replace(prefix, "") for name in state_dict.keys() if name.startswith(prefix)]
-        meta_dict = {}
-        for name in meta:
-            meta_dict[name] = state_dict.pop(prefix + name)
-        return QBytesTensor.__tensor_unflatten__(inner_tensors_dict, meta_dict, None, None)
+        meta = {
+            "qtype": qtype.name,
+            "axis": str(axis),
+            "size": str(list(size)),
+            "stride": str(list(stride)),
+        }
+        return QBytesTensor.__tensor_unflatten__(inner_tensors_dict, meta, None, None)
 
     def __tensor_flatten__(self):
         inner_tensors = ["_data", "_scale"]
