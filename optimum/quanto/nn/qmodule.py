@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from abc import ABC
-from inspect import signature
 from typing import Optional, Union
 
 import torch
@@ -58,7 +57,8 @@ def register_qmodule(module_cls):
         def qcreate(cls,
                     module: torch.nn.Module,
                     weights: Optional[qtype],
-                    activations: Optional[qtype] = None):
+                    activations: Optional[qtype] = None,
+                    optimizer: Optional[Optimizer] = None):
             ...
 
         def qforward(self, input: torch.Tensor) -> torch.Tensor:
@@ -68,31 +68,22 @@ def register_qmodule(module_cls):
     """
 
     def wrapper(cls):
-        # Inspect the signature of the QModule creation method
-        sig = signature(cls.from_module)
-        cls_params = []
-        for i, param in enumerate(sig.parameters.values()):
-            if i == 0:
-                # Skip the first parameter which is the module
-                continue
-            if param.kind == param.POSITIONAL_ONLY:
-                raise ValueError(f"{cls}.from_module() can only have a single positional parameter")
-            cls_params.append(param.name)
-        _QMODULE_TABLE[module_cls] = [cls, cls_params]
+        _QMODULE_TABLE[module_cls] = cls
         return cls
 
     return wrapper
 
 
-def quantize_module(module, **kwargs):
+def quantize_module(
+    module,
+    weights: Optional[Union[qtype, str]] = None,
+    activations: Optional[Union[qtype, str]] = None,
+    optimizer: Optional[Optimizer] = None,
+):
     for cls in _QMODULE_TABLE:
         if isinstance(module, cls):
-            qcls, qparams = _QMODULE_TABLE[cls]
-            module_kwargs = {}
-            for name in qparams:
-                if name in kwargs:
-                    module_kwargs[name] = kwargs[name]
-            return qcls.from_module(module, **module_kwargs)
+            qcls = _QMODULE_TABLE[cls]
+            return qcls.from_module(module, weights=weights, activations=activations, optimizer=optimizer)
     return None
 
 
