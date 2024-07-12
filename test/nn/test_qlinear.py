@@ -189,7 +189,7 @@ def test_qlinear_serialization(features, use_bias, activations, weights, dtype, 
     torch.save(qlinear.state_dict(), b)
     b.seek(0)
     state_dict = torch.load(b, weights_only=weights_only)
-    qlinear_reloaded = QLinear(features, features, bias=use_bias).to(device)
+    qlinear_reloaded = QLinear(features, features, weights=weights, activations=activations, bias=use_bias).to(device)
     qlinear_reloaded.load_state_dict(state_dict)
     assert qlinear_reloaded.weight_qtype == weights
     w = qlinear.weight

@@ -1,7 +1,17 @@
+import math
+from typing import List
+
 import torch
 
 
-__all__ = ["group", "ungroup"]
+__all__ = ["group", "ungroup", "grouped_shape"]
+
+
+def grouped_shape(shape: List, axis: int, group_size: int) -> List:
+    if axis not in (0, -1):
+        raise ValueError("Axis must be 0 or -1 for group-wise quantization")
+    n_groups = math.prod(shape) // group_size
+    return (n_groups, group_size) if axis == 0 else (group_size, n_groups)
 
 
 def group(base: torch.Tensor, axis: int, group_size: int):

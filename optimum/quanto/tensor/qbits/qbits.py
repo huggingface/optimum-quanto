@@ -19,7 +19,7 @@ from torch.autograd import Function
 
 from ..qtensor import QTensor, qfallback
 from ..qtype import qint4, qtypes
-from .group import ungroup
+from .group import grouped_shape, ungroup
 from .packed import PackedTensor
 
 
@@ -130,15 +130,25 @@ class QBitsTensor(QTensor):
         return QBitsDequantizer.apply(self)
 
     @staticmethod
-    def load_from_state_dict(state_dict, prefix):
-        inner_tensors_dict = {"_data": PackedTensor.load_from_state_dict(state_dict, prefix + "_data.")}
+    def load_from_state_dict(state_dict, prefix, qtype, axis, group_size, size, stride):
+        data_size = size if group_size is None else grouped_shape(size, axis, group_size)
+        # In row major, inner dimension (stride 1) is the last one
+        data_stride = (data_size[1], 1)
+        inner_tensors_dict = {
+            "_data": PackedTensor.load_from_state_dict(
+                state_dict, prefix + "_data.", qtype.bits, data_size, data_stride
+            )
+        }
         for name in ["_scale", "_shift"]:
             inner_tensors_dict[name] = state_dict.pop(prefix + name)
-        meta = [name.replace(prefix, "") for name in state_dict.keys() if name.startswith(prefix)]
-        meta_dict = {}
-        for name in meta:
-            meta_dict[name] = state_dict.pop(prefix + name)
-        return QBitsTensor.__tensor_unflatten__(inner_tensors_dict, meta_dict, None, None)
+        meta = {
+            "qtype": qtype.name,
+            "axis": str(axis),
+            "group_size": str(group_size),
+            "size": str(list(size)),
+            "stride": str(list(stride)),
+        }
+        return QBitsTensor.__tensor_unflatten__(inner_tensors_dict, meta, None, None)
 
     def optimize(self):
         """Allows to convert an existing QBitsTensor to an optimized subclass"""
