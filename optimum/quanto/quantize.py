@@ -128,7 +128,7 @@ def requantize(
     # Move the quantized but empty model to the CPU device to avoid creating large weights on the device
     model.to_empty(device=torch.device("cpu"))
     #  Load the state_dict, applying quantization parameters and thus reducing model weights
-    model.load_state_dict(state_dict)
+    model.load_state_dict(state_dict, strict=False)
 
     if device is not None:
         model.to(device)
