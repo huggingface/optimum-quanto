@@ -14,9 +14,11 @@
 
 import json
 import os
-from typing import Any, List, Optional, Union
+from collections.abc import Mapping
+from typing import Any, Dict, List, Optional, Union
 
 import torch
+from safetensors import safe_open
 
 from ..nn import QModuleMixin
 from ..quantize import Optimizer, freeze, qtype, quantization_map, quantize, requantize
@@ -27,11 +29,45 @@ if not is_transformers_available():
     raise ImportError("QuantizedModelForCausalLM requires the transformers library")
 
 from transformers import AutoConfig, AutoModelForCausalLM, PreTrainedModel
-from transformers.modeling_utils import load_state_dict
-from transformers.utils import SAFE_WEIGHTS_NAME, is_accelerate_available
+from transformers.modeling_utils import get_checkpoint_shard_files, load_state_dict
+from transformers.utils import SAFE_WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_NAME, is_accelerate_available
 
 
 __all__ = ["QuantizedModelForCausalLM"]
+
+
+class ShardedStateDict(Mapping):
+    """A pytorch state_dict stored in multiple safetensors files
+
+    This class implements the `collections.abc.Mapping` interface.
+    It can be passed to `torch.nn.Module.load_state_dict()` to recursively
+    load the module tensors.
+    """
+
+    def __init__(self, base_dir: str, tensor_index: Dict[str, str]):
+        self._base_dir = base_dir
+        self._index = tensor_index
+        self._handles = {}
+
+    def __iter__(self):
+        yield from self._index
+
+    def __len__(self):
+        return self._index.__len__()
+
+    def __getitem__(self, key: Any) -> Any:
+        filename = self._index.__getitem__(key)
+        if filename not in self._handles:
+            f = safe_open(os.path.join(self._base_dir, filename), framework="pytorch")
+            self._handles[filename] = f
+        f = self._handles[filename]
+        return f.get_tensor(key)
+
+    def __contains__(self, key: object) -> bool:
+        return self._index.__contains__(key)
+
+    def keys(self):
+        return self._index.keys()
 
 
 class QuantizedModelForCausalLM:
@@ -114,18 +150,29 @@ class QuantizedModelForCausalLM:
             # Look for a quantization map
             qmap_path = os.path.join(model_name_or_path, cls._qmap_name())
             if not os.path.exists(qmap_path):
-                raise ValueError("No quantization map found in source directory: is this a quantized model ?")
+                raise ValueError(f"No quantization map found in {model_name_or_path}: is this a quantized model ?")
             with open(qmap_path, "r", encoding="utf-8") as f:
                 qmap = json.load(f)
             # Create an empty model
             config = AutoConfig.from_pretrained(model_name_or_path)
             with init_empty_weights():
                 model = AutoModelForCausalLM.from_config(config)
-            # Get state_dict from model checkpoint
-            checkpoint_file = os.path.join(model_name_or_path, SAFE_WEIGHTS_NAME)
-            state_dict = load_state_dict(checkpoint_file)
+            # Look for the index of a sharded checkpoint
+            checkpoint_file = os.path.join(model_name_or_path, SAFE_WEIGHTS_INDEX_NAME)
+            if os.path.exists(checkpoint_file):
+                # Convert the checkpoint path to a list of shards
+                checkpoint_file, sharded_metadata = get_checkpoint_shard_files(model_name_or_path, checkpoint_file)
+                # Create a mapping for the sharded safetensor files
+                state_dict = ShardedStateDict(model_name_or_path, sharded_metadata["weight_map"])
+            else:
+                # Look for a single checkpoint file
+                checkpoint_file = os.path.join(model_name_or_path, SAFE_WEIGHTS_NAME)
+                if not os.path.exists(checkpoint_file):
+                    raise ValueError(f"No safetensor weights found in {model_name_or_path}.")
+                # Get state_dict from model checkpoint
+                state_dict = load_state_dict(checkpoint_file)
             # Requantize and load quantized weights from state_dict
-            requantize(model, state_dict, quantization_map=qmap)
+            requantize(model, state_dict=state_dict, quantization_map=qmap)
             if getattr(model.config, "tie_word_embeddings", True):
                 # Tie output weight embeddings to input weight embeddings
                 # Note that if they were quantized they would NOT be tied
@@ -136,7 +183,7 @@ class QuantizedModelForCausalLM:
         else:
             raise NotImplementedError("Reloading quantized models directly from the hub is not supported yet.")
 
-    def save_pretrained(self, save_directory: Union[str, os.PathLike]):
+    def save_pretrained(self, save_directory: Union[str, os.PathLike], max_shard_size: Union[int, str] = "5GB"):
 
         model = self._wrapped
         if getattr(model.config, "tie_word_embeddings", True):
@@ -146,7 +193,7 @@ class QuantizedModelForCausalLM:
             ):
                 # At least one of the two is quantized, so they are not tied anymore
                 model.config.tie_word_embeddings = False
-        self._wrapped.save_pretrained(save_directory, safe_serialization=True)
+        self._wrapped.save_pretrained(save_directory, max_shard_size=max_shard_size, safe_serialization=True)
         # Save quantization map to be able to reload the model
         qmap_name = os.path.join(save_directory, self._qmap_name())
         qmap = quantization_map(self._wrapped)

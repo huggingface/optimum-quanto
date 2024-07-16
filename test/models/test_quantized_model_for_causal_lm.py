@@ -56,3 +56,17 @@ def test_quantized_model_for_causal_lm_base(model_id, qtype, exclude_lm_head):
         requantized = QuantizedModelForCausalLM.from_pretrained(tmpdir)
 
     compare_models(quantized, requantized)
+
+
+@pytest.mark.skipif(not is_transformers_available(), reason="requires transformers")
+def test_quantized_model_for_causal_lm_sharded():
+    from optimum.quanto import QuantizedModelForCausalLM
+
+    model_id = "facebook/opt-125m"
+    qtype = qint4
+    quantized = quantized_model_for_causal_lm(model_id, qtype, exclude=None)
+    with TemporaryDirectory() as tmpdir:
+        quantized.save_pretrained(tmpdir, max_shard_size="100MB")
+        requantized = QuantizedModelForCausalLM.from_pretrained(tmpdir)
+
+    compare_models(quantized, requantized)
