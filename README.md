@@ -112,7 +112,7 @@ Optimum Quanto is available as a pip package.
 pip install optimum-quanto
 ```
 
-## Quantization workflow
+## Quantization workflow for vanilla pytorch models
 
 Quanto does not make a clear distinction between dynamic and static quantization: models are always dynamically quantized,
 but their weights can later be "frozen" to integer values.
@@ -124,7 +124,7 @@ A typical quantization workflow would consist of the following steps:
 The first step converts a standard float model into a dynamically quantized model.
 
 ```python
-from optimum.quanto import qint8
+from optimum.quanto import quantize, qint8
 
 quantize(model, weights=qint8, activations=qint8)
 ```
@@ -136,7 +136,9 @@ At this stage, only the inference of the model is modified to dynamically quanti
 Quanto supports a calibration mode that allows to record the activation ranges while passing representative samples through the quantized model.
 
 ```python
-with calibration(momentum=0.9):
+from optimum.quanto import Calibration
+
+with Calibration(momentum=0.9):
     model(samples)
 ```
 
@@ -148,6 +150,8 @@ This automatically activates the quantization of the activations in the quantize
 If the performance of the model degrades too much, one can tune it for a few epochs to recover the float model performance.
 
 ```python
+import torch
+
 model.train()
 for batch_idx, (data, target) in enumerate(train_loader):
     data, target = data.to(device), target.to(device)
@@ -163,27 +167,85 @@ for batch_idx, (data, target) in enumerate(train_loader):
 When freezing a model, its float weights are replaced by quantized integer weights.
 
 ```python
+from optimum.quanto import freeze
+
 freeze(model)
 ```
 
-**5. Serialize model**
+**5. Serialize quantized model**
 
-Quantized models can be serialized to a `state_dict`, and saved to a file.
+Quantized models weights can be serialized to a `state_dict`, and saved to a file.
 Both `pickle` and `safetensors` (recommended) are supported.
 
 ```python
-safe_save(model.state_dict(), 'qmodel.safetensors')
+from safetensors.torch import save_file
+
+save_file(model.state_dict(), 'model.safetensors')
 ```
 
-**6. Reload quantized model**
-
-A serialized quantized model can be reloaded from a `state_dict` using the `requantize` helper. Note that you need first to instantiate an empty model.
+In order to be able to reload these weights, you also need to store the quantized
+model quantization map.
 
 ```python
-requantize(model, safe_load('qmodel.safetensors'))
+import json
+
+from optimum.quanto import quantization_map
+
+with open('quantization_map.json', w) as f:
+  json.dump(quantization_map(model))
+```
+
+**5. Reload a quantized model**
+
+A serialized quantized model can be reloaded from a `state_dict` and a `quantization_map` using the `requantize` helper. Note that you need first to instantiate an empty model.
+
+```python
+import json
+
+from safetensors.torch import load_file
+
+state_dict = load_file('model.safetensors')
+with open('quantization_map.json', r) as f:
+  quantization_map = json.load(f)
+
+# Create an empty model from your modeling code and requantize it
+new_model = ...
+requantize(new_model, state_dict, quantization_map)
 ```
 
 Please refer to the [examples](https://github.com/huggingface/quanto/tree/main/examples) for instantiations of that workflow.
+
+## Quantization workflow for Hugging Face models
+
+`optimum-quanto` provides helper classes to serialize/deserialize Hugging Face quantized models.
+
+### LLM models
+
+The first step is to quantize the model
+
+```python
+from transformers import AutoModelForCausalLM
+from optimum.quanto import QuantizedModelForCausalLM, qint4
+
+model = AutoModelForCausalLM.from_pretrained('meta-llama/Meta-Llama-3-8B')
+qmodel = QuantizedModelForCausalLM.quantize(model, weights=qint4, exclude='lm_head')
+```
+
+Note: the model quantized weights will be frozen. If you want to keep them unfrozen to train them you need to use `optimum.quanto.quantize` directly.
+
+The quantized model can be saved using `save_pretrained`:
+
+```python
+qmodel.save_pretrained('./Llama-3-8B-quantized')
+```
+
+It can later be reloaded using `from_pretrained`:
+
+```python
+from optimum.quanto import QuantizedModelForCausalLM
+
+qmodel = QuantizedModelForCausalLM.from_pretrained('Llama-3-8B-quantized')
+```
 
 ## Per-axis versus per-tensor
 
