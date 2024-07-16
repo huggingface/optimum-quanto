@@ -74,7 +74,7 @@ def test_to_device(dtype, group_size, device):
     assert moved_qa._scale.device.type == device.type
     assert moved_qa._shift.device.type == device.type
     moved_dqa = moved_qa.dequantize().to("cpu")
-    if type(moved_qa) != QBitsTensor:
+    if type(moved_qa) is not QBitsTensor:
         # Since we use an optimized packing, the order of operations during
         # dequantization might differ, but the moved dequantized Tensor should be nearly identical
         assert_similar(moved_dqa, dqa)

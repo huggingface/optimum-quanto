@@ -93,14 +93,14 @@ class QBitsTensor(QTensor):
             and data.device.type == "cuda"
             and torch.cuda.get_device_capability(data.device)[0] >= 8
         ):
-            if type(data) == PackedTensor:
+            if type(data) is PackedTensor:
                 data = data.unpack()
             return AWQBitsTensor(qtype, axis, group_size, size, stride, data, scale, shift, requires_grad)
         if qtype == qint4 and scale.dtype == torch.bfloat16 and axis == 0 and group_size == 128 and len(size) == 2:
             if data.device.type == "cpu" or (
                 data.device.type == "cuda" and torch.cuda.get_device_capability(data.device)[0] >= 8
             ):
-                if type(data) == PackedTensor:
+                if type(data) is PackedTensor:
                     data = data.unpack()
                 return TinyGemmQBitsTensor(qtype, axis, group_size, size, stride, data, (scale, shift), requires_grad)
 
@@ -116,7 +116,7 @@ class QBitsTensor(QTensor):
 
     def __init__(self, qtype, axis, group_size, size, stride, data, scale, shift, requires_grad=False):
         super().__init__(qtype, axis)
-        if type(data) == torch.Tensor:
+        if type(data) is torch.Tensor:
             data = PackedTensor.pack(data, qtype.bits)
         self._data = data
         self._scale = scale
@@ -152,7 +152,7 @@ class QBitsTensor(QTensor):
 
     def optimize(self):
         """Allows to convert an existing QBitsTensor to an optimized subclass"""
-        if type(self) != QBitsTensor:
+        if type(self) is not QBitsTensor:
             return self
         data = self._data.unpack()
         # Call dedicated helper to select the best subclass for this device
@@ -169,7 +169,7 @@ class QBitsTensor(QTensor):
         )
 
     def save_to_state_dict(self, destination, prefix, keep_vars):
-        if type(self) == QBitsTensor:
+        if type(self) is QBitsTensor:
             super().save_to_state_dict(destination, prefix, keep_vars)
         else:
             # Convert back subclass before serializing

@@ -94,7 +94,7 @@ class QTensorLinear(torch.autograd.Function):
     def forward(ctx, input, other, bias):
         ctx.save_for_backward(input, other)
         if isinstance(other, AWQBitsTensor):
-            if type(input) != torch.Tensor:
+            if type(input) is not torch.Tensor:
                 input = input.dequantize()
             out_features, in_features = other.shape
             rows = input.numel() // in_features
@@ -110,7 +110,7 @@ class QTensorLinear(torch.autograd.Function):
                 group_size=other._group_size,
             )
         elif isinstance(other, TinyGemmQBitsTensor):
-            if type(input) != torch.Tensor:
+            if type(input) is not torch.Tensor:
                 input = input.dequantize()
             in_features = input.shape[-1]
             out_features = other.shape[0]

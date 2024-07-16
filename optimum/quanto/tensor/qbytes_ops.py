@@ -55,7 +55,7 @@ def get_qbytestensor_op_dispatch(aten_op):
 
 
 def is_scalar(t):
-    return isinstance(t, numbers.Number) or type(t) == torch.Tensor and len(t.shape) == 0
+    return isinstance(t, numbers.Number) or type(t) is torch.Tensor and len(t.shape) == 0
 
 
 @register_qbytestensor_op([torch.ops.aten._to_copy, torch.ops.aten.to])

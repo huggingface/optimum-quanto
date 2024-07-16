@@ -64,4 +64,4 @@ def test_move_awq_tensor(packing, reorder):
     assert moved._reorder == reorder
     # TensorRT tensors are unpacked when moved out of CUDA device
     moved = packed.to("cpu")
-    assert type(moved) == torch.Tensor
+    assert type(moved) is torch.Tensor

@@ -79,7 +79,7 @@ def test_awq_qbits_tensor_move(device):
     moved_qbt = awqbt.to(device)
     assert isinstance(moved_qbt, QBitsTensor)
     if device.type != "cuda":
-        assert type(moved_qbt) != AWQBitsTensor
+        assert type(moved_qbt) is not AWQBitsTensor
     assert awqbt.dtype == moved_qbt.dtype
     assert awqbt.qtype == moved_qbt.qtype
     assert awqbt.shape == moved_qbt.shape

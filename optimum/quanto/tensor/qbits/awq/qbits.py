@@ -58,7 +58,7 @@ class AWQBitsTensor(QBitsTensor):
     def __init__(self, qtype, axis, group_size, size, stride, data, scale, shift, requires_grad=False):
         assert axis == 0
         if not isinstance(data, AWQPackedTensor):
-            assert type(data) == torch.Tensor
+            assert type(data) is torch.Tensor
             # Format data, scale and shift for optimized CUDA gemm
             ungrouped = ungroup(data, axis=0, orig_shape=size)
             data = AWQPackedTensor.pack(ungrouped, packing=AWQPacking.V2)

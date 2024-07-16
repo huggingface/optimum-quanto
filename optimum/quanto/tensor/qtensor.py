@@ -43,7 +43,7 @@ class QTensor(torch.Tensor):
             inner_tensors, meta = t.__tensor_flatten__()
             for name in inner_tensors:
                 inner_tensor = getattr(t, name)
-                if type(inner_tensor) == torch.Tensor:
+                if type(inner_tensor) is torch.Tensor:
                     # Leaf Tensor, we can serialize it
                     destination[prefix + name] = inner_tensor if keep_vars else inner_tensor.detach()
                 else:

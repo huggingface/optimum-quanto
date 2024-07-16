@@ -60,7 +60,7 @@ class TinyGemmQBitsTensor(QBitsTensor):
     def __init__(self, qtype, axis, group_size, size, stride, data, scale_shift, requires_grad=False):
         assert axis == 0
         if not isinstance(data, TinyGemmPackedTensor):
-            assert type(data) == torch.Tensor
+            assert type(data) is torch.Tensor
             assert isinstance(scale_shift, (tuple, list))
             # Format data, scale and shift for tinygemm
             ungrouped = ungroup(data, axis=0, orig_shape=size)
