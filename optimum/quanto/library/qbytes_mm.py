@@ -98,7 +98,7 @@ def qbytes_mm_impl_cpu(activations: torch.Tensor, weights: torch.Tensor, output_
         return qbytes_int_mm(activations, weights, output_scales)
     in_features = activations.shape[-1]
     if activations.dtype == torch.bfloat16 and weights.dtype == torch.int8 and in_features % 4 == 0:
-        if type(activations) != torch.Tensor:
+        if type(activations) is not torch.Tensor:
             activations = activations.dequantize()
         return qbytes_int8pack_mm(activations, weights, output_scales)
     return qbytes_mm(activations, weights, output_scales)
@@ -115,7 +115,7 @@ def qbytes_mm_impl_mps(activations: torch.Tensor, weights: torch.Tensor, output_
         and in_features % 32 == 0
         and out_features % 32 == 0
     ):
-        if type(activations) != torch.Tensor:
+        if type(activations) is not torch.Tensor:
             activations = activations.dequantize()
         return qbytes_int8pack_mm(activations, weights, output_scales)
     return qbytes_mm(activations, weights, output_scales)

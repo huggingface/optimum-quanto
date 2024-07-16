@@ -52,7 +52,7 @@ def get_qbitstensor_op_dispatch(aten_op):
 def _to_copy(op, t, dtype=None, device=None, **kwargs):
     if dtype is not None and dtype != t.dtype:
         raise ValueError("The dtype of a QBitsTensor cannot be changed")
-    if type(t) != QBitsTensor and t.device.type != device.type:
+    if type(t) is not QBitsTensor and t.device.type != device.type:
         # Before moving to another device type, convert back to a QBitsTensor
         t = t.qbits_tensor()
     scale = op(t._scale, dtype=dtype, device=device, **kwargs)
