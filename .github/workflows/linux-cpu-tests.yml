@@ -42,9 +42,14 @@ jobs:
 
       - name: Run base tests
         run: |
-          python -m pytest test --ignore=test/models
+          python -m pytest test --ignore=test/models --ignore=test/cli
 
       - name: Run models tests
         run: |
           pip install accelerate transformers
           python -m pytest test/models
+
+      - name: Run CLI tests
+        run: |
+          pip install optimum
+          python -m pytest test/cli
