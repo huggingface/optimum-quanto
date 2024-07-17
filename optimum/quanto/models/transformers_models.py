@@ -17,7 +17,6 @@ import os
 from collections.abc import Mapping
 from typing import Any, Dict, List, Optional, Union
 
-import torch
 from safetensors import safe_open
 
 from ..nn import QModuleMixin
@@ -25,15 +24,14 @@ from ..quantize import Optimizer, freeze, qtype, quantization_map, quantize, req
 from . import is_transformers_available
 
 
+__all__ = ["QuantizedTransformersModel", "QuantizedModelForCausalLM"]
+
 if not is_transformers_available():
-    raise ImportError("QuantizedModelForCausalLM requires the transformers library")
+    raise ImportError(f"{__all__} require the transformers library")
 
 from transformers import AutoConfig, AutoModelForCausalLM, PreTrainedModel
 from transformers.modeling_utils import get_checkpoint_shard_files, load_state_dict
 from transformers.utils import SAFE_WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_NAME, is_accelerate_available
-
-
-__all__ = ["QuantizedModelForCausalLM"]
 
 
 class ShardedStateDict(Mapping):
@@ -70,11 +68,12 @@ class ShardedStateDict(Mapping):
         return self._index.keys()
 
 
-class QuantizedModelForCausalLM:
+class QuantizedTransformersModel:
 
     BASE_NAME = "quanto"
+    auto_class = None
 
-    def __init__(self, model: torch.nn.Module):
+    def __init__(self, model: PreTrainedModel):
         if not isinstance(model, PreTrainedModel) or len(quantization_map(model)) == 0:
             raise ValueError("The source model must be a quantized transformers model.")
         self._wrapped = model
@@ -92,7 +91,7 @@ class QuantizedModelForCausalLM:
 
     @staticmethod
     def _qmap_name():
-        return f"{QuantizedModelForCausalLM.BASE_NAME}_qmap.json"
+        return f"{QuantizedTransformersModel.BASE_NAME}_qmap.json"
 
     @classmethod
     def quantize(
@@ -142,6 +141,10 @@ class QuantizedModelForCausalLM:
 
     @classmethod
     def from_pretrained(cls, model_name_or_path: Union[str, os.PathLike]):
+        if cls.auto_class is None:
+            raise ValueError(
+                "Quantized models cannot be reloaded using {cls}: use a specialized quantized class such as QuantizedModelForCausalLM instead."
+            )
         if not is_accelerate_available():
             raise ValueError("Reloading a quantized transformers model requires the accelerate library.")
         from accelerate import init_empty_weights
@@ -156,7 +159,7 @@ class QuantizedModelForCausalLM:
             # Create an empty model
             config = AutoConfig.from_pretrained(model_name_or_path)
             with init_empty_weights():
-                model = AutoModelForCausalLM.from_config(config)
+                model = cls.auto_class.from_config(config)
             # Look for the index of a sharded checkpoint
             checkpoint_file = os.path.join(model_name_or_path, SAFE_WEIGHTS_INDEX_NAME)
             if os.path.exists(checkpoint_file):
@@ -199,3 +202,8 @@ class QuantizedModelForCausalLM:
         qmap = quantization_map(self._wrapped)
         with open(qmap_name, "w", encoding="utf8") as f:
             json.dump(qmap, f, indent=4)
+
+
+class QuantizedModelForCausalLM(QuantizedTransformersModel):
+
+    auto_class = AutoModelForCausalLM

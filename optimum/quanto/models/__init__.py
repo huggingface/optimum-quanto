@@ -20,4 +20,4 @@ def is_transformers_available() -> bool:
 
 
 if is_transformers_available():
-    from .causal_lm import *
+    from .transformers_models import *
