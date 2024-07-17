@@ -23,6 +23,8 @@ from optimum.quanto import TinyGemmQBitsTensor, qint4
 @pytest.mark.parametrize("in_features", [128, 256, 512, 1024])
 @pytest.mark.parametrize("out_features", [128, 256, 512, 1024])
 def test_tinygemm_qbits_tensor_from_qbits_tensor(in_features, out_features, device):
+    if device.type == "cuda" and torch.cuda.get_device_capability()[0] < 8:
+        pytest.skip(reason="CUDA device >= sm80 not available")
     qtype = qint4
     group_size = 128
     dtype = torch.bfloat16
