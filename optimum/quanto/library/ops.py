@@ -68,16 +68,3 @@ def define(name, schema):
 
 
 define("unpack", "(Tensor self, int bits) -> Tensor")
-define(
-    "gemm",
-    "(Tensor input,"
-    " Tensor other,"
-    " Tensor other_scale,"
-    " Tensor other_shift,"
-    " int rows,"
-    " int out_cols,"
-    " int in_cols,"
-    " int bits,"
-    " int group_size)"
-    " -> Tensor",
-)
