@@ -34,13 +34,34 @@ class qtype:
         return hash(str(self))
 
 
-qint2 = qtype("qint2", is_floating_point=False, bits=2, dtype=torch.int8)
-qint4 = qtype("qint4", is_floating_point=False, bits=4, dtype=torch.int8)
-qint8 = qtype("qint8", is_floating_point=False, bits=8, dtype=torch.int8)
+# Integer qtypes
+
+
+def qint(bits):
+    qmin = -(2 ** (bits - 1))
+    qmax = 2 ** (bits - 1) - 1
+    return qtype(f"qint{bits}", is_floating_point=False, bits=bits, dtype=torch.int8, qmin=qmin, qmax=qmax)
+
+
+qint2 = qint(2)
+qint4 = qint(4)
+qint8 = qint(8)
+
+# Float qtypes
+
+
+def qfloat(dtype: torch.dtype):
+    finfo = torch.finfo(dtype)
+    qmin = finfo.min
+    qmax = finfo.max
+    return qtype(f"q{finfo.dtype}", is_floating_point=True, bits=8, dtype=dtype, qmin=qmin, qmax=qmax)
+
+
+qfloat8_e4m3fn = qfloat(torch.float8_e4m3fn)
+qfloat8_e5m2 = qfloat(torch.float8_e5m2)
+
 # Alias the float8 representation that has the better support and inference efficiency
-qfloat8 = qtype("qfloat8", is_floating_point=True, bits=8, dtype=torch.float8_e4m3fn)
-qfloat8_e4m3fn = qtype("qfloat8_e4m3fn", is_floating_point=True, bits=8, dtype=torch.float8_e4m3fn)
-qfloat8_e5m2 = qtype("qfloat8_e5m2", is_floating_point=True, bits=8, dtype=torch.float8_e5m2)
+qfloat8 = qfloat8_e4m3fn
 
 # Convenience dict to get a dtype from its name
 qtypes = {name: q for (name, q) in locals().items() if isinstance(q, qtype)}
