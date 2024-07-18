@@ -64,7 +64,9 @@ def _to_copy(op, t, dtype=None, device=None, **kwargs):
 @register_qbitstensor_op([torch.ops.aten.detach])
 def detach(op, t):
     # Detach is required when copying and deserializing
-    data = op(t._data)
-    scale = op(t._scale)
-    shift = op(t._shift)
-    return t.__class__(t._qtype, t._axis, t._group_size, t.size(), t.stride(), data, scale, shift)
+    inner_tensor_names, meta = t.__tensor_flatten__()
+    # Detach inner tensors
+    detached_tensors = {}
+    for inner_name in inner_tensor_names:
+        detached_tensors[inner_name] = op(getattr(t, inner_name))
+    return t.__class__.__tensor_unflatten__(detached_tensors, meta, t.size(), t.stride())
