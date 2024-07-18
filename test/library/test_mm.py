@@ -36,9 +36,9 @@ def test_qbytes_mm(batch_size, input_features, input_dtype, weight_dtype, output
     input = random_tensor(input_shape, dtype=input_dtype, device=device)
     weight = random_tensor((output_features, input_features), dtype=weight_dtype, device=device)
     # Use a scale small enough to prevent overflows
-    scale = random_tensor((output_features,), dtype=output_dtype, device=device) / 1e3
+    scale = random_tensor((output_features, 1), dtype=output_dtype, device=device) / 1e3
     output = torch.ops.quanto.qbytes_mm(input, weight, scale)
-    expected = torch.matmul(input.to(scale.dtype), weight.to(scale.dtype).t() * scale)
+    expected = torch.matmul(input.to(scale.dtype), (weight.to(scale.dtype) * scale).t())
     assert_similar(expected, output)
 
 
