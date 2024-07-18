@@ -85,7 +85,22 @@ def unpack_cuda(t: torch.Tensor, bits: int):
     return ext.lib.unpack(t, bits)
 
 
-@torch.library.impl("quanto_ext::gemm", ["CUDA"])
+torch.library.define(
+    "quanto::gemm",
+    "(Tensor input,"
+    " Tensor other,"
+    " Tensor other_scale,"
+    " Tensor other_shift,"
+    " int rows,"
+    " int out_cols,"
+    " int in_cols,"
+    " int bits,"
+    " int group_size)"
+    " -> Tensor",
+)
+
+
+@torch.library.impl("quanto::gemm", ["CUDA"])
 def gemm_cuda(
     input: torch.Tensor,
     other: torch.Tensor,
