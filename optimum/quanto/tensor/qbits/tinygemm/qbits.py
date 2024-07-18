@@ -13,12 +13,10 @@
 # limitations under the License.
 
 import ast
-from copy import copy
 
 import torch
 from torch.autograd import Function
 
-from ...qtensor import qfallback
 from ...qtype import qtypes
 from ..group import group, ungroup
 from ..qbits import QBitsTensor
@@ -127,24 +125,3 @@ class TinyGemmQBitsTensor(QBitsTensor):
         size = ast.literal_eval(meta["size"])
         stride = ast.literal_eval(meta["stride"])
         return TinyGemmQBitsTensor(qtype, axis, group_size, size, stride, data, scale_shift)
-
-    @classmethod
-    def __torch_dispatch__(cls, op, types, args, kwargs=None):
-        # Do not use directly op, but rather its overload
-        if op.overloadpacket is torch.ops.aten.detach:
-            t = args[0]
-            data = op(t._data)
-            scale_shift = op(t._scale_shift)
-            return TinyGemmQBitsTensor(t._qtype, t._axis, t._group_size, t.size(), t.stride(), data, scale_shift)
-        elif op.overloadpacket in (torch.ops.aten._to_copy, torch.ops.aten.to):
-            t = args[0]
-            dtype = kwargs.get("dtype", None)
-            if dtype is not None and dtype != t.dtype:
-                raise ValueError("The dtype of a TinyGemmQBitsTensor cannot be changed")
-            scale_shift = op(t._scale_shift, **kwargs)
-            data_kwargs = copy(kwargs)
-            data_kwargs["dtype"] = t._data.dtype
-            data = op(t._data, **data_kwargs)
-            return TinyGemmQBitsTensor(t._qtype, t._axis, t._group_size, t.size(), t.stride(), data, scale_shift)
-        # No dispatch available: qfallback
-        return qfallback(op, *args, **kwargs)
