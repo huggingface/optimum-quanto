@@ -28,8 +28,10 @@ def qbytes_mm(activations: torch.Tensor, weights: torch.Tensor, output_scales: t
         # If one of the terms is an int the matmul might overflow
         mm_dtype = torch.float32
     activations = activations.to(mm_dtype)
-    weights = weights.to(mm_dtype)
-    outputs = torch.matmul(activations, weights.t()) * output_scales.t()
+    # Apply the scale to the weights before the matrix multiplication to put them back
+    # into their initial numerical range and avoid overflows
+    weights = weights.to(mm_dtype) * output_scales
+    outputs = torch.matmul(activations, weights.t())
     return outputs.to(output_scales.dtype)
 
 
