@@ -24,12 +24,16 @@ __all__ = ["SymmetricOptimizer"]
 
 class SymmetricOptimizer(Optimizer):
 
-    def __call__(self, base: torch.Tensor, bits: int, axis: Optional[int] = None) -> torch.Tensor:
+    def __call__(self, base: torch.Tensor, qmax: float, axis: Optional[int] = None) -> torch.Tensor:
         if axis not in [None, 0, -1]:
             raise ValueError("axis parameter must be None, 0 (first axis) or -1 (last axis)")
-        scale = self.optimize(base, bits, axis)
+        if qmax <= 0.0:
+            raise ValueError(
+                "qmax must be set to the maximum positive value that can be represented by the quantized type."
+            )
+        scale = self.optimize(base, qmax, axis)
         assert scale.dtype == base.dtype
         return scale
 
-    def optimize(self, base: torch.Tensor, bits: int, axis: Optional[int] = None) -> torch.Tensor:
+    def optimize(self, base: torch.Tensor, qmax: float, axis: Optional[int] = None) -> torch.Tensor:
         raise NotImplementedError

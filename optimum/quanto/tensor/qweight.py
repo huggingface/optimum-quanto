@@ -67,7 +67,7 @@ def quantize_weight(
         if axis is not None and t.shape[axis] == 1:
             # Quantizing along an axis of dimension 1 means quantizing per-tensor
             axis = None
-        scale = optimizer(t, qtype.bits, axis)
+        scale = optimizer(t, qtype.qmax, axis)
         return SymmetricQuantizer.apply(t, qtype, axis, scale)
     if optimizer is None:
         optimizer = default_affine_optimizer

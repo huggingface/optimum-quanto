@@ -26,6 +26,8 @@ class qtype:
     bits: int
     # This defines the storage dtype
     dtype: torch.dtype
+    qmin: float
+    qmax: float
 
     def __str__(self):
         return f"quanto.{self.name}"
