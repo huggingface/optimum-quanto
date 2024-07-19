@@ -44,7 +44,7 @@ def register_qmodule(module_cls):
     The QModule must implement two abstract methods:
 
     - qcreate: class method to instantiate a new QModule from an nn.Module, without copying its weights,
-    - qforward: instance method for quantized inference.
+    - forward: instance method for quantized inference.
 
     The code to register a new module looks like:
 
@@ -61,7 +61,7 @@ def register_qmodule(module_cls):
                     optimizer: Optional[Optimizer] = None):
             ...
 
-        def qforward(self, input: torch.Tensor) -> torch.Tensor:
+        def forward(self, input: torch.Tensor) -> torch.Tensor:
             ...
     ```
 
@@ -259,9 +259,6 @@ class QModuleMixin(ABC):
         output: torch.Tensor,
     ) -> torch.Tensor:
         return quantize_activation(output, qtype=self.activation_qtype, scale=self.output_scale)
-
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return self.qforward(input)
 
     def freeze(self):
         qweight = self.qweight

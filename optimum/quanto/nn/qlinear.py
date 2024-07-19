@@ -41,5 +41,5 @@ class QLinear(QModuleMixin, torch.nn.Linear):
             quantize_input=True,
         )
 
-    def qforward(self, input: torch.Tensor) -> torch.Tensor:
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
         return torch.nn.functional.linear(input, self.qweight, bias=self.bias)

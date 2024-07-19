@@ -47,5 +47,5 @@ class QLayerNorm(QModuleMixin, torch.nn.LayerNorm):
             optimizer=None,  # We never quantize QLayerNorm weights
         )
 
-    def qforward(self, input: torch.Tensor) -> torch.Tensor:
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
         return torch.nn.functional.layer_norm(input, self.normalized_shape, self.weight, self.bias, self.eps)
