@@ -46,5 +46,5 @@ class QConv2d(QModuleMixin, torch.nn.Conv2d):
             optimizer=optimizer,
         )
 
-    def qforward(self, input: torch.Tensor) -> torch.Tensor:
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
         return self._conv_forward(input, self.qweight, self.bias)
