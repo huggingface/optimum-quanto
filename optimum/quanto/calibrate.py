@@ -160,8 +160,8 @@ class Calibration(TorchFunctionMode):
                     if isinstance(child, QModuleMixin) and child.activation_qtype is not None:
                         qactivations_required = self.modules_qactivations.get(child, False)
                         if not qactivations_required:
-                            # Disable activations for this child as its outputs are only consumed by incompatible functions.
-                            child.disable_activation_quantization()
+                            # Disable output quantization for this child as its outputs are only consumed by incompatible functions.
+                            child.disable_output_quantization()
             if self.debug:
                 for name, child in module.named_children():
                     if isinstance(child, QModuleMixin):

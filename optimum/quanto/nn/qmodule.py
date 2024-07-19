@@ -123,19 +123,18 @@ class QModuleMixin(ABC):
                 if in_features % group_size == 0:
                     self.weight_group_size = group_size
         self.activation_qtype = activations
-        self._quantize_hooks = []
+        self._quantize_hooks = {}
         if activations is not None:
             if quantize_input:
-                self._quantize_hooks.append(self.register_forward_pre_hook(self.quantize_input))
-            self._quantize_hooks.append(self.register_forward_hook(self.quantize_output))
+                self._quantize_hooks["input"] = self.register_forward_pre_hook(self.quantize_input)
+            self._quantize_hooks["output"] = self.register_forward_hook(self.quantize_output)
         self.optimizer = optimizer
         self.register_buffer("input_scale", torch.ones(()))
         self.register_buffer("output_scale", torch.ones(()))
 
-    def disable_activation_quantization(self):
-        for hook in self._quantize_hooks:
-            hook.remove()
-        self.activation_qtype = None
+    def disable_output_quantization(self):
+        if "output" in self._quantize_hooks:
+            self._quantize_hooks["output"].remove()
 
     def _save_to_state_dict(self, destination, prefix, keep_vars):
         if self.weight_qtype is None or not self.frozen:
