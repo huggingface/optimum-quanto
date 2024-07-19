@@ -123,10 +123,19 @@ class QModuleMixin(ABC):
                 if in_features % group_size == 0:
                     self.weight_group_size = group_size
         self.activation_qtype = activations
-        self._quantize_input = quantize_input
+        self._quantize_hooks = []
+        if activations is not None:
+            if quantize_input:
+                self._quantize_hooks.append(self.register_forward_pre_hook(self.quantize_input))
+            self._quantize_hooks.append(self.register_forward_hook(self.quantize_output))
         self.optimizer = optimizer
         self.register_buffer("input_scale", torch.ones(()))
         self.register_buffer("output_scale", torch.ones(()))
+
+    def disable_activation_quantization(self):
+        for hook in self._quantize_hooks:
+            hook.remove()
+        self.activation_qtype = None
 
     def _save_to_state_dict(self, destination, prefix, keep_vars):
         if self.weight_qtype is None or not self.frozen:
@@ -232,30 +241,28 @@ class QModuleMixin(ABC):
     def qforward(self, input: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
 
-    def quantize_input(self, input: torch.Tensor) -> torch.Tensor:
-        if self.activation_qtype is not None:
-            if isinstance(input, QBytesTensor):
-                if input.qtype != self.activation_qtype:
-                    raise ValueError(
-                        "Models with heterogeneous quantized activations are not supported:"
-                        f" expected {self.activation_qtype.name} input but got {input.qtype.name} instead."
-                    )
-            elif self._quantize_input:
-                input = quantize_activation(input, qtype=self.activation_qtype, scale=self.input_scale)
+    def quantize_input(self, module: torch.nn.Module, input: torch.Tensor) -> torch.Tensor:
+        input = input[0]
+        if isinstance(input, QBytesTensor):
+            if input.qtype != self.activation_qtype:
+                raise ValueError(
+                    "Models with heterogeneous quantized activations are not supported:"
+                    f" expected {self.activation_qtype.name} input but got {input.qtype.name} instead."
+                )
+        else:
+            input = quantize_activation(input, qtype=self.activation_qtype, scale=self.input_scale)
         return input
 
     def quantize_output(
         self,
+        module: torch.nn.Module,
+        input: torch.Tensor,
         output: torch.Tensor,
     ) -> torch.Tensor:
-        if self.activation_qtype is not None:
-            output = quantize_activation(output, qtype=self.activation_qtype, scale=self.output_scale)
-        return output
+        return quantize_activation(output, qtype=self.activation_qtype, scale=self.output_scale)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        input = self.quantize_input(input)
-        output = self.qforward(input)
-        return self.quantize_output(output)
+        return self.qforward(input)
 
     def freeze(self):
         qweight = self.qweight
