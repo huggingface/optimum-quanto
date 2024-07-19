@@ -14,7 +14,7 @@
 
 import pytest
 import torch
-from helpers import assert_similar, random_qactivation
+from helpers import assert_similar, random_qactivation, random_tensor
 
 from optimum.quanto import Calibration, QBytesTensor, qfloat8_e4m3fn, qfloat8_e5m2, qint4, qint8
 from optimum.quanto.nn import QConv2d
@@ -24,16 +24,16 @@ def _test_quantize_conv2d(batch_size, img_shape, out_channels, use_bias, weights
     conv2d = torch.nn.Conv2d(img_shape[0], out_channels, kernel_size=3, bias=use_bias).to(dtype).to(device)
     qconv2d = QConv2d.from_module(conv2d, weights=weights, activations=activations)
     assert qconv2d.qweight.qtype == weights
-    qinputs = random_qactivation((batch_size,) + img_shape, dtype=dtype).to(device)
+    inputs = random_tensor((batch_size,) + img_shape, dtype=dtype, device=device)
     # Run an inference with Calibration to get the correct output dtype
     with torch.no_grad(), Calibration():
-        qout = qconv2d(qinputs)
+        qout = qconv2d(inputs)
     if activations is not None:
         assert isinstance(qout, QBytesTensor)
         assert qout.qtype == activations
     # Align weights with quantized linear weights for comparison
     conv2d.weight = torch.nn.Parameter(qconv2d.qweight.dequantize())
-    out = conv2d(qinputs.dequantize())
+    out = conv2d(inputs)
     # We need to increase atol for float16 dtype
     dtype_atol = {torch.float32: 1e-4, torch.float16: 1e-3}[dtype]
     # We also need to increase atol for float8 itypes
