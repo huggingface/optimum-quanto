@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from contextlib import nullcontext
 
 import pytest
 import torch
-from helpers import assert_similar, get_device_memory, random_qactivation
+from helpers import assert_similar, get_device_memory, random_tensor
 
 from optimum.quanto import (
     AbsmaxOptimizer,
@@ -24,12 +25,14 @@ from optimum.quanto import (
     QBytesTensor,
     QLinear,
     QTensor,
+    absmax_scale,
     freeze,
     qfloat8_e4m3fn,
     qfloat8_e5m2,
     qint4,
     qint8,
     quantize,
+    quantize_activation,
 )
 
 
@@ -56,24 +59,25 @@ def check_mlp(model, frozen):
         assert isinstance(model.output_layer.weight, QTensor)
 
 
-def get_outputs(model, batch_size, input_features, device):
-    qinputs = random_qactivation((batch_size, input_features), dtype=torch.float32).to(device)
-    return model(qinputs)
-
-
-def _test_quantize_mlp(weights, activations, optimizer, frozen, device):
+def _test_quantize_mlp(weights, activations, optimizer, frozen, device, atol=1e-6):
     model = MLP(32, 10, 128).to(device)
-    output = get_outputs(model, 1, 32, device)
+    inputs = random_tensor((1, 32), dtype=torch.float32, device=device)
+    output = model(inputs)
     quantize(model, weights=weights, activations=activations, optimizer=optimizer)
     if frozen:
         freeze(model)
     check_mlp(model, frozen)
-    with Calibration():
-        qoutput = get_outputs(model, 1, 32, device)
+    if activations is not None:
+        inputs = quantize_activation(inputs, qtype=activations, scale=absmax_scale(inputs))
+        context = Calibration
+    else:
+        context = nullcontext
+    with context():
+        qoutput = model(inputs)
     if activations is not None:
         assert isinstance(qoutput, QBytesTensor)
     # Don't expect more than a 0.99 similarity
-    assert_similar(output, qoutput, atol=1e-2)
+    assert_similar(output, qoutput, atol=atol)
 
 
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
@@ -86,19 +90,20 @@ def test_quantize_mlp_weights_only(weights, frozen, device):
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
 @pytest.mark.skip_device("mps")
 def test_quantize_mlp_int8_activations(weights, frozen, device):
-    _test_quantize_mlp(weights, qint8, None, frozen, device)
+    _test_quantize_mlp(weights, qint8, None, frozen, device, atol=1e-3)
 
 
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize(
     "activations",
-    [None, qint8, qfloat8_e5m2, qfloat8_e4m3fn],
-    ids=["a-float", "a-qint8", "a-qfloat8-e5m2", "a-qfloat8-e4m3"],
+    [qfloat8_e5m2, qfloat8_e4m3fn],
+    ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3"],
 )
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
 @pytest.mark.skip_device("mps")
 def test_quantize_mlp_float8_activations(weights, activations, frozen, device):
-    _test_quantize_mlp(weights, activations, None, frozen, device)
+    atol = {qfloat8_e4m3fn: 1e-3, qfloat8_e5m2: 1e-2}[activations]
+    _test_quantize_mlp(weights, activations, None, frozen, device, atol=atol)
 
 
 @pytest.mark.skip_device("cpu")
@@ -126,7 +131,8 @@ def test_quantized_mlp_device_memory(weights, dtype, weights_only, device):
 )
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
 def test_quantize_mlp_weights_only_optimizers(weights, optimizer, frozen, device):
-    _test_quantize_mlp(weights, None, optimizer, frozen, device)
+    atol = {qint4: 1e-4, qint8: 1e-6}[weights]
+    _test_quantize_mlp(weights, None, optimizer, frozen, device, atol=atol)
 
 
 @pytest.mark.parametrize(
