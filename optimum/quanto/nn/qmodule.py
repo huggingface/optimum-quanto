@@ -94,6 +94,7 @@ class QModuleMixin(ABC):
         weights: Optional[Union[qtype, str]] = None,
         activations: Optional[Union[qtype, str]] = None,
         optimizer: Optional[Optimizer] = None,
+        quantize_input: Optional[bool] = False,
         **kwargs,
     ):
         # The tests below are meant to help people writing their own quantized Module class
@@ -122,6 +123,7 @@ class QModuleMixin(ABC):
                 if in_features % group_size == 0:
                     self.weight_group_size = group_size
         self.activation_qtype = activations
+        self.quantize_input = quantize_input
         self.optimizer = optimizer
         self.register_buffer("input_scale", torch.ones(()))
         self.register_buffer("output_scale", torch.ones(()))
@@ -236,8 +238,11 @@ class QModuleMixin(ABC):
                 return t
             return quantize_activation(t.dequantize(), qtype=self.activation_qtype, scale=scale)
 
-        if self.activation_qtype is not None and isinstance(input, QBytesTensor):
-            input = maybe_requantize(input, self.input_scale)
+        if self.activation_qtype is not None:
+            if isinstance(input, QBytesTensor):
+                input = maybe_requantize(input, self.input_scale)
+            elif self.quantize_input:
+                input = quantize_activation(input, qtype=self.activation_qtype, scale=self.input_scale)
         output = self.qforward(input)
         if self.activation_qtype is not None:
             if isinstance(output, QBytesTensor):
