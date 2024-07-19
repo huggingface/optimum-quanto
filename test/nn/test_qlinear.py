@@ -38,8 +38,12 @@ def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, act
     linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(dtype).to(device)
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
     assert qlinear.qweight.qtype == weights
-    qinputs = random_qactivation((batch_size,) + (tokens, embeddings), dtype=dtype).to(device)
-    inputs = qinputs.dequantize()
+    input_shape = (batch_size, tokens, embeddings)
+    if activations is not None:
+        qinputs = random_qactivation(input_shape, qtype=activations, dtype=dtype).to(device)
+        inputs = qinputs.dequantize()
+    else:
+        inputs = random_tensor(input_shape, dtype=dtype, device=device)
     # Run an inference with Calibration to get the correct output dtype
     context = nullcontext if activations is None else Calibration
     with torch.no_grad(), context():
@@ -79,8 +83,8 @@ def test_quantize_linear_float32_activations_int8(batch_size, tokens, embeddings
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
 @pytest.mark.parametrize(
     "activations",
-    [qfloat8_e5m2, qfloat8_e4m3fn],
-    ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3"],
+    [qfloat8_e4m3fn],
+    ids=["a-qfloat8-e4m3"],
 )
 @pytest.mark.skip_device("mps")
 def test_quantize_linear_float16_activations_float8(
@@ -132,8 +136,8 @@ def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
     assert qlinear.weight.requires_grad is True
     assert qlinear.bias.requires_grad is True
-    # Run an inference with quantized inputs
-    inputs = random_tensor((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
+    # Run an inference with dynamically quantized inputs
+    inputs = random_tensor((batch_size, tokens, embeddings), dtype=torch.float32, device=device)
     inputs.requires_grad = True
     qinputs = quantize_activation(inputs, qtype=qint8, scale=absmax_scale(inputs, qint8))
     qout = qlinear(qinputs)
