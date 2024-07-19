@@ -123,7 +123,7 @@ class QModuleMixin(ABC):
                 if in_features % group_size == 0:
                     self.weight_group_size = group_size
         self.activation_qtype = activations
-        self.quantize_input = quantize_input
+        self._quantize_input = quantize_input
         self.optimizer = optimizer
         self.register_buffer("input_scale", torch.ones(()))
         self.register_buffer("output_scale", torch.ones(()))
@@ -232,24 +232,30 @@ class QModuleMixin(ABC):
     def qforward(self, input: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        def maybe_requantize(t, scale):
-            if t.qtype == self.activation_qtype and t.axis is None:
-                return t
-            return quantize_activation(t.dequantize(), qtype=self.activation_qtype, scale=scale)
-
+    def quantize_input(self, input: torch.Tensor) -> torch.Tensor:
         if self.activation_qtype is not None:
             if isinstance(input, QBytesTensor):
-                input = maybe_requantize(input, self.input_scale)
-            elif self.quantize_input:
+                if input.qtype != self.activation_qtype:
+                    raise ValueError(
+                        "Models with heterogeneous quantized activations are not supported:"
+                        f" expected {self.activation_qtype.name} input but got {input.qtype.name} instead."
+                    )
+            elif self._quantize_input:
                 input = quantize_activation(input, qtype=self.activation_qtype, scale=self.input_scale)
-        output = self.qforward(input)
+        return input
+
+    def quantize_output(
+        self,
+        output: torch.Tensor,
+    ) -> torch.Tensor:
         if self.activation_qtype is not None:
-            if isinstance(output, QBytesTensor):
-                output = maybe_requantize(output, self.output_scale)
-            else:
-                output = quantize_activation(output, qtype=self.activation_qtype, scale=self.output_scale)
+            output = quantize_activation(output, qtype=self.activation_qtype, scale=self.output_scale)
         return output
+
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        input = self.quantize_input(input)
+        output = self.qforward(input)
+        return self.quantize_output(output)
 
     def freeze(self):
         qweight = self.qweight
