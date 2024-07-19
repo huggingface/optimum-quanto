@@ -23,7 +23,9 @@ from optimum.quanto.nn import QLinear
 def _test_calibrate_qlinear(batch_size, tokens, embeddings, use_bias, activations, device):
     linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(device)
     qlinear = QLinear.from_module(linear, weights=qint8, activations=activations)
-    qinputs = random_qactivation((batch_size,) + (tokens, embeddings), dtype=torch.float32).to(device)
+    qinputs = random_qactivation(
+        (batch_size, tokens, embeddings), qtype=activations, dtype=torch.float32, device=device
+    )
     # Run a first inference without Calibration
     with torch.no_grad():
         qout = qlinear(qinputs)
@@ -73,7 +75,7 @@ def _test_calibrate_custom_module(activations, device):
     model = TwoLinearModel(embeddings).to(device)
     model.linear1 = QLinear.from_module(model.linear1, weights=qint8, activations=activations)
     model.linear2 = QLinear.from_module(model.linear2, weights=qint8, activations=activations)
-    qinputs = random_qactivation((1,) + (tokens, embeddings), dtype=torch.float32).to(device)
+    qinputs = random_qactivation((1, tokens, embeddings), qtype=activations, dtype=torch.float32, device=device)
     with torch.no_grad(), Calibration():
         qout = model(qinputs)
     assert torch.any(model.linear1.input_scale != 1)
