@@ -1,4 +1,4 @@
-name: Python examples (CPU)
+name: Linux examples (CPU, CUDA)
 
 on:
   push:
@@ -22,32 +22,33 @@ jobs:
     uses: ./.github/workflows/python-quality.yml
   run-examples:
     needs: [conventional-commits, python-quality]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, single-gpu , nvidia-gpu, a10, ci]
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11"]
+        device: ["cpu", "cuda"]
+    container:
+      image: pytorch/pytorch:2.3.1-cuda12.1-cudnn8-devel
+      options: --gpus 0
 
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
-        with:
-          python-version: ${{ matrix.python-version }}
+      - name: Check CUDA installation
+        run: |
+          nvcc -V
 
-      # Install dependencies
-      - name: Configure and install dependencies
+      - name: Build and install packages
         run: |
           pip install --upgrade pip
           pip install -e .[examples]
 
       # Run examples
-      - name: Run MNIST examples
+      - name: Run MNIST classification example
         run: |
           for w in int4 int8 float8; do \
             for a in none int8 float8; do \
               python examples/vision/image-classification/mnist/quantize_mnist_model.py \
-                --weights $w --activations $a; \
+                --weights $w --activations $a --device ${{ matrix.device }}; \
             done; \
           done
       - name: Run OWL detection examples
@@ -56,14 +57,14 @@ jobs:
             python examples/vision/object-detection/quantize_owl_model.py \
               --image http://images.cocodataset.org/val2017/000000039769.jpg \
               --texts "a photo of a cat" "a remote" \
-              --weights $w; \
+              --weights $w --device ${{ matrix.device }}; \
           done
-      - name: Run text-classification examples
+      - name: Run text-classification example
         run: |
           for w in int4 int8; do \
             for a in none int8; do \
               python examples/nlp/text-classification/sst2/quantize_sst2_model.py \
-                --weights $w --activations $a; \
+                --weights $w --activations $a --device ${{ matrix.device }}; \
             done; \
           done
 
