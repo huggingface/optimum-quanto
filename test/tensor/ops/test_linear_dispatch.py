@@ -23,13 +23,22 @@ from optimum.quanto import qint2, qint4, qint8
 @pytest.mark.parametrize("tokens, embeddings", [(5, 5), (32, 32), (10, 32)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16], ids=["fp32", "fp16"])
-@pytest.mark.parametrize("weight_qtype", [qint2, qint4, qint8], ids=["qint2", "qint4", "qint8"])
-def test_qactivation_qweight_linear(batch_size, tokens, embeddings, use_bias, dtype, weight_qtype, device):
-    qinputs = random_qactivation((batch_size,) + (tokens, embeddings), dtype=dtype).to(device)
-    qweight = random_qweight((embeddings, embeddings), weight_qtype, dtype=dtype, axis=0).to(device)
+@pytest.mark.parametrize("activation_qtype", [None, qint8], ids=["a-none", "a-qint8"])
+@pytest.mark.parametrize("weight_qtype", [qint2, qint4, qint8], ids=["w-qint2", "w-qint4", "w-qint8"])
+def test_qactivation_qweight_linear(
+    batch_size, tokens, embeddings, use_bias, dtype, activation_qtype, weight_qtype, device
+):
+    input_shape = (batch_size, tokens, embeddings)
+    if activation_qtype is None:
+        inputs = random_tensor(input_shape, dtype=dtype).to(device)
+    else:
+        inputs = random_qactivation(input_shape, qtype=activation_qtype, dtype=dtype).to(device)
+    qweight = random_qweight((embeddings, embeddings), qtype=weight_qtype, dtype=dtype, axis=0).to(device)
     bias = random_tensor((embeddings,), dtype=dtype).to(device) if use_bias else None
-    out = torch.nn.functional.linear(qinputs.dequantize(), qweight.dequantize(), bias)
-    qout = torch.nn.functional.linear(qinputs, qweight, bias)
+    qout = torch.nn.functional.linear(inputs, qweight, bias)
+    if activation_qtype is not None:
+        inputs = inputs.dequantize()
+    out = torch.nn.functional.linear(inputs, qweight.dequantize(), bias)
     assert_similar(out, qout)
 
 
