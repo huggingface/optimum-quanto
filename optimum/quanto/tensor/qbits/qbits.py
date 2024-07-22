@@ -86,6 +86,7 @@ class QBitsTensor(QTensor):
 
         if (
             qtype == qint4
+            and size[0] >= 128  # FIXME Workaround AWQ GEMM crash (GEMV might work for short inputs)
             and scale.dtype == torch.float16
             and axis == 0
             and group_size == 128

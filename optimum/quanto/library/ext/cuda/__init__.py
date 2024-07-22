@@ -112,6 +112,7 @@ def gemm_cuda(
     bits: int,
     group_size: int,
 ):
+    assert out_cols >= 128
     assert input.dtype == torch.float16
     assert input.numel() == rows * in_cols
     assert other.dtype == torch.int16
