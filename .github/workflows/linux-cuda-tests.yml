@@ -29,6 +29,7 @@ jobs:
         cuda-version: ["11.8", "12.1"]
     container:
       image: pytorch/pytorch:2.3.1-cuda${{ matrix.cuda-version }}-cudnn8-devel
+      options: --gpus 0
 
     steps:
       - uses: actions/checkout@v2
