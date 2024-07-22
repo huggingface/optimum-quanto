@@ -23,16 +23,14 @@ torch.library.define("quanto::qbytes_mm", "(Tensor A, Tensor B, Tensor scales) -
 
 
 def qbytes_mm(activations: torch.Tensor, weights: torch.Tensor, output_scales: torch.Tensor) -> torch.Tensor:
-    mm_dtype = output_scales.dtype
-    if activations.dtype == torch.int8 or weights.dtype == torch.int8:
-        # If one of the terms is an int the matmul might overflow
-        mm_dtype = torch.float32
-    activations = activations.to(mm_dtype)
+    activations = activations.to(output_scales.dtype)
+    if weights.dtype.is_floating_point:
+        # Float8 requires an explicit promotion
+        weights = weights.to(output_scales.dtype)
     # Apply the scale to the weights before the matrix multiplication to put them back
     # into their initial numerical range and avoid overflows
-    weights = weights.to(mm_dtype) * output_scales
-    outputs = torch.matmul(activations, weights.t())
-    return outputs.to(output_scales.dtype)
+    weights = output_scales * weights
+    return torch.matmul(activations, weights.t())
 
 
 def qbytes_int_mm(activations: torch.Tensor, weights: torch.Tensor, output_scales: torch.Tensor) -> torch.Tensor:
