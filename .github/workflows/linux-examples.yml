@@ -51,7 +51,7 @@ jobs:
                 --weights $w --activations $a --device ${{ matrix.device }}; \
             done; \
           done
-      - name: Run OWL detection examples
+      - name: Run OWL detection example
         run: |
           for w in int4 int8 float8; do \
             python examples/vision/object-detection/quantize_owl_model.py \
@@ -67,4 +67,10 @@ jobs:
                 --weights $w --activations $a --device ${{ matrix.device }}; \
             done; \
           done
-
+      - name: Run text-to-image example
+        if: ${{ matrix.device == 'cuda'}}
+        run: |
+          for w in int4 int8 fp8; do \
+            python examples/vision/text-to-image/quantize_pixart_sigma.py \
+              --qtype $w --device ${{ matrix.device }}; \
+          done
