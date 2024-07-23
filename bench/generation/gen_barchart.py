@@ -17,6 +17,7 @@ import json
 
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 
 
 def save_bar_chart(title, labels, ylabel, series, save_path):
@@ -46,12 +47,13 @@ def save_bar_chart(title, labels, ylabel, series, save_path):
     plt.savefig(save_path)
 
 
-def gen_barchart(model_id, title, label, results):
-    activations = ("f16", "i8", "f8")
+def gen_barchart(model_id, title, label, results, dtype):
+    dtype_str = "f16" if dtype is torch.float16 else "bf16"
+    activations = (dtype_str, "i8", "f8")
     weights = ("i4", "i8", "f8")
     series = {}
-    reference = round(results["Wf16Af16"], 2)
-    series["Weights f16"] = [
+    reference = round(results[f"W{dtype_str}A{dtype_str}"], 2)
+    series[f"Weights {dtype_str}"] = [
         reference,
     ] * len(activations)
     for w in weights:
@@ -67,7 +69,7 @@ def gen_barchart(model_id, title, label, results):
         labels=[f"Activations {a}" for a in activations],
         series=series,
         ylabel=label,
-        save_path=f"{model_name}_{metric_name}.png",
+        save_path=f"{model_name}_{dtype_str}_{metric_name}.png",
     )
 
 
