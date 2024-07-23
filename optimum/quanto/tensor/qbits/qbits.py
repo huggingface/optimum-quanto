@@ -111,8 +111,10 @@ class QBitsTensor(QTensor):
                 The tensor data, either as a raw uint8 torch.Tensor or as a PackedTensor.
             scale (`torch.Tensor`):
                 The floating point scale expressed as a torch.Tensor.
-            activation_qtype (`qtype`):
-            tensor_type (`Optional[str]`):
+            activation_qtype (`qtype`, defaults to `None`):
+                The qtype used for the activations. If one needs to use a different tensor subclass e.g. for weights depending on the activations qtype, this argument must be specified accordingly when calling `QBitsTensor.create`.
+            tensor_type (`Optional[str]`, defaults to `None`):
+                Specifies whether the tensor is to be considered as a `"weight"` or `"activation"`, which may influence the tensor subclass to be used.
             shift (`torch.Tensor`):
                 The shift expressed as a torch.Tensor. It can be either an integer representing zero
                 (i.e. zero-point) or a float value.

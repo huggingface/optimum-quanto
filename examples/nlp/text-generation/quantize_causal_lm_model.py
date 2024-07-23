@@ -120,9 +120,7 @@ def main():
     torch_dtype = (
         torch.float16
         if args.load_dtype == "float16"
-        else torch.bfloat16
-        if args.load_dtype == "bfloat16"
-        else torch.float32
+        else torch.bfloat16 if args.load_dtype == "bfloat16" else torch.float32
     )
     model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch_dtype, low_cpu_mem_usage=True).to(
         device
