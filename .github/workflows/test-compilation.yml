@@ -26,22 +26,17 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - name: Check CUDA installation
-        run: |
-          nvcc -V
 
       - name: Build and install packages
         run: |
-          python3 -m venv .venv
-          . .venv/bin/activate
           pip install --upgrade pip
-          pip list
           pip install -U setuptools setuptools_scm
-          pip install .[examples]
+          python -m build .
+          tar tf dist/optimum_quanto-0.2.3.dev0.tar.gz
+          pip dist/optimum_quanto-0.2.3.dev0.tar.gz
 
       # Run examples
       - name: Run Dummy example
         run: |
-          . .venv/bin/activate
           pip show -f optimum-quanto
           python examples/check_extension_compiled.py
