@@ -71,7 +71,7 @@ def detach(op, t):
     # Detach both data and scale
     out_data = op(t._data)
     out_scale = op(t._scale)
-    return QBytesTensor.create(t.qtype, t.axis, t.size(), t.stride(), out_data, out_scale)
+    return t.__class__(t.qtype, t.axis, t.size(), t.stride(), out_data, out_scale)
 
 
 @register_qbytestensor_op([torch.ops.aten.cat])
@@ -114,7 +114,7 @@ def clone(op, t, memory_format=torch.preserve_format):
     out_stride = out_data.stride()
     out_data = out_data.reshape(data_shape)
     out_scale = op(t._scale, memory_format=memory_format)
-    return QBytesTensor.create(t.qtype, t.axis, t.size(), out_stride, out_data, out_scale)
+    return t.__class__(t.qtype, t.axis, t.size(), out_stride, out_data, out_scale)
 
 
 @register_qbytestensor_op([torch.ops.aten.copy_])
@@ -130,9 +130,7 @@ def div(op, input, other):
     if not is_scalar(other):
         return op(input.dequantize(), other)
     # We just divide the scale
-    return QBytesTensor.create(
-        input.qtype, input.axis, input.size(), input.stride(), input._data, op(input._scale, other)
-    )
+    return input.__class__(input.qtype, input.axis, input.size(), input.stride(), input._data, op(input._scale, other))
 
 
 @register_qbytestensor_op([torch.ops.aten.neg])
@@ -141,7 +139,7 @@ def neg(op, input, *args, **kwargs):
         # Neg is not supported for float8
         return op(input.dequantize(), *args, **kwargs)
     out_data = op(input._data, *args, **kwargs)
-    return QBytesTensor.create(input.qtype, input.axis, input.size(), input.stride(), out_data, input._scale)
+    return input.__class__(input.qtype, input.axis, input.size(), input.stride(), out_data, input._scale)
 
 
 @register_qbytestensor_op(
@@ -208,7 +206,7 @@ def relu(op, input):
         # Relu is not supported for float8 types
         return qfallback(op, input)
     out_data = op(input._data)
-    return QBytesTensor.create(input.qtype, input.axis, input.size(), input.stride(), out_data, input._scale)
+    return input.__class__(input.qtype, input.axis, input.size(), input.stride(), out_data, input._scale)
 
 
 @register_qbytestensor_op([torch.ops.aten._softmax])
