@@ -17,7 +17,7 @@ import ast
 import torch
 
 # This is required to be able to access `torch.ops.quanto_ext.*` members defined in C++ through `TORCH_LIBRARY`.
-from optimum.quanto.library.ext.cuda import ext  # noqa: F401
+from optimum.quanto.library.extensions.cuda import ext  # noqa: F401
 
 from ..qbytes import QBytesTensor
 from ..qtype import qtypes

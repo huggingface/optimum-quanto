@@ -55,8 +55,6 @@ def quantize_weight(
     Returns:
         A quantized Tensor.
     """
-    if axis not in (0, -1):
-        raise ValueError("axis parameter must be 0 (first axis) or -1 (last axis)")
     if qtype.bits == 8:
         if optimizer is None:
             optimizer = default_symmetric_optimizer

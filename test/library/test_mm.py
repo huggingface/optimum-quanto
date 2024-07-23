@@ -103,7 +103,7 @@ def test_gemm_fp16_int4(batch_size, tokens, in_features, out_features):
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16], ids=["bf16", "fp16"])
 def test_fp8_marlin(tokens, in_features, out_features, dtype):
     # This is required to be able to access `torch.ops.quanto_ext.*` members defined in C++ through `TORCH_LIBRARY`.
-    from optimum.quanto.library.ext.cuda import ext  # noqa: F401
+    from optimum.quanto.library.extensions.cuda import ext  # noqa: F401
 
     device = torch.device("cuda")
     input_shape = (tokens, in_features)
