@@ -32,11 +32,14 @@ jobs:
 
       - name: Build and install packages
         run: |
+          python3 -m venv .venv
+          . .venv/bin/activate
           pip install --upgrade pip
           pip install .[examples]
 
       # Run examples
       - name: Run Dummy example
         run: |
+          . .venv/bin/activate
           pip show -f optimum-quanto
           python examples/check_extension_compiled.py
