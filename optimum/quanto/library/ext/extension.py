@@ -45,6 +45,7 @@ class Extension(object):
                 extra_cflags=self.extra_cflags,
                 extra_cuda_cflags=self.extra_cuda_cflags,
                 build_directory=self.build_directory,
+                verbose=True,
             )
             if not os.path.exists(version_file):
                 with open(version_file, "w") as f:

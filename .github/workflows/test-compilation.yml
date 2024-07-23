@@ -1,0 +1,42 @@
+name: Investigate Linux compilation issues
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "optimum/quanto/**"
+      - "examples/**"
+      - "pyproject.toml"
+  pull_request:
+    types: [assigned, opened, synchronize, reopened]
+    paths:
+      - "optimum/quanto/**"
+      - "examples/**"
+      - "pyproject.toml"
+
+jobs:
+  investigate:
+    runs-on: [self-hosted, single-gpu , nvidia-gpu, a10, ci]
+    strategy:
+      fail-fast: false
+    container:
+      image: pytorch/pytorch:2.3.1-cuda12.1-cudnn8-devel
+      options: --gpus 0
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Check CUDA installation
+        run: |
+          nvcc -V
+
+      - name: Build and install packages
+        run: |
+          pip install --upgrade pip
+          pip install .[examples]
+
+      # Run examples
+      - name: Run Dummy example
+        run: |
+          pip show -f optimum-quanto
+          python examples/check_extension_compiled.py
