@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from awq import AutoAWQForCausalLM
 from transformers import AutoTokenizer
+from transformers.utils.import_utils import _is_package_available
+
+if _is_package_available("awq"):
+    from awq import AutoAWQForCausalLM
 
 
 def prepare_inputs_for_generation(input_ids, past_key_values=None, attention_mask=None, inputs_embeds=None, **kwargs):

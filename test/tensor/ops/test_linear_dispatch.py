@@ -33,7 +33,7 @@ def test_qactivation_qweight_linear(
         inputs = random_tensor(input_shape, dtype=dtype).to(device)
     else:
         inputs = random_qactivation(input_shape, qtype=activation_qtype, dtype=dtype).to(device)
-    qweight = random_qweight((embeddings, embeddings), qtype=weight_qtype, dtype=dtype, axis=0).to(device)
+    qweight = random_qweight((embeddings, embeddings), qtype=weight_qtype, dtype=dtype, activation_qtype=activation_qtype, axis=0).to(device)
     bias = random_tensor((embeddings,), dtype=dtype).to(device) if use_bias else None
     qout = torch.nn.functional.linear(inputs, qweight, bias)
     if activation_qtype is not None:

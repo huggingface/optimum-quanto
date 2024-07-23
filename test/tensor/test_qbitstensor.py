@@ -43,7 +43,7 @@ def test_qbitstensor_serialization(qtype, axis):
 def test_qbitstensor_requires_grad(qtype, axis, group_size, device):
     weight = random_tensor((32, 32), dtype=torch.float32).to(device)
     weight.requires_grad = True
-    qweight = quantize_weight(weight, qtype=qtype, axis=axis, group_size=group_size)
+    qweight = quantize_weight(weight, qtype=qtype, axis=axis, group_size=group_size, activation_qtype=None)
     assert qweight.requires_grad is True
 
 
@@ -53,7 +53,7 @@ def test_qbitstensor_requires_grad(qtype, axis, group_size, device):
 def test_qbitstensor_backward(qtype, axis, group_size, device):
     weight = random_tensor((32, 32), dtype=torch.float32).to(device)
     weight.requires_grad = True
-    qweight = quantize_weight(weight, qtype=qtype, axis=axis, group_size=group_size)
+    qweight = quantize_weight(weight, qtype=qtype, axis=axis, group_size=group_size, activation_qtype=None)
     gradient = torch.randn((32, 32)).to(device)
     # Backpropagate gradient to the inner float weights
     qweight.dequantize().backward(gradient)

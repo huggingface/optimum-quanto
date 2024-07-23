@@ -24,6 +24,9 @@ class Extension(object):
         self.build_directory = os.path.join(root_dir, "build")
         self._lib = None
 
+        # There is no reason not to build ahead of runtime.
+        tmp = self.lib  # noqa
+
     @property
     def lib(self):
         if self._lib is None:

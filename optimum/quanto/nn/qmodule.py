@@ -22,7 +22,7 @@ from ..tensor import (
     Optimizer,
     QBitsTensor,
     QTensor,
-    WeightQBytesTensor,
+    qfloat8_e4m3fn,
     qint2,
     qint4,
     qtype,
@@ -229,13 +229,20 @@ class QModuleMixin(ABC):
         if isinstance(self.weight, QTensor):
             # Frozen QModule
             return self.weight
-        # Quantize dynamically the weights per-axis
+
+        if self.weight_qtype == qfloat8_e4m3fn and self.activation_qtype is None:
+            # Marlin FP8 kernel only supports per-tensor fp8 quantization.
+            axis = None
+        else:
+            axis = 0
+
         return quantize_weight(
             self.weight,
             qtype=self.weight_qtype,
-            axis=0,
+            axis=axis,
             group_size=self.weight_group_size,
             optimizer=self.optimizer,
+            activation_qtype=self.activation_qtype,
         )
 
     def qforward(self, input: torch.Tensor) -> torch.Tensor:

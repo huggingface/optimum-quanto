@@ -17,6 +17,8 @@ import argparse
 import torch
 from datasets import load_dataset
 from metrics.latency import latency
+from metrics.prefill_latency import prefill_latency
+from metrics.decode_latency import decode_latency
 from metrics.perplexity import perplexity
 from metrics.prediction import prediction_accuracy
 from setup.awq import setup as awq_setup
@@ -65,12 +67,19 @@ def evaluate(
         model, tokenizer = hqq_setup(model_id, weights, activations, device)
     else:
         raise ValueError(f"Unsupported quantizer {quantizer}")
+
+    model = model.eval()
     dtype = next(model.parameters()).dtype
     weights = dtype if weights == "none" else weights
     activations = dtype if activations == "none" else activations
     print(f"Evaluating {model_id} {metric} with {weights} weights and {activations} activations.")
+
     if metric == "latency":
-        return latency(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512, iterations=3)
+        return latency(model, tokenizer, device, batch_size=batch_size, prompt_length=512, nb_tokens=512, iterations=5)
+    elif metric == "prefill-latency":
+        return prefill_latency(model, device, batch_size=batch_size, prompt_length=512, iterations=5)
+    elif metric == "decode-latency":
+        return decode_latency(model, tokenizer, device, batch_size=batch_size, nb_tokens=512, iterations=5)
     elif metric == "prediction":
         return prediction_accuracy(model, tokenizer, batch_size)
     elif metric == "perplexity":
@@ -87,13 +96,13 @@ def main():
         help="The name of the trained Model.",
     )
     parser.add_argument("--device", type=str, default=None, help="The device to use for generation.")
-    parser.add_argument("--metric", type=str, default="prediction", choices=["latency", "prediction", "perplexity"])
+    parser.add_argument("--metric", type=str, default="prediction", choices=["latency", "prefill-latency", "decode-latency", "prediction", "perplexity"])
     parser.add_argument("--quantizer", type=str, default="quanto", choices=["quanto", "awq", "bnb", "hqq"])
     parser.add_argument(
         "--weights",
         type=str,
         default="none",
-        choices=["none", "int4", "int8", "float8"],
+        choices=["none", "int4", "int8", "float8", "float8_e4m3fn"],
     )
     parser.add_argument(
         "--activations",
@@ -105,6 +114,7 @@ def main():
     parser.add_argument(
         "--dtype",
         type=str,
+        help="`torch_dtype` to load the original Transformers model with.",
         default="none",
         choices=["none", "fp16", "bf16"],
     )

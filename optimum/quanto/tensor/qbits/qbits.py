@@ -20,10 +20,10 @@ from torch.autograd import Function
 
 from ..function import QuantizedLinearFunction
 from ..qtensor import QTensor, qfallback
-from ..qtype import qint2, qint4, qtype, qtypes
+from ..qtype import qint4, qtypes, qtype
 from .group import grouped_shape, ungroup
 from .packed import PackedTensor
-
+from typing import Optional
 
 __all__ = ["QBitsTensor"]
 
@@ -80,7 +80,7 @@ class QBitsDequantizer(Function):
 
 class QBitsTensor(QTensor):
     @staticmethod
-    def create(qtype, axis, group_size, size, stride, data, scale, shift, requires_grad=False):
+    def create(qtype, axis, group_size, size, stride, data, scale, shift, activation_qtype: Optional[qtype] = None, tensor_type: Optional[str] = None, requires_grad=False):
         """Factory method to create a QBitsTensor
 
         This selects the most appropriate QBitsTensor based on the configuration.
@@ -98,6 +98,8 @@ class QBitsTensor(QTensor):
                 The tensor data, either as a raw uint8 torch.Tensor or as a PackedTensor.
             scale (`torch.Tensor`):
                 The floating point scale expressed as a torch.Tensor.
+            activation_qtype (`qtype`):
+            tensor_type (`Optional[str]`):
             shift (`torch.Tensor`):
                 The shift expressed as a torch.Tensor. It can be either an integer representing zero
                 (i.e. zero-point) or a float value.

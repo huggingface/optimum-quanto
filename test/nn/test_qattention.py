@@ -187,10 +187,15 @@ def _test_quantize_attention(device, dtype=torch.float32, weights=qint8, activat
         with torch.no_grad(), Calibration():
             qoutputs = att(inputs)
     atol = {None: 1e-4, qint8: 1e-3, qfloat8_e5m2: 1e-2, qfloat8_e4m3fn: 1e-2}[activations]
+
+    if activations is None and weights == qfloat8_e4m3fn:
+        # 1e-4 atol is fine for qint8, but not for qfloat8_e4m3fn? Probably because torch.rand distribution is uniform.
+        atol = 7e-4
+
     assert_similar(outputs, qoutputs, atol=atol)
 
 
-@pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
+@pytest.mark.parametrize("weights", [qint8, qfloat8_e4m3fn], ids=["w-qint8", "w-qfloat8_e4m3fn"])
 def test_quantize_attention_weights_only(weights, device):
     _test_quantize_attention(device, weights=weights)
 

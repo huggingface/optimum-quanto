@@ -18,7 +18,7 @@ import torch
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from optimum.quanto import Calibration, freeze, qfloat8, qint4, qint8, quantize
+from optimum.quanto import Calibration, freeze, qfloat8, qint4, qint8, quantize, qfloat8_e4m3fn
 
 
 @torch.no_grad()
@@ -64,7 +64,7 @@ def setup(
                 calibrate(model, tokenizer, batch_size, batches=4)
         print("Freezing")
         freeze(model)
-        print(f"Finished: {time.time()-start:.2f}")
+        print(f"Finished quantization/calibration/freezing: {time.time() - start:.2f} s")
     return model, tokenizer
 
 
@@ -74,4 +74,5 @@ def keyword_to_qtype(k):
         "int4": qint4,
         "int8": qint8,
         "float8": qfloat8,
+        "float8_e4m3fn": qfloat8_e4m3fn,
     }[k]

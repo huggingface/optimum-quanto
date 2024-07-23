@@ -21,7 +21,7 @@ from tqdm.auto import tqdm
 from transformers import GenerationConfig
 
 
-def latency(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512, iterations=10):
+def prefill_latency(model, device, batch_size=1, prompt_length=512, iterations=10):
     def synchronize(device):
         if device.type == "cuda":
             torch.cuda.synchronize()
@@ -50,18 +50,6 @@ def latency(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens
 
         return CPUEvent()
 
-    generation_config = GenerationConfig(
-        max_new_tokens=nb_tokens,
-        min_new_tokens=nb_tokens,
-        use_cache=True,
-        pad_token_id=tokenizer.pad_token_id,
-        num_beams=1,
-        do_sample=False,
-        eos_token_id=None,  # This is required for min_new_tokens to actually have an effect.
-    )
-    if getattr(model, "generation_config", None) is not None:
-        model.generation_config.eos_token_id = None  # greedy_search falls back on this eos_token_id that we need to set to None as well for min_new_tokens to have an effect.
-
     synchronize(device)
     if device.type == "cuda":
         torch.cuda.reset_peak_memory_stats()
@@ -74,28 +62,26 @@ def latency(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens
     input_ids = torch.randint(1, model.config.vocab_size - 1, size=(batch_size, prompt_length)).to(device)
     masks = torch.ones(batch_size, prompt_length, dtype=torch.int32).to(device)
 
-    # warmup
-    _ = model.generate(input_ids, attention_mask=masks, generation_config=generation_config)
+    with torch.no_grad():
+        for _ in tqdm(range(iterations)):
+            start_event = timing_event(device)
+            end_event = timing_event(device)
+            synchronize(device)
+            start_event.record()
 
-    for _ in tqdm(range(iterations)):
-        start_event = timing_event(device)
-        end_event = timing_event(device)
-        synchronize(device)
-        start_event.record()
+            _ = model(input_ids=input_ids, attention_mask=masks)
+            end_event.record()
+            synchronize(device)
 
-        _ = model.generate(input_ids, attention_mask=masks, generation_config=generation_config)
-        end_event.record()
-        synchronize(device)
-
-        latency_ms = start_event.elapsed_time(end_event)
-        latencies.append(latency_ms)
+            latency_ms = start_event.elapsed_time(end_event)
+            latencies.append(latency_ms)
 
     if device.type == "cuda":
         peak_memory = torch.cuda.max_memory_allocated()
         print(f"Peak memory during benchmark: {peak_memory / (2 ** 30):.4f} GB")
 
-    mean_latency = np.mean(latencies) / generation_config.min_new_tokens
-    print(f"Average latency per token: {mean_latency} ms")
+    mean_latency = np.mean(latencies)
+    print(f"Average prefill latency: {mean_latency} ms")
     return mean_latency
 
 
