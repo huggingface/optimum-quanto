@@ -200,7 +200,11 @@ class QBitsTensor(QTensor):
         return QBitsTensor.__tensor_unflatten__(inner_tensors_dict, meta, None, None)
 
     def optimize(self):
-        """Allows to convert an existing QBitsTensor to an optimized subclass"""
+        """Allows to convert an existing QBitsTensor to an optimized subclass
+
+        This is used in particular after reloading a serialized QBitsTensor (which is
+        always saved using the kernel-agnostic packing).
+        """
         if type(self) is not QBitsTensor:
             return self
         data = self._data.unpack()

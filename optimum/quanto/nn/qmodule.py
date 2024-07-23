@@ -166,6 +166,7 @@ class QModuleMixin(ABC):
                     axis=0,
                     size=self.weight.size(),
                     stride=self.weight.stride(),
+                    activation_qtype=self.activation_qtype,
                     missing_keys=missing_keys,
                 )
             else:
@@ -179,8 +180,8 @@ class QModuleMixin(ABC):
                     stride=self.weight.stride(),
                     missing_keys=missing_keys,
                 )
-                if deserialized_weight is not None:
-                    deserialized_weight = deserialized_weight.optimize()
+            if deserialized_weight is not None:
+                deserialized_weight = deserialized_weight.optimize()
 
             assign_to_params_buffers = local_metadata.get("assign_to_params_buffers", False)
             if assign_to_params_buffers and (deserialized_weight is not None):
@@ -254,6 +255,7 @@ class QModuleMixin(ABC):
             axis=0,
             group_size=self.weight_group_size,
             optimizer=self.optimizer,
+            activation_qtype=self.activation_qtype,
         )
 
     def qforward(self, input: torch.Tensor) -> torch.Tensor:

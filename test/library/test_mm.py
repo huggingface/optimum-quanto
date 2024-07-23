@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import pytest
 import torch
 from helpers import assert_similar, random_tensor
 
 from optimum.quanto import AWQPackedTensor, AWQPacking
+from optimum.quanto.tensor.weights.marlin.packed import get_scale_perms, pack_fp8_as_int32
 
 
 @pytest.mark.parametrize("batch_size", [1, 10, None], ids=["single", "batched", "static"])
@@ -91,3 +93,47 @@ def test_gemm_fp16_int4(batch_size, tokens, in_features, out_features):
     pt_outputs = torch.matmul(inputs, other_t)
     # Verify the results are similar
     assert_similar(lib_outputs, pt_outputs, rtol=5e-3)
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available() or torch.cuda.get_device_capability()[0] < 8,
+    reason="CUDA device >= sm80 not available",
+)
+@pytest.mark.parametrize("tokens", [1, 10, 128])
+@pytest.mark.parametrize("in_features, out_features", [(256, 1024), (512, 2048)])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16], ids=["bf16", "fp16"])
+def test_fp8_marlin(tokens, in_features, out_features, dtype):
+    device = torch.device("cuda")
+    input_shape = (tokens, in_features)
+    inputs = torch.rand(input_shape, dtype=dtype, device=device)
+    other_shape = (in_features, out_features)
+    other_data = torch.rand(other_shape, dtype=dtype, device=device).to(torch.float8_e4m3fn)
+    other_data_int32 = pack_fp8_as_int32(other_data)
+    perm = torch.empty(0, dtype=torch.int, device=device)
+
+    other_data_repack = torch.ops.quanto.gptq_marlin_repack(
+        b_q_weight=other_data_int32, perm=perm, size_k=in_features, size_n=out_features, num_bits=8
+    )
+    other_scale = torch.rand(1, out_features, dtype=dtype, device=device)
+    other_scale_original = other_scale.clone()
+
+    scale_perm_single = get_scale_perms()
+    other_scale = other_scale.reshape((-1, len(scale_perm_single)))[:, scale_perm_single]
+    other_scale = other_scale.reshape(-1, out_features).contiguous()
+
+    workspace = torch.zeros(out_features // 64 * 16, dtype=torch.int, device=device)
+    lib_outputs = torch.ops.quanto.fp8_marlin_gemm(
+        a=inputs,
+        b_q_weight=other_data_repack,
+        b_scales=other_scale,
+        workspace=workspace,
+        num_bits=8,
+        size_m=tokens,
+        size_n=out_features,
+        size_k=in_features,
+    )
+    # Evaluate the matrix multiplication using pytorch mm
+    other = other_data.to(dtype) * other_scale_original
+    pt_outputs = torch.matmul(inputs.to(dtype), other)
+    # Verify the results are similar
+    assert_similar(lib_outputs, pt_outputs)
