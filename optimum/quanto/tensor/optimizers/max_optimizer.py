@@ -23,7 +23,6 @@ __all__ = ["MaxOptimizer"]
 
 
 class MaxOptimizer(AffineOptimizer):
-
     def optimize(
         self, base: torch.Tensor, bits: int, axis: int
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:

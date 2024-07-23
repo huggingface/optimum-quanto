@@ -19,7 +19,7 @@ import torch
 from .optimizers import AbsmaxOptimizer, AffineOptimizer, MaxOptimizer, Optimizer, SymmetricOptimizer
 from .qtype import qtype
 from .quantizers import AffineQuantizer, SymmetricQuantizer
-from ..tensor import qtype
+
 
 __all__ = ["quantize_weight"]
 

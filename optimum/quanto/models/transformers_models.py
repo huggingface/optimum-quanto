@@ -33,7 +33,6 @@ from transformers.utils import SAFE_WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_NAME, is_ac
 
 
 class QuantizedTransformersModel:
-
     BASE_NAME = "quanto"
     auto_class = None
 
@@ -151,7 +150,6 @@ class QuantizedTransformersModel:
             raise NotImplementedError("Reloading quantized models directly from the hub is not supported yet.")
 
     def save_pretrained(self, save_directory: Union[str, os.PathLike], max_shard_size: Union[int, str] = "5GB"):
-
         model = self._wrapped
         if getattr(model.config, "tie_word_embeddings", True):
             # The original model had tied embedding inputs and outputs
@@ -169,5 +167,4 @@ class QuantizedTransformersModel:
 
 
 class QuantizedModelForCausalLM(QuantizedTransformersModel):
-
     auto_class = AutoModelForCausalLM

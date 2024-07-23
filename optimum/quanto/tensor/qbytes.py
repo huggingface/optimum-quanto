@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ast
+from typing import Optional
+
+import torch
 from torch.autograd import Function
 
 from .qtensor import QTensor, qfallback
-from .qtype import qtypes, qtype
-from typing import Optional
+from .qtype import qtype, qtypes
 
 
 __all__ = ["QBytesTensor"]
@@ -40,7 +43,17 @@ class QBytesDequantizer(Function):
 
 class QBytesTensor(QTensor):
     @staticmethod
-    def create(qtype, axis, size, stride, data, scale, activation_qtype: Optional[qtype] = None, tensor_type: Optional[str] = None, requires_grad=False):
+    def create(
+        qtype,
+        axis,
+        size,
+        stride,
+        data,
+        scale,
+        activation_qtype: Optional[qtype] = None,
+        tensor_type: Optional[str] = None,
+        requires_grad=False,
+    ):
         """Factory method to create a QBytesTensor
 
         This selects the most appropriate QBytesTensor based on the configuration.

@@ -16,17 +16,19 @@ from typing import Optional
 
 import torch
 
-from ..tensor import Optimizer, QBytesTensor, qtype
-from ..tensor.qbits.awq.qbits import AWQBitsTensor
-from ..tensor.qbits.tinygemm.qbits import TinyGemmQBitsTensor
-from ..tensor.marlin.fp8_packed import MarlinF8QBytesTensor
-from .qmodule import QModuleMixin, register_qmodule
-from ..tensor.qtensor_func import register_qtensor_func
-
-# This is required to be able to access `torch.ops.quanto_ext.*` members defined in C++ through `TORCH_LIBRARY`. 
+# This is required to be able to access `torch.ops.quanto_ext.*` members defined in C++ through `TORCH_LIBRARY`.
 from optimum.quanto.library.ext.cuda import ext  # noqa: F401
 
+from ..tensor import Optimizer, QBytesTensor, qtype
+from ..tensor.marlin.fp8_packed import MarlinF8QBytesTensor
+from ..tensor.qbits.awq.qbits import AWQBitsTensor
+from ..tensor.qbits.tinygemm.qbits import TinyGemmQBitsTensor
+from ..tensor.qtensor_func import register_qtensor_func
+from .qmodule import QModuleMixin, register_qmodule
+
+
 __all__ = ["QLinear"]
+
 
 def _forward_linear(input, other, bias):
     if isinstance(other, AWQBitsTensor):
@@ -85,6 +87,7 @@ def _forward_linear(input, other, bias):
         output = output + bias
     return output
 
+
 class QLinearFunction(torch.autograd.Function):
     """Quantized linear function.
 
@@ -126,6 +129,7 @@ class QLinearFunction(torch.autograd.Function):
             bias_gO = gO.sum(dim)
         return input_gO, other_gO, bias_gO
 
+
 @register_qmodule(torch.nn.Linear)
 class QLinear(QModuleMixin, torch.nn.Linear):
     @classmethod
@@ -149,6 +153,7 @@ class QLinear(QModuleMixin, torch.nn.Linear):
             return QLinearFunction.apply(input, self.qweight, self.bias)
         else:
             return _forward_linear(input, self.qweight, bias=self.bias)
+
 
 @register_qtensor_func([torch.nn.functional.linear])
 def linear(func, input, other, bias=None):

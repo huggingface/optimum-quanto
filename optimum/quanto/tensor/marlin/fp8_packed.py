@@ -13,13 +13,14 @@
 # limitations under the License.
 
 import ast
+
 import torch
+
+# This is required to be able to access `torch.ops.quanto_ext.*` members defined in C++ through `TORCH_LIBRARY`.
+from optimum.quanto.library.ext.cuda import ext  # noqa: F401
 
 from ..qbytes import QBytesTensor
 from ..qtype import qtypes
-
-# This is required to be able to access `torch.ops.quanto_ext.*` members defined in C++ through `TORCH_LIBRARY`. 
-from optimum.quanto.library.ext.cuda import ext  # noqa: F401
 
 
 def pack_fp8_as_int32(fp8_tensor: torch.Tensor) -> torch.Tensor:
@@ -50,6 +51,7 @@ def pack_fp8_as_int32(fp8_tensor: torch.Tensor) -> torch.Tensor:
 
     return packed
 
+
 def unpack_int32_to_fp8(int32_tensor: torch.Tensor) -> torch.Tensor:
     """
     Reinterpret a tensor (a, b) of type int32 to a tensor (a * 4, b) of type float8_e4m3fn.
@@ -69,10 +71,11 @@ def unpack_int32_to_fp8(int32_tensor: torch.Tensor) -> torch.Tensor:
 
     return unpacked
 
+
 def get_row_permutation(n_rows: int) -> torch.Tensor:
     """
     Generates a tensor of shape (4 * n_rows,) giving the rows mapping to map from marlin-repacked weights to natural order.
-    
+
     Example: if n_rows = 8, the row mapping from natural to marlin format is
     rows_idx = [0,  2,  4,  6,
                 16, 18, 20, 22,
@@ -105,6 +108,7 @@ def get_row_permutation(n_rows: int) -> torch.Tensor:
     rows_idx_rev[rows_idx] = torch.arange(len(rows_idx))
 
     return rows_idx_rev
+
 
 def get_column_permutation(n_col: int) -> torch.Tensor:
     """
@@ -149,6 +153,7 @@ def get_column_permutation(n_col: int) -> torch.Tensor:
 
     return original_index
 
+
 class MarlinF8QBytesTensor(QBytesTensor):
     @staticmethod
     def __new__(cls, qtype, axis, size, stride, data, scale, requires_grad=False):
@@ -185,7 +190,7 @@ class MarlinF8QBytesTensor(QBytesTensor):
             self._workspace = torch.zeros(out_features // 64 * 16, dtype=torch.int, device=data.device)
         else:
             raise ValueError("This should not happen. Please open an issue.")
-        
+
         super().__init__(qtype, axis, size, stride, data_repack, scale)
 
     def dequantize(self):

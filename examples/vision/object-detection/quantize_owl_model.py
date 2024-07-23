@@ -12,7 +12,6 @@ from optimum.quanto import freeze, qfloat8, qint4, qint8, quantize
 
 
 def detect(model, processor, image, texts):
-
     inputs = processor(text=texts, images=image, return_tensors="pt").to(model.device)
 
     # forward pass

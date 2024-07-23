@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import ast
+from typing import Optional
 
 import torch
 from packaging import version
@@ -20,10 +21,10 @@ from torch.autograd import Function
 
 from ..function import QuantizedLinearFunction
 from ..qtensor import QTensor, qfallback
-from ..qtype import qint4, qtypes, qtype
+from ..qtype import qint4, qtype, qtypes
 from .group import grouped_shape, ungroup
 from .packed import PackedTensor
-from typing import Optional
+
 
 __all__ = ["QBitsTensor"]
 
@@ -80,7 +81,19 @@ class QBitsDequantizer(Function):
 
 class QBitsTensor(QTensor):
     @staticmethod
-    def create(qtype, axis, group_size, size, stride, data, scale, shift, activation_qtype: Optional[qtype] = None, tensor_type: Optional[str] = None, requires_grad=False):
+    def create(
+        qtype,
+        axis,
+        group_size,
+        size,
+        stride,
+        data,
+        scale,
+        shift,
+        activation_qtype: Optional[qtype] = None,
+        tensor_type: Optional[str] = None,
+        requires_grad=False,
+    ):
         """Factory method to create a QBitsTensor
 
         This selects the most appropriate QBitsTensor based on the configuration.

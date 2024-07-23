@@ -18,7 +18,7 @@ import torch
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from optimum.quanto import Calibration, freeze, qfloat8, qint4, qint8, quantize, qfloat8_e4m3fn
+from optimum.quanto import Calibration, freeze, qfloat8, qfloat8_e4m3fn, qint4, qint8, quantize
 
 
 @torch.no_grad()

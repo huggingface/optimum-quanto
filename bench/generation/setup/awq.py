@@ -15,6 +15,7 @@
 from transformers import AutoTokenizer
 from transformers.utils.import_utils import _is_package_available
 
+
 if _is_package_available("awq"):
     from awq import AutoAWQForCausalLM
 

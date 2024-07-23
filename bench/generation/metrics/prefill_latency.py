@@ -18,7 +18,6 @@ import time
 import numpy as np
 import torch
 from tqdm.auto import tqdm
-from transformers import GenerationConfig
 
 
 def prefill_latency(model, device, batch_size=1, prompt_length=512, iterations=10):

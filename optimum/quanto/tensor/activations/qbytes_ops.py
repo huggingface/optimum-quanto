@@ -130,7 +130,9 @@ def div(op, input, other):
     if not is_scalar(other):
         return op(input.dequantize(), other)
     # We just divide the scale
-    return QBytesTensor.create(input.qtype, input.axis, input.size(), input.stride(), input._data, op(input._scale, other))
+    return QBytesTensor.create(
+        input.qtype, input.axis, input.size(), input.stride(), input._data, op(input._scale, other)
+    )
 
 
 @register_qbytestensor_op([torch.ops.aten.neg])
@@ -190,9 +192,13 @@ def bmm(op, input, other):
 def mul(op, input, other):
     # If one of the multiplicands is a scalar, just multiply the scale
     if is_scalar(input):
-        return QBytesTensor.create(other.qtype, other.axis, other.size(), other.stride(), other._data, input * other._scale)
+        return QBytesTensor.create(
+            other.qtype, other.axis, other.size(), other.stride(), other._data, input * other._scale
+        )
     if is_scalar(other):
-        return QBytesTensor.create(input.qtype, input.axis, input.size(), input.stride(), input._data, other * input._scale)
+        return QBytesTensor.create(
+            input.qtype, input.axis, input.size(), input.stride(), input._data, other * input._scale
+        )
     return qfallback(op, input, other)
 
 

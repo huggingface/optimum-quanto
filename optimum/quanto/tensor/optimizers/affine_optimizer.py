@@ -24,7 +24,6 @@ __all__ = ["AffineOptimizer"]
 
 
 class AffineOptimizer(Optimizer):
-
     def __call__(
         self, base: torch.Tensor, bits: int, axis: int, group_size: Optional[int] = None
     ) -> Tuple[torch.Tensor, torch.Tensor]:
