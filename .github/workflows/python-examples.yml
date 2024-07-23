@@ -39,7 +39,7 @@ jobs:
       - name: Configure and install dependencies
         run: |
           pip install --upgrade pip
-          pip install .[examples]
+          pip install -e .[examples]
 
       # Run examples
       - name: Run MNIST examples
