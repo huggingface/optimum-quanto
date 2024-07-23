@@ -18,11 +18,14 @@ import json
 import torch
 from evaluate_model import evaluate
 from gen_barchart import gen_barchart
+from transformers import AutoConfig
 
 from optimum.quanto import qtype
 
 
-def evaluate_model_configurations(model_id: str, metric: str, device: torch.device, batch_size: int = 32):
+def evaluate_model_configurations(
+    model_id: str, metric: str, device: torch.device, batch_size: int = 32, dtype: torch.dtype = torch.float16
+):
     weights = [
         "int4",
         "int8",
@@ -37,7 +40,7 @@ def evaluate_model_configurations(model_id: str, metric: str, device: torch.devi
 
     def short_name(qtype: qtype):
         return {
-            "none": "f16",
+            "none": "f16" if dtype == torch.float16 else "bf16",
             "int4": "i4",
             "int8": "i8",
             "float8": "f8",
@@ -45,15 +48,16 @@ def evaluate_model_configurations(model_id: str, metric: str, device: torch.devi
 
     results = {}
 
-    # Evaluate float16 model
-    print(f"{model_id}[Wf16Af16]:")
-    results["Wf16Af16"] = evaluate(model_id, metric, "quanto", "none", "none", batch_size, device)
+    # Evaluate float16/bfloat16 model
+    config_name = f"W{short_name('none')}A{short_name('none')}"
+    print(f"{model_id}[{config_name}]:")
+    results[config_name] = evaluate(model_id, metric, "quanto", "none", "none", batch_size, device, dtype)
     # Evaluate quantized models
     for w in weights:
         for a in activations:
             config_name = f"W{short_name(w)}A{short_name(a)}"
             print(f"{model_id}[{config_name}]:")
-            results[config_name] = evaluate(model_id, metric, "quanto", w, a, batch_size, device)
+            results[config_name] = evaluate(model_id, metric, "quanto", w, a, batch_size, device, dtype)
 
     return results
 
@@ -70,6 +74,7 @@ def main():
     parser.add_argument("--device", type=str, default=None, help="The device to use for generation.")
     parser.add_argument("--metric", type=str, default="prediction", choices=["latency", "prediction", "perplexity"])
     parser.add_argument("--batch_size", type=int, default=32, help="The batch size during evaluation.")
+    parser.add_argument("--dtype", type=str, help="Use the following dtype to load the model.")
     parser.add_argument("--json", action="store_true", help="Dump the results to a json file.")
     parser.add_argument("--png", action="store_true", help="Generate a PNG.")
     args = parser.parse_args()
@@ -86,7 +91,12 @@ def main():
     else:
         device = torch.device(args.device)
 
-    results = evaluate_model_configurations(args.model, args.metric, device, batch_size=args.batch_size)
+    if args.dtype is None:
+        config = AutoConfig.from_pretrained(args.model)
+        dtype = getattr(config, "torch_dtype", torch.float16)
+    else:
+        dtype = torch.float16 if args.dtype == "fp16" else torch.bfloat16
+    results = evaluate_model_configurations(args.model, args.metric, device, batch_size=args.batch_size, dtype=dtype)
     if args.json:
         model_name = args.model.split("/")[-1]
         json_path = f"{model_name}-{args.metric}.json"
@@ -102,7 +112,7 @@ def main():
         elif args.metric == "perplexity":
             title = f"{args.model}: Perplexity evaluated on WikiText dataset"
             label = "Perplexity"
-        gen_barchart(args.model, title, label, results)
+        gen_barchart(args.model, title, label, results, dtype)
 
 
 if __name__ == "__main__":
