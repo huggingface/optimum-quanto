@@ -29,11 +29,7 @@ jobs:
 
       - name: Build and install packages
         run: |
-          pip install --upgrade pip
-          pip install -U build setuptools setuptools_scm
-          python -m build .
-          tar tf dist/optimum_quanto-0.2.3.dev0.tar.gz
-          pip install dist/optimum_quanto-0.2.3.dev0.tar.gz
+          pip install -e .
 
       # Run examples
       - name: Run Dummy example
