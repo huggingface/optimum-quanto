@@ -21,7 +21,7 @@ from tqdm.auto import tqdm
 from transformers import GenerationConfig
 
 
-def decode_latency(model, tokenizer, device, batch_size=1, nb_tokens=512, iterations=10):
+def decode_latency(model, tokenizer, device, batch_size=1, nb_tokens=512, iterations=10, torch_compile: bool = False):
     def synchronize(device):
         if device.type == "cuda":
             torch.cuda.synchronize()
@@ -58,6 +58,7 @@ def decode_latency(model, tokenizer, device, batch_size=1, nb_tokens=512, iterat
         num_beams=1,
         do_sample=False,
         eos_token_id=None,  # This is required for min_new_tokens to actually have an effect.
+        cache_implementation="static" if torch_compile else "dynamic",
     )
     if getattr(model, "generation_config", None) is not None:
         model.generation_config.eos_token_id = None  # greedy_search falls back on this eos_token_id that we need to set to None as well for min_new_tokens to have an effect.
@@ -71,11 +72,17 @@ def decode_latency(model, tokenizer, device, batch_size=1, nb_tokens=512, iterat
         print(f"Device memory: {memory / (2 ** 30):.4f} GB")
 
     latencies = []
-    input_ids = torch.randint(1, model.config.vocab_size - 1, size=(batch_size, 1)).to(device)
-    masks = torch.ones(batch_size, 1, dtype=torch.int32).to(device)
+
+    # Sequence length of 2 for bos token.
+    input_ids = torch.randint(1, model.config.vocab_size - 1, size=(batch_size, 2)).to(device)
+    masks = torch.ones(batch_size, 2, dtype=torch.int32).to(device)
+
+    if torch_compile:
+        model.forward = torch.compile(model.forward, mode="reduce-overhead")
 
     # warmup
-    _ = model.generate(input_ids, attention_mask=masks, generation_config=generation_config)
+    for _ in tqdm(range(3), desc="warmup"):
+        _ = model.generate(input_ids, attention_mask=masks, generation_config=generation_config)
 
     for _ in tqdm(range(iterations)):
         start_event = timing_event(device)

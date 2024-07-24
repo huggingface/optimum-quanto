@@ -20,7 +20,7 @@ import torch
 from tqdm.auto import tqdm
 
 
-def prefill_latency(model, device, batch_size=1, prompt_length=512, iterations=10):
+def prefill_latency(model, device, batch_size=1, prompt_length=512, iterations=10, torch_compile: bool = False):
     def synchronize(device):
         if device.type == "cuda":
             torch.cuda.synchronize()
@@ -60,6 +60,13 @@ def prefill_latency(model, device, batch_size=1, prompt_length=512, iterations=1
     latencies = []
     input_ids = torch.randint(1, model.config.vocab_size - 1, size=(batch_size, prompt_length)).to(device)
     masks = torch.ones(batch_size, prompt_length, dtype=torch.int32).to(device)
+
+    if torch_compile:
+        model.forward = torch.compile(model.forward, fullgraph=True, mode="reduce-overhead")
+
+    # warmup
+    for _ in tqdm(range(3), desc="warmup"):
+        _ = model(input_ids=input_ids, attention_mask=masks)
 
     with torch.no_grad():
         for _ in tqdm(range(iterations)):

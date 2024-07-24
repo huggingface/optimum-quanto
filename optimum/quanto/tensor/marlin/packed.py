@@ -170,6 +170,10 @@ class MarlinF8PackedTensor(torch.Tensor):
     @classmethod
     def pack(cls, tensor: torch.Tensor):
         out_features, in_features = tensor.shape
+
+        # TODO: getting
+        # AssertionError: Please convert all Tensors to FakeTensors first or instantiate FakeTensorMode with 'allow_non_fake_inputs'. Found in aten.bitwise_or_.Tensor(tensor([...], device='cuda:0', size=(512, 2048), dtype=torch.int32), FakeTensor(..., device='cuda:0', size=(512, 2048), dtype=torch.int32))
+        # here with torch.compile
         data_int32 = pack_fp8_as_int32(tensor.T)  # pack fp8 data to in32.
 
         perm = torch.empty(0, dtype=torch.int, device=tensor.device)

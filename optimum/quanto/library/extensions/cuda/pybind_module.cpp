@@ -35,6 +35,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
 }
 
 TORCH_LIBRARY(quanto_ext, m) {
+  m.impl_abstract_pystub("optimum.quanto.library.ops");
   m.def("gptq_marlin_repack(Tensor b_q_weight, Tensor perm, int size_k, int size_n, int num_bits) -> Tensor");
   m.def("fp8_marlin_gemm(Tensor a, Tensor b_q_weight, Tensor b_scales, Tensor workspace, int num_bits, int size_m, int size_n, int size_k) -> Tensor");
 }

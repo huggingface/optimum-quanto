@@ -222,7 +222,11 @@ def perplexity(
     model,
     tokenizer,
     stride: int = 512,
+    torch_compile: bool = False,
 ):
+    if torch_compile:
+        model.forward = torch.compile(model.forward, fullgraph=True, mode="reduce-overhead")
+
     print("Evaluating perplexity")
     ppl = Perplexity(model, tokenizer)
     ppl_value = np.mean(ppl.calculate_perplexity(n_ctx=stride))

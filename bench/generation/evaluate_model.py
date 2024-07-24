@@ -53,6 +53,7 @@ def evaluate(
     batch_size: int,
     device: torch.device,
     dtype: torch.dtype = None,
+    torch_compile: bool = False,
 ):
     if quantizer == "quanto":
         if dtype is None:
@@ -75,15 +76,28 @@ def evaluate(
     print(f"Evaluating {model_id} {metric} with {weights} weights and {activations} activations.")
 
     if metric == "latency":
-        return latency(model, tokenizer, device, batch_size=batch_size, prompt_length=512, nb_tokens=512, iterations=5)
+        return latency(
+            model,
+            tokenizer,
+            device,
+            batch_size=batch_size,
+            prompt_length=512,
+            nb_tokens=512,
+            iterations=5,
+            torch_compile=torch_compile,
+        )
     elif metric == "prefill-latency":
-        return prefill_latency(model, device, batch_size=batch_size, prompt_length=512, iterations=5)
+        return prefill_latency(
+            model, device, batch_size=batch_size, prompt_length=512, iterations=5, torch_compile=torch_compile
+        )
     elif metric == "decode-latency":
-        return decode_latency(model, tokenizer, device, batch_size=batch_size, nb_tokens=512, iterations=5)
+        return decode_latency(
+            model, tokenizer, device, batch_size=batch_size, nb_tokens=128, iterations=5, torch_compile=torch_compile
+        )
     elif metric == "prediction":
-        return prediction_accuracy(model, tokenizer, batch_size)
+        return prediction_accuracy(model, tokenizer, batch_size, torch_compile=torch_compile)
     elif metric == "perplexity":
-        return perplexity(model, tokenizer)
+        return perplexity(model, tokenizer, torch_compile=torch_compile)
 
 
 def main():
@@ -123,6 +137,11 @@ def main():
         default="none",
         choices=["none", "fp16", "bf16"],
     )
+    parser.add_argument(
+        "--compile",
+        action="store_true",
+        help="Whether to call `model.forward = torch.compile(model.forward, fullgraph=True, mode='reduce_overhead')` and use Transformers static KV cache when relevant.",
+    )
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -137,7 +156,17 @@ def main():
     else:
         device = torch.device(args.device)
     dtype = {"none": None, "fp16": torch.float16, "bf16": torch.bfloat16}[args.dtype]
-    evaluate(args.model, args.metric, args.quantizer, args.weights, args.activations, args.batch_size, device, dtype)
+    evaluate(
+        args.model,
+        args.metric,
+        args.quantizer,
+        args.weights,
+        args.activations,
+        args.batch_size,
+        device,
+        dtype,
+        args.compile,
+    )
 
 
 if __name__ == "__main__":

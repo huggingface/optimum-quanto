@@ -53,6 +53,9 @@ class MarlinF8QBytesTensor(QBytesTensor):
         float8_data = self._data.unpack()
         return float8_data.to(self._scale.dtype) * self._scale.T
 
+    def __repr__(self):
+        return f"MarlinF8QBytesTensor({self._data}, scale={self._scale}, dtype={self.dtype})"
+
     def __tensor_flatten__(self):
         inner_tensors = ["_data", "_scale", "_workspace"]
         meta = {
@@ -73,4 +76,4 @@ class MarlinF8QBytesTensor(QBytesTensor):
         axis = ast.literal_eval(meta["axis"])
         size = ast.literal_eval(meta["size"])
         stride = ast.literal_eval(meta["stride"])
-        return QBytesTensor(qtype, axis, size, stride, data, scale)
+        return MarlinF8QBytesTensor(qtype, axis, size, stride, data, scale)

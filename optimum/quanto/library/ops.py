@@ -68,3 +68,33 @@ def define(name, schema):
 
 
 define("unpack", "(Tensor self, int bits) -> Tensor")
+
+
+@torch.library.impl_abstract("quanto_ext::fp8_marlin_gemm")
+def fp8_marlin_gemm(
+    a: torch.Tensor,
+    b_q_weight: torch.Tensor,
+    b_scales: torch.Tensor,
+    workspace: torch.Tensor,
+    num_bits: int,
+    size_m: int,
+    size_n: int,
+    size_k: int,
+):
+    assert b_scales.dtype == torch.float16 or b_scales.dtype == torch.bfloat16
+    assert b_q_weight.dim() == 2
+    assert b_q_weight.dtype == torch.int32
+
+    return torch.empty((size_m, size_n), dtype=a.dtype, device=a.device)
+
+
+@torch.library.impl_abstract("quanto_ext::gptq_marlin_repack")
+def gptq_marlin_repack(
+    b_q_weight: torch.Tensor, perm: torch.Tensor, size_k: torch.Tensor, size_n: torch.Tensor, num_bits: torch.Tensor
+):
+    assert b_q_weight.dim() == 2
+    assert b_q_weight.dtype == torch.int32
+
+    return torch.empty(
+        (b_q_weight.shape[0] // 4, b_q_weight.shape[1] * 4), dtype=b_q_weight.dtype, device=b_q_weight.device
+    )

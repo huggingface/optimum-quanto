@@ -152,7 +152,8 @@ class QLinear(QModuleMixin, torch.nn.Linear):
         if input.requires_grad:
             return QLinearFunction.apply(input, self.qweight, self.bias)
         else:
-            return _forward_linear(input, self.qweight, bias=self.bias)
+            qweight = self.qweight
+            return _forward_linear(input, qweight, bias=self.bias)
 
 
 @register_qtensor_func([torch.nn.functional.linear])

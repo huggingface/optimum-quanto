@@ -19,12 +19,16 @@ from datasets import load_dataset
 
 
 @torch.no_grad()
-def prediction_accuracy(model, tokenizer, batch_size, samples=None):
+def prediction_accuracy(model, tokenizer, batch_size, samples=None, torch_compile: bool = False):
     test_dataset = load_dataset("lambada", split=["test"])[0]
     model.eval()
     # The task is to predict the last token of the input.
     total, hit = 0, 0
     start = time.time()
+
+    if torch_compile:
+        model.forward = torch.compile(model.forward, fullgraph=True, mode="reduce-overhead")
+
     for batch in test_dataset.iter(batch_size=batch_size):
         inputs = tokenizer(batch["text"], return_tensors="pt", padding=True)
         input_ids = inputs.input_ids.to(model.device)
