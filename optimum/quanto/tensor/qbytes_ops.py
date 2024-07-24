@@ -195,7 +195,8 @@ def mm(op, input, other):
                 input.device.type == "cuda"
                 or (
                     input.device.type == "cpu"
-                    and version.parse(torch.__version__).release >= version.parse("2.4.0").release
+                    # FIXME: accuracy issues with 2.4.0
+                    and version.parse(torch.__version__).release > version.parse("2.4.0").release
                 )
             )
             and input.qtype == qint8
