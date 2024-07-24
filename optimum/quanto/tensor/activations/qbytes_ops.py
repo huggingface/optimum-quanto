@@ -63,7 +63,7 @@ def _to_copy(op, t, dtype=None, **kwargs):
     out_data = op(t._data, dtype=t._data.dtype, **kwargs)
     # Apply the new dtype on the scale only
     out_scale = op(t._scale, dtype=dtype, **kwargs)
-    return QBytesTensor.create(t.qtype, t.axis, t.size(), t.stride(), out_data, out_scale)
+    return t.__class__(t.qtype, t.axis, t.size(), t.stride(), out_data, out_scale)
 
 
 @register_qbytestensor_op([torch.ops.aten.detach])
