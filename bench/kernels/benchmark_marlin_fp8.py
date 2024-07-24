@@ -17,7 +17,7 @@ from typing import Optional
 import numpy as np
 import torch
 
-from optimum.quanto.tensor.marlin.fp8_packed import pack_fp8_as_int32
+from optimum.quanto.tensor.marlin.packed import pack_fp8_as_int32
 
 
 M_SHAPES = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192]

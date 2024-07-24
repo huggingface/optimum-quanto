@@ -1,1 +1,1 @@
-from .fp8_packed import MarlinF8QBytesTensor
+from .marlin import MarlinF8QBytesTensor

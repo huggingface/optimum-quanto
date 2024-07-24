@@ -12,15 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import ast
+from copy import copy
 
 import torch
+from torch.utils import _pytree as pytree
 
 # This is required to be able to access `torch.ops.quanto_ext.*` members defined in C++ through `TORCH_LIBRARY`.
 from optimum.quanto.library.extensions.cuda import ext  # noqa: F401
-
-from ..qbytes import QBytesTensor
-from ..qtype import qtypes
 
 
 def pack_fp8_as_int32(fp8_tensor: torch.Tensor) -> torch.Tensor:
@@ -154,46 +152,38 @@ def get_column_permutation(n_col: int) -> torch.Tensor:
     return original_index
 
 
-class MarlinF8QBytesTensor(QBytesTensor):
-    @staticmethod
-    def __new__(cls, qtype, axis, size, stride, data, scale, requires_grad=False):
+class MarlinF8PackedTensor(torch.Tensor):
+    def __new__(cls, data, size, stride, requires_grad=False):
         assert data.device.type == "cuda"
-        assert data.device == scale.device
+        assert data.dtype == torch.int32
+        assert requires_grad is False
         return torch.Tensor._make_wrapper_subclass(
-            cls, size, strides=stride, dtype=scale.dtype, device=data.device, requires_grad=requires_grad
+            cls, size, strides=stride, dtype=torch.float8_e4m3fn, device=data.device, requires_grad=requires_grad
         )
 
-    def __init__(self, qtype, axis, size, stride, data, scale, requires_grad=False):
-        if requires_grad:
-            raise NotImplementedError("Backward with Marlin FP8 is not implemented.")
+    def __init__(self, data, size, stride, requires_grad=False):
+        self._data = data
 
-        assert axis is None
-        assert data.ndim == 2
+    def __repr__(self):
+        return f"MarlinF8PackedTensor({self._data})"
 
-        # When freezing (`model.freeze()`), the data is already packed on int32.
-        if data.dtype != torch.int32:
-            out_features, in_features = data.shape
-            self._workspace = torch.zeros(out_features // 64 * 16, dtype=torch.int, device=data.device)
+    @classmethod
+    def pack(cls, tensor: torch.Tensor):
+        out_features, in_features = tensor.shape
+        data_int32 = pack_fp8_as_int32(tensor.T)  # pack fp8 data to in32.
 
-            scale = scale.repeat(1, out_features).to(data.device)
-            data_int32 = pack_fp8_as_int32(data.T)
+        perm = torch.empty(0, dtype=torch.int, device=tensor.device)
 
-            perm = torch.empty(0, dtype=torch.int, device=data.device)
+        data_int32 = torch.ops.quanto_ext.gptq_marlin_repack(
+            b_q_weight=data_int32, perm=perm, size_k=in_features, size_n=out_features, num_bits=8
+        )
 
-            data_repack = torch.ops.quanto_ext.gptq_marlin_repack(
-                b_q_weight=data_int32, perm=perm, size_k=in_features, size_n=out_features, num_bits=8
-            )
-        elif data.dtype == torch.int32 and scale.ndim == 2:
-            data_repack = data
+        return cls(data_int32, size=tensor.size(), stride=tensor.stride())
 
-            out_features = data_repack.shape[1] // 4
-            self._workspace = torch.zeros(out_features // 64 * 16, dtype=torch.int, device=data.device)
-        else:
-            raise ValueError("This should not happen. Please open an issue.")
-
-        super().__init__(qtype, axis, size, stride, data_repack, scale)
-
-    def dequantize(self):
+    def unpack(self) -> torch.Tensor:
+        """
+        Reinterprets the packed tensor (a, b) of type int32 and in the marlin order, to a tensor (a * 4, b) of type float8_e4m3fn, in the natural order.
+        """
         float8_data = unpack_int32_to_fp8(self._data)
 
         # complex indexing is not implemented for 'Float8_e4m3fn'
@@ -218,34 +208,26 @@ class MarlinF8QBytesTensor(QBytesTensor):
         float8_data = uint8_data.view(torch.float8_e4m3fn)
         float8_data = float8_data.T  # As we originally transposed in `pack_fp8_as_int32`
 
-        return float8_data.to(self._scale.dtype) * self._scale.T
+        return float8_data
 
-    def qbits_tensor(self):
-        """Convert back to a QBitsTensor
-
-        This is required to make sure only standard packing is used when serializing.
-        """
-        # TODO: implement
-        raise NotImplementedError()
-
-    def __tensor_flatten__(self):
-        inner_tensors = ["_data", "_scale", "_workspace"]
-        meta = {
-            "qtype": self._qtype.name,
-            "axis": str(self._axis),
-            "size": str(list(self.size())),
-            "stride": str(list(self.stride())),
-        }
-        return inner_tensors, meta
-
-    @staticmethod
-    def __tensor_unflatten__(inner_tensors, meta, outer_size, outer_stride):
-        assert len(inner_tensors) == 3
-        assert len(meta) == 4
-        data, scale = inner_tensors["_data"], inner_tensors["_scale"]
-        # Meta should only contain strings, AST compatible except qtype
-        qtype = qtypes[meta["qtype"]]
-        axis = ast.literal_eval(meta["axis"])
-        size = ast.literal_eval(meta["size"])
-        stride = ast.literal_eval(meta["stride"])
-        return QBytesTensor(qtype, axis, size, stride, data, scale)
+    @classmethod
+    def __torch_dispatch__(cls, op, types, args, kwargs=None):
+        # Convert back to tensor before calling any operation except detach and move
+        if op.overloadpacket is torch.ops.aten.detach:
+            t = args[0]
+            data = op(t._data)
+            return cls(data, t.size(), t.stride())
+        elif op.overloadpacket in (torch.ops.aten._to_copy, torch.ops.aten.to):
+            t = args[0]
+            dtype = kwargs.get("dtype", torch.uint8)
+            if dtype != torch.float8_e4m3fn:
+                raise ValueError(f"AWQPackedTensor are torch.float8_e4m3fn only and cannot be moved to {dtype}.")
+            device = kwargs.get("device", t.device)
+            if device.type == "cuda":
+                data_kwargs = copy(kwargs)
+                data_kwargs["dtype"] = t._data.dtype
+                data = op(t._data, **data_kwargs)
+                return cls(data, t.size(), t.stride())
+        else:
+            args, kwargs = pytree.tree_map_only(cls, lambda x: x.unpack(), (args, kwargs or {}))
+            return op(*args, **kwargs)

@@ -20,7 +20,7 @@ import torch
 from optimum.quanto.library.extensions.cuda import ext  # noqa: F401
 
 from ..tensor import Optimizer, QBytesTensor, qtype
-from ..tensor.marlin.fp8_packed import MarlinF8QBytesTensor
+from ..tensor.marlin import MarlinF8QBytesTensor
 from ..tensor.qbits.awq.qbits import AWQBitsTensor
 from ..tensor.qbits.tinygemm.qbits import TinyGemmQBitsTensor
 from ..tensor.qtensor_func import register_qtensor_func
@@ -65,7 +65,7 @@ def _forward_linear(input, other, bias):
 
         output = torch.ops.quanto_ext.fp8_marlin_gemm(
             input,
-            b_q_weight=other._data,
+            b_q_weight=other._data._data,
             b_scales=other._scale,  # .to(input.dtype)
             workspace=other._workspace,
             num_bits=8,
