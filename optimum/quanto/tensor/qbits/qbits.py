@@ -19,12 +19,36 @@ from packaging import version
 from torch.autograd import Function
 
 from ..qtensor import QTensor, qfallback
-from ..qtype import qint4, qtypes
+from ..qtype import qint2, qint4, qtype, qtypes
 from .group import grouped_shape, ungroup
 from .packed import PackedTensor
 
 
 __all__ = ["QBitsTensor"]
+
+
+class QBitsQuantizer(Function):
+
+    @staticmethod
+    def forward(
+        ctx, base: torch.Tensor, qtype: qtype, axis: int, group_size: int, scale: torch.Tensor, shift: torch.Tensor
+    ):
+        if qtype not in (qint2, qint4):
+            raise ValueError("QBitsTensor can only be of qint2 or qint4 qtype")
+        if axis not in (0, -1):
+            raise ValueError("QBitsTensor axis parameter must be 0 (first axis) or -1 (last axis)")
+        size = base.size()
+        stride = base.stride()
+        data = torch.ops.quanto.quantize_affine(
+            base, bits=qtype.bits, axis=axis, group_size=group_size, scale=scale, shift=shift
+        )
+
+        return QBitsTensor.create(qtype, axis, group_size, size, stride, data, scale, shift)
+
+    @staticmethod
+    def backward(ctx, gO):
+        # For autograd, quantization is a no-op
+        return gO, None, None, None, None, None
 
 
 class QBitsDequantizer(Function):
@@ -129,6 +153,12 @@ class QBitsTensor(QTensor):
 
     def __repr__(self):
         return f"{type(self).__name__}({self._data}, scale={self._scale}, shift={self._shift}, dtype={self.dtype})"
+
+    @classmethod
+    def quantize(
+        cls, base: torch.Tensor, qtype: qtype, axis: int, group_size: int, scale: torch.Tensor, shift: torch.Tensor
+    ):
+        return QBitsQuantizer.apply(base, qtype, axis, group_size, scale, shift)
 
     def dequantize(self):
         return QBitsDequantizer.apply(self)
