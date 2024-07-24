@@ -19,6 +19,7 @@ from typing import Any, List, Optional, Union
 from ..nn import QModuleMixin
 from ..quantize import Optimizer, freeze, qtype, quantization_map, quantize, requantize
 from . import is_transformers_available
+from .shared_dict import ShardedStateDict
 
 
 __all__ = ["QuantizedTransformersModel", "QuantizedModelForCausalLM"]
@@ -126,8 +127,6 @@ class QuantizedTransformersModel:
             # Look for the index of a sharded checkpoint
             checkpoint_file = os.path.join(model_name_or_path, SAFE_WEIGHTS_INDEX_NAME)
             if os.path.exists(checkpoint_file):
-                from . import ShardedStateDict
-
                 # Convert the checkpoint path to a list of shards
                 checkpoint_file, sharded_metadata = get_checkpoint_shard_files(model_name_or_path, checkpoint_file)
                 # Create a mapping for the sharded safetensor files
