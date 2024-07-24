@@ -165,9 +165,14 @@ class QBitsTensor(QTensor):
 
     @staticmethod
     def load_from_state_dict(state_dict, prefix, qtype, axis, group_size, size, stride):
-        data_size = size if group_size is None else grouped_shape(size, axis, group_size)
-        # In row major, inner dimension (stride 1) is the last one
-        data_stride = (data_size[1], 1)
+        if group_size is None:
+            data_size = size
+            data_stride = stride
+        else:
+            data_size = grouped_shape(size, axis, group_size)
+            assert len(data_size) == 2
+            # In row major, inner dimension (stride 1) is the last one
+            data_stride = (data_size[1], 1)
         inner_tensors_dict = {
             "_data": PackedTensor.load_from_state_dict(
                 state_dict, prefix + "_data.", qtype.bits, data_size, data_stride
