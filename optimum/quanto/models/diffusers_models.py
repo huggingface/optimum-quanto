@@ -16,29 +16,35 @@ import json
 import os
 from typing import Any, List, Optional, Union
 
-from ..nn import QModuleMixin
 from ..quantize import Optimizer, freeze, qtype, quantization_map, quantize, requantize
-from . import is_transformers_available
+from . import is_diffusers_available
 
 
-__all__ = ["QuantizedTransformersModel", "QuantizedModelForCausalLM"]
+__all__ = ["QuantizedDiffusersModel", "QuantizedPixArtTransformer2DModel"]
 
-if not is_transformers_available():
-    raise ImportError(f"{__all__} require the transformers library")
+if not is_diffusers_available():
+    raise ImportError(f"{__all__} require the diffusers library")
 
-from transformers import AutoConfig, AutoModelForCausalLM, PreTrainedModel
-from transformers.modeling_utils import get_checkpoint_shard_files, load_state_dict
-from transformers.utils import SAFE_WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_NAME, is_accelerate_available
+from diffusers import PixArtTransformer2DModel
+from diffusers.models.model_loading_utils import load_state_dict
+from diffusers.models.modeling_utils import ModelMixin
+from diffusers.utils import (
+    CONFIG_NAME,
+    SAFE_WEIGHTS_INDEX_NAME,
+    SAFETENSORS_WEIGHTS_NAME,
+    _get_checkpoint_shard_files,
+    is_accelerate_available,
+)
 
 
-class QuantizedTransformersModel:
+class QuantizedDiffusersModel:
 
     BASE_NAME = "quanto"
-    auto_class = None
+    base_class = None
 
-    def __init__(self, model: PreTrainedModel):
-        if not isinstance(model, PreTrainedModel) or len(quantization_map(model)) == 0:
-            raise ValueError("The source model must be a quantized transformers model.")
+    def __init__(self, model: ModelMixin):
+        if not isinstance(model, ModelMixin) or len(quantization_map(model)) == 0:
+            raise ValueError("The source model must be a quantized diffusers model.")
         self._wrapped = model
 
     def __getattr__(self, name: str) -> Any:
@@ -50,16 +56,19 @@ class QuantizedTransformersModel:
             return getattr(wrapped, name)
 
     def forward(self, *args, **kwargs):
-        return self.model.forward(*args, **kwargs)
+        return self._wrapped.forward(*args, **kwargs)
+
+    def __call__(self, *args, **kwargs):
+        return self._wrapped.forward(*args, **kwargs)
 
     @staticmethod
     def _qmap_name():
-        return f"{QuantizedTransformersModel.BASE_NAME}_qmap.json"
+        return f"{QuantizedDiffusersModel.BASE_NAME}_qmap.json"
 
     @classmethod
     def quantize(
         cls,
-        model: PreTrainedModel,
+        model: ModelMixin,
         weights: Optional[Union[str, qtype]] = None,
         activations: Optional[Union[str, qtype]] = None,
         optimizer: Optional[Optimizer] = None,
@@ -94,8 +103,8 @@ class QuantizedTransformersModel:
                 Patterns constituting the denylist. If provided, layer names must not match
                 any patterns from the denylist.
         """
-        if not isinstance(model, PreTrainedModel):
-            raise ValueError("The source model must be a transformers model.")
+        if not isinstance(model, ModelMixin):
+            raise ValueError("The source model must be a diffusers model.")
         quantize(
             model, weights=weights, activations=activations, optimizer=optimizer, include=include, exclude=exclude
         )
@@ -104,10 +113,9 @@ class QuantizedTransformersModel:
 
     @classmethod
     def from_pretrained(cls, model_name_or_path: Union[str, os.PathLike]):
-        if cls.auto_class is None:
-            raise ValueError(
-                "Quantized models cannot be reloaded using {cls}: use a specialized quantized class such as QuantizedModelForCausalLM instead."
-            )
+        if cls.base_class is None:
+            raise ValueError("The `base_class` attribute needs to be configured.")
+
         if not is_accelerate_available():
             raise ValueError("Reloading a quantized transformers model requires the accelerate library.")
         from accelerate import init_empty_weights
@@ -117,51 +125,52 @@ class QuantizedTransformersModel:
             qmap_path = os.path.join(model_name_or_path, cls._qmap_name())
             if not os.path.exists(qmap_path):
                 raise ValueError(f"No quantization map found in {model_name_or_path}: is this a quantized model ?")
+
+            # Look for original model config file.
+            model_config_path = os.path.join(model_name_or_path, CONFIG_NAME)
+            if not os.path.exists(model_config_path):
+                raise ValueError(f"{CONFIG_NAME} not found in {model_name_or_path}.")
+
             with open(qmap_path, "r", encoding="utf-8") as f:
                 qmap = json.load(f)
+
+            with open(model_config_path, "r", encoding="utf-8") as f:
+                original_model_cls_name = json.load(f)["_class_name"]
+            configured_cls_name = cls.base_class.__name__
+            if configured_cls_name != original_model_cls_name:
+                raise ValueError(
+                    f"Configured base class ({configured_cls_name}) differs from what was derived from the provided configuration ({original_model_cls_name})."
+                )
+
             # Create an empty model
-            config = AutoConfig.from_pretrained(model_name_or_path)
+            config = cls.base_class.load_config(model_name_or_path)
             with init_empty_weights():
-                model = cls.auto_class.from_config(config)
+                model = cls.base_class.from_config(config)
             # Look for the index of a sharded checkpoint
             checkpoint_file = os.path.join(model_name_or_path, SAFE_WEIGHTS_INDEX_NAME)
             if os.path.exists(checkpoint_file):
                 from . import ShardedStateDict
 
                 # Convert the checkpoint path to a list of shards
-                checkpoint_file, sharded_metadata = get_checkpoint_shard_files(model_name_or_path, checkpoint_file)
+                _, sharded_metadata = _get_checkpoint_shard_files(model_name_or_path, checkpoint_file)
                 # Create a mapping for the sharded safetensor files
                 state_dict = ShardedStateDict(model_name_or_path, sharded_metadata["weight_map"])
             else:
                 # Look for a single checkpoint file
-                checkpoint_file = os.path.join(model_name_or_path, SAFE_WEIGHTS_NAME)
+                checkpoint_file = os.path.join(model_name_or_path, SAFETENSORS_WEIGHTS_NAME)
                 if not os.path.exists(checkpoint_file):
                     raise ValueError(f"No safetensor weights found in {model_name_or_path}.")
                 # Get state_dict from model checkpoint
                 state_dict = load_state_dict(checkpoint_file)
             # Requantize and load quantized weights from state_dict
             requantize(model, state_dict=state_dict, quantization_map=qmap)
-            if getattr(model.config, "tie_word_embeddings", True):
-                # Tie output weight embeddings to input weight embeddings
-                # Note that if they were quantized they would NOT be tied
-                model.tie_weights()
-            # Set model in evaluation mode as it is done in transformers
             model.eval()
             return cls(model)
         else:
             raise NotImplementedError("Reloading quantized models directly from the hub is not supported yet.")
 
-    def save_pretrained(self, save_directory: Union[str, os.PathLike], max_shard_size: Union[int, str] = "5GB"):
-
-        model = self._wrapped
-        if getattr(model.config, "tie_word_embeddings", True):
-            # The original model had tied embedding inputs and outputs
-            if isinstance(model.get_input_embeddings(), QModuleMixin) or isinstance(
-                model.get_output_embeddings(), QModuleMixin
-            ):
-                # At least one of the two is quantized, so they are not tied anymore
-                model.config.tie_word_embeddings = False
-        self._wrapped.save_pretrained(save_directory, max_shard_size=max_shard_size, safe_serialization=True)
+    def save_pretrained(self, save_directory: Union[str, os.PathLike], max_shard_size: Union[int, str] = "10GB"):
+        self._wrapped.save_pretrained(save_directory, max_shard_size=max_shard_size)
         # Save quantization map to be able to reload the model
         qmap_name = os.path.join(save_directory, self._qmap_name())
         qmap = quantization_map(self._wrapped)
@@ -169,6 +178,6 @@ class QuantizedTransformersModel:
             json.dump(qmap, f, indent=4)
 
 
-class QuantizedModelForCausalLM(QuantizedTransformersModel):
+class QuantizedPixArtTransformer2DModel(QuantizedDiffusersModel):
 
-    auto_class = AutoModelForCausalLM
+    base_class = PixArtTransformer2DModel
