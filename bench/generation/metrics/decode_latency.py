@@ -78,7 +78,7 @@ def decode_latency(model, tokenizer, device, batch_size=1, nb_tokens=512, iterat
     masks = torch.ones(batch_size, 2, dtype=torch.int32).to(device)
 
     if torch_compile:
-        model.forward = torch.compile(model.forward, mode="reduce-overhead")
+        model.forward = torch.compile(model.forward, mode="reduce-overhead", fullgraph=True)
 
     # warmup
     for _ in tqdm(range(3), desc="warmup"):

@@ -40,7 +40,10 @@ class MarlinF8QBytesTensor(QBytesTensor):
         out_features = size[0]
         self._workspace = torch.zeros(out_features // 64 * 16, dtype=torch.int, device=data.device)
 
-        if not isinstance(data, MarlinF8PackedTensor):
+        # TODO: Here we should use `not isinstance(data, MarlinF8PackedTensor)`, but `torch.compile` is bugged when using that.
+        # Somewhere in the internals of torch.compile, `data` gets converted to a `torch._subclasses.fake_tensor.FakeTensor` not inheriting from `MarlinF8PackedTensor` and torch then goes into the wrong controlflow.
+        # Reference: https://pytorch.slack.com/archives/C033H6DJSJU/p1721837684035049
+        if data.dtype != torch.int32:
             scale = scale.repeat(1, out_features).to(data.device)
             data_packed = MarlinF8PackedTensor.pack(data)  # pack fp8 data to in32, and apply marlier re-ordering.
         else:
@@ -57,7 +60,7 @@ class MarlinF8QBytesTensor(QBytesTensor):
         return f"MarlinF8QBytesTensor({self._data}, scale={self._scale}, dtype={self.dtype})"
 
     def __tensor_flatten__(self):
-        inner_tensors = ["_data", "_scale", "_workspace"]
+        inner_tensors = ["_data", "_scale"]
         meta = {
             "qtype": self._qtype.name,
             "axis": str(self._axis),
@@ -68,7 +71,7 @@ class MarlinF8QBytesTensor(QBytesTensor):
 
     @staticmethod
     def __tensor_unflatten__(inner_tensors, meta, outer_size, outer_stride):
-        assert len(inner_tensors) == 3
+        assert len(inner_tensors) == 2
         assert len(meta) == 4
         data, scale = inner_tensors["_data"], inner_tensors["_scale"]
         # Meta should only contain strings, AST compatible except qtype
