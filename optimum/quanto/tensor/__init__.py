@@ -19,5 +19,4 @@ from .qbits import *
 from .qbytes import *
 from .qtensor import *
 from .qtype import *
-from .quantizers import *
 from .qweight import *

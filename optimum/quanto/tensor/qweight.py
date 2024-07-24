@@ -17,9 +17,9 @@ from typing import Optional
 import torch
 
 from .optimizers import AbsmaxOptimizer, AffineOptimizer, MaxOptimizer, Optimizer, SymmetricOptimizer
+from .qbits import QBitsTensor
 from .qbytes import QBytesTensor
 from .qtype import qtype
-from .quantizers import AffineQuantizer
 
 
 __all__ = ["quantize_weight"]
@@ -79,4 +79,4 @@ def quantize_weight(
     if zeropoint:
         # Round shift to make sure zero can be represented exactly using 'shift' as quantized value
         shift = torch.clamp(torch.round(shift / scale), 0, 2**qtype.bits - 1).to(torch.uint8)
-    return AffineQuantizer.apply(t, qtype, axis, group_size, scale, shift)
+    return QBitsTensor.quantize(t, qtype, axis, group_size, scale, shift)

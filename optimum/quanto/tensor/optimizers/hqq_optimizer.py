@@ -16,8 +16,8 @@ from typing import Optional, Tuple, Union
 
 import torch
 
+from ..qbits import QBitsTensor
 from ..qtype import qint2, qint4
-from ..quantizers import AffineQuantizer
 from .max_optimizer import MaxOptimizer
 
 
@@ -64,7 +64,7 @@ class HqqOptimizer(MaxOptimizer):
         best_error = None
         beta = self.beta
         qtype = qint2 if bits == 2 else qint4
-        base_q = AffineQuantizer.apply(base, qtype, axis, None, scale, shift)
+        base_q = QBitsTensor.quantize(base, qtype, axis, None, scale, shift)
         for i in range(self.iters):
             error = base - base_q
             if best_error is None:
@@ -74,7 +74,7 @@ class HqqOptimizer(MaxOptimizer):
             e = shrink_lp_op(error, beta, self.lp_norm)
             mean_axis = 0 if axis == -1 else -1
             hqq_shift = torch.mean(base_q._data * scale - (base - e), axis=mean_axis, keepdim=True)
-            base_q = AffineQuantizer.apply(base, qtype, axis, None, scale, hqq_shift)
+            base_q = QBitsTensor.quantize(base, qtype, axis, None, scale, hqq_shift)
             mean_error = float(torch.abs(base - base_q).mean())
             if self.verbose:
                 print(f"HQQ error at it #{i}: {mean_error:.6f}")
