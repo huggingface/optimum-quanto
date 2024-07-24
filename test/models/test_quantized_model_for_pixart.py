@@ -53,9 +53,9 @@ def compare_models(a_model, b_model):
             assert torch.equal(a_p, b_p)
 
     # Compare model outputs
-    hidden_states = torch.randn((1, 4, 8, 8), generator=torch.manual_seed(0))
+    hidden_states = torch.randn((1, 4, 8, 8))
     timesteps = torch.tensor([1.0])
-    encoder_hidden_states = torch.randn((1, 8, 8), generator=torch.manual_seed(0))
+    encoder_hidden_states = torch.randn((1, 8, 8))
     model_inputs = {
         "hidden_states": hidden_states,
         "timestep": timesteps,
