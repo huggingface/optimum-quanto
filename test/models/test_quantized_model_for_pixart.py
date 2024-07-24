@@ -88,5 +88,5 @@ def test_quantized_model_for_pixart(qtype, exclude_proj_out):
         print(f"{os.listdir(tmpdir)=}")
 
     # FIXME: position embeddings are not initialized in requantized model
-    requantized.pos_embed.pos_embed = quantized.pos_embed.pos_embed
+    # requantized.pos_embed.pos_embed = quantized.pos_embed.pos_embed
     compare_models(quantized, requantized)
