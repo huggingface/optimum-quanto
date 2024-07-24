@@ -107,6 +107,7 @@ class QuantizedDiffusersModel:
         """
         if not isinstance(model, ModelMixin):
             raise ValueError("The source model must be a diffusers model.")
+        print(f"{model.pos_embed.pos_embed[0, :4, :2].flatten()=}")
         quantize(
             model, weights=weights, activations=activations, optimizer=optimizer, include=include, exclude=exclude
         )
@@ -157,6 +158,7 @@ class QuantizedDiffusersModel:
                 state_dict = ShardedStateDict(model_name_or_path, sharded_metadata["weight_map"])
             else:
                 # Look for a single checkpoint file
+                print(f"{model.pos_embed.pos_embed[0, :4, :2].flatten()=}")
                 checkpoint_file = os.path.join(model_name_or_path, SAFETENSORS_WEIGHTS_NAME)
                 if not os.path.exists(checkpoint_file):
                     raise ValueError(f"No safetensor weights found in {model_name_or_path}.")
