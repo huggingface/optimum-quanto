@@ -2,7 +2,7 @@ from typing import Union
 
 import torch
 
-from ..tensor import dtype_info
+from ..tensor import dtype_info, group
 
 
 @torch.library.custom_op("quanto::quantize_symmetric", mutates_args=())
@@ -34,3 +34,20 @@ def quantize_symmetric(
         data = torch.round(data)
     info = dtype_info(dtype)
     return torch.clamp(data, min=info.min, max=info.max).to(dtype)
+
+
+@torch.library.custom_op("quanto::quantize_affine", mutates_args=())
+def quantize_affine(
+    base: torch.Tensor, bits: int, axis: int, group_size: Union[int, None], scale: torch.Tensor, shift: torch.Tensor
+) -> torch.Tensor:
+    if axis not in (0, -1):
+        raise ValueError("QBitsTensor axis parameter must be 0 (first axis) or -1 (last axis)")
+    if group_size is not None:
+        base = group(base, axis=axis, group_size=group_size)
+    if shift.dtype.is_floating_point:
+        data = torch.round((base + shift) / scale)
+    else:
+        # Shift is an integer representing zero (i.e. zero-point)
+        data = torch.round(base / scale) + shift
+
+    return torch.clamp(data, min=0, max=2**bits - 1).to(torch.uint8)
