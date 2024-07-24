@@ -13,4 +13,3 @@
 # limitations under the License.
 
 from .affine import *
-from .symmetric import *

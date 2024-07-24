@@ -17,8 +17,9 @@ from typing import Optional
 import torch
 
 from .optimizers import AbsmaxOptimizer, AffineOptimizer, MaxOptimizer, Optimizer, SymmetricOptimizer
+from .qbytes import QBytesTensor
 from .qtype import qtype
-from .quantizers import AffineQuantizer, SymmetricQuantizer
+from .quantizers import AffineQuantizer
 
 
 __all__ = ["quantize_weight"]
@@ -68,7 +69,7 @@ def quantize_weight(
             # Quantizing along an axis of dimension 1 means quantizing per-tensor
             axis = None
         scale = optimizer(t, qtype.qmax, axis)
-        return SymmetricQuantizer.apply(t, qtype, axis, scale)
+        return QBytesTensor.quantize(t, qtype, axis, scale)
     if optimizer is None:
         optimizer = default_affine_optimizer
     else:
