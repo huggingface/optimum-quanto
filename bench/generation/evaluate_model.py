@@ -70,7 +70,7 @@ def evaluate(
     activations = dtype if activations == "none" else activations
     print(f"Evaluating {model_id} {metric} with {weights} weights and {activations} activations.")
     if metric == "latency":
-        return latency(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512, iterations=5)
+        return latency(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens=512, iterations=3)
     elif metric == "prediction":
         return prediction_accuracy(model, tokenizer, batch_size)
     elif metric == "perplexity":
