@@ -120,7 +120,7 @@ class QuantizedDiffusersModel:
             raise ValueError("The `base_class` attribute needs to be configured.")
 
         if not is_accelerate_available():
-            raise ValueError("Reloading a quantized transformers model requires the accelerate library.")
+            raise ValueError("Reloading a quantized diffusers model requires the accelerate library.")
         from accelerate import init_empty_weights
 
         if os.path.isdir(model_name_or_path):
