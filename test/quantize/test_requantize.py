@@ -91,8 +91,9 @@ def test_requantized_model_device_memory(weights, dtype, serialization, device):
     state_dict = save_and_reload_state_dict(model.state_dict(), serialization)
     # Free device memory
     del model
-    reloaded_model = MLP(input_features, hidden_features, output_features).to(dtype).to(device)
-    requantize(reloaded_model, state_dict, qmap)
+    with torch.device("meta"):
+        reloaded_model = MLP(input_features, hidden_features, output_features).to(dtype)
+    requantize(reloaded_model, state_dict, qmap, device)
     # Free device memory
     del state_dict
     requantized_memory = get_device_memory(device)

@@ -104,34 +104,41 @@ def requantize(
     quantization_map: Dict[str, Dict[str, str]],
     device: torch.device = None,
 ):
-    # Evaluate the model current device
-    current_device = next(model.parameters()).device
-    if current_device.type != "meta":
-        # empty the model params by moving to the meta device
-        model.to(torch.device("meta"))
-        if device is None:
-            device = current_device
+    if device is None:
+        device = next(model.parameters()).device
+        if device.type == "meta":
+            device = torch.device("cpu")
 
     # Quantize the model with parameters from the quantization map
     for name, m in model.named_modules():
         qconfig = quantization_map.get(name, None)
-        if qconfig is None:
-            continue
-        weights = qconfig["weights"]
-        if weights == "none":
-            weights = None
-        activations = qconfig["activations"]
-        if activations == "none":
-            activations = None
-        _quantize_submodule(model, name, m, weights=weights, activations=activations)
+        if qconfig is not None:
+            weights = qconfig["weights"]
+            if weights == "none":
+                weights = None
+            activations = qconfig["activations"]
+            if activations == "none":
+                activations = None
+            _quantize_submodule(model, name, m, weights=weights, activations=activations)
 
-    # Move the quantized but empty model to the CPU device to avoid creating large weights on the device
-    model.to_empty(device=torch.device("cpu"))
-    #  Load the state_dict, applying quantization parameters and thus reducing model weights
+    # Move model parameters and buffers to CPU before materializing quantized weights
+    for name, m in model.named_modules():
+
+        def move_tensor(t, device):
+            if t.device.type == "meta":
+                return torch.empty_like(t, device=device)
+            return t.to(device)
+
+        for name, param in m.named_parameters(recurse=False):
+            setattr(m, name, torch.nn.Parameter(move_tensor(param, "cpu")))
+        for name, param in m.named_buffers(recurse=False):
+            setattr(m, name, move_tensor(param, "cpu"))
+    # Freeze model and move to target device
+    freeze(model)
+    model.to(device)
+
+    # Load the quantized model weights
     model.load_state_dict(state_dict, strict=False)
-
-    if device is not None:
-        model.to(device)
 
 
 def freeze(model):
