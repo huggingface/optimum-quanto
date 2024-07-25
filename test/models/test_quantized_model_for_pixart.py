@@ -85,6 +85,4 @@ def test_quantized_model_for_pixart(qtype, exclude_proj_out):
         quantized.save_pretrained(tmpdir)
         requantized = QuantizedPixArtTransformer2DModel.from_pretrained(tmpdir)
 
-    # FIXME: position embeddings are not initialized in requantized model
-    # requantized.pos_embed.pos_embed = quantized.pos_embed.pos_embed
     compare_models(quantized, requantized)
