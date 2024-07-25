@@ -107,7 +107,7 @@ class QuantizedDiffusersModel:
         """
         if not isinstance(model, ModelMixin):
             raise ValueError("The source model must be a diffusers model.")
-        print(f"{model.pos_embed.pos_embed[0, :4, :2].flatten()=}")
+
         quantize(
             model, weights=weights, activations=activations, optimizer=optimizer, include=include, exclude=exclude
         )
@@ -149,6 +149,11 @@ class QuantizedDiffusersModel:
             config = cls.base_class.load_config(model_name_or_path)
             with init_empty_weights():
                 model = cls.base_class.from_config(config)
+
+            # Hack: store the positional embeddings. See
+            # https://github.com/huggingface/optimum-quanto/pull/255#issuecomment-2248320442
+            initial_pos_embed = model.pos_embed.pos_embed
+
             # Look for the index of a sharded checkpoint
             checkpoint_file = os.path.join(model_name_or_path, SAFE_WEIGHTS_INDEX_NAME)
             if os.path.exists(checkpoint_file):
@@ -158,14 +163,16 @@ class QuantizedDiffusersModel:
                 state_dict = ShardedStateDict(model_name_or_path, sharded_metadata["weight_map"])
             else:
                 # Look for a single checkpoint file
-                print(f"{model.pos_embed.pos_embed[0, :4, :2].flatten()=}")
                 checkpoint_file = os.path.join(model_name_or_path, SAFETENSORS_WEIGHTS_NAME)
                 if not os.path.exists(checkpoint_file):
                     raise ValueError(f"No safetensor weights found in {model_name_or_path}.")
                 # Get state_dict from model checkpoint
                 state_dict = load_state_dict(checkpoint_file)
+
             # Requantize and load quantized weights from state_dict
             requantize(model, state_dict=state_dict, quantization_map=qmap)
+            # Hack: re-assign the initial position embeddings as `requantize()` destroys it.
+            model.pos_embed.pos_embed = initial_pos_embed
             model.eval()
             return cls(model)
         else:
