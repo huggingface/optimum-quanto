@@ -31,18 +31,18 @@ In a nutshell:
 
 The paragraph below is just an example. Please refer to the `bench` folder for detailed results per use-case of model.
 
-### meta-llama/Meta-Llama-3-8B
+### meta-llama/Meta-Llama-3.1-8B
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/optimum-quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3-8B_Perplexity.png" alt="meta-llama/Meta-Llama-3-8B WikiText perplexity">
+    <img src="https://github.com/huggingface/optimum-quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3.1-8B_bf16_Perplexity.png" alt="meta-llama/Meta-Llama-3.1-8B WikiText perplexity">
   </div>
  </center>
 </div>
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/optimum-quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3-8B_Latency__ms_.png" alt="meta-llama/Meta-Llama-3-8B Latency">
+    <img src="https://github.com/huggingface/optimum-quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3.1-8B_bf16_Latency__ms_.png" alt="meta-llama/Meta-Llama-3.1-8B Latency">
   </div>
  </center>
 </div>

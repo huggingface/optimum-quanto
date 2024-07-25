@@ -12,25 +12,25 @@ Note: the language modeling head (lm_head) of the tested models is not quantized
 
 The paragraphs below display results for some popular models on a NVIDIA A10 GPU.
 
-## meta-llama/Meta-Llama-3-8B
+## meta-llama/Meta-Llama-3.1-8B
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3-8B_Accuracy.png" alt="meta-llama/Meta-llama-3-8B Lambada prediction accuracy">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3.1-8B_bf16_Accuracy.png" alt="meta-llama/Meta-llama-3.1-8B Lambada prediction accuracy">
   </div>
  </center>
 </div>
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3-8B_Perplexity.png" alt="meta-llama/Meta-Llama-3-8B WikiText perplexity">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3.1-8B_bf16_Perplexity.png" alt="meta-llama/Meta-Llama-3.1-8B WikiText perplexity">
   </div>
  </center>
 </div>
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3-8B_Latency__ms_.png" alt="meta-llama/Meta-Llama-3-8B Latency">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3.1-8B_bf16_Latency__ms_.png" alt="meta-llama/Meta-Llama-3.1-8B Latency">
   </div>
  </center>
 </div>
@@ -39,21 +39,21 @@ The paragraphs below display results for some popular models on a NVIDIA A10 GPU
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/mistralai-Mistral-7B-Instruct-v0.3_Accuracy.png" alt="mistralai/Mistral-7B-Instruct-v0.3 Lambada prediction accuracy">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/mistralai-Mistral-7B-Instruct-v0.3_bf16_Accuracy.png" alt="mistralai/Mistral-7B-Instruct-v0.3 Lambada prediction accuracy">
   </div>
  </center>
 </div>
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/mistralai-Mistral-7B-Instruct-v0.3_Perplexity.png" alt="mistralai/Mistral-7B-Instruct-v0.3 WikiText perplexity">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/mistralai-Mistral-7B-Instruct-v0.3_bf16_Perplexity.png" alt="mistralai/Mistral-7B-Instruct-v0.3 WikiText perplexity">
   </div>
  </center>
 </div>
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/mistralai-Mistral-7B-Instruct-v0.3_Latency__ms_.png" alt="mistralai/Mistral-7B-Instruct-v0.3 Latency">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/mistralai-Mistral-7B-Instruct-v0.3_bf16_Latency__ms_.png" alt="mistralai/Mistral-7B-Instruct-v0.3 Latency">
   </div>
  </center>
 </div>
@@ -62,67 +62,21 @@ The paragraphs below display results for some popular models on a NVIDIA A10 GPU
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/google-gemma-2b_Accuracy.png" alt="google-gemma-2b Lambada prediction accuracy">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/google-gemma-2b_bf16_Accuracy.png" alt="google-gemma-2b Lambada prediction accuracy">
   </div>
  </center>
 </div>
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/google-gemma-2b_Perplexity.png" alt="google-gemma-2b WikiText perplexity">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/google-gemma-2b_bf16_Perplexity.png" alt="google-gemma-2b WikiText perplexity">
   </div>
  </center>
 </div>
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/google-gemma-2b_Latency__ms_.png" alt="google-gemma-2b Latency">
-  </div>
- </center>
-</div>
-
-## EleutherAI-pythia-1b
-
-<div class="row"><center>
-  <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/EleutherAI-pythia-1b_Accuracy.png" alt="EleutherAI-pythia-1b Lambada prediction accuracy">
-  </div>
- </center>
-</div>
-
-<div class="row"><center>
-  <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/EleutherAI-pythia-1b_Perplexity.png" alt="EleutherAI-pythia-1b WikiText perplexity">
-  </div>
- </center>
-</div>
-
-<div class="row"><center>
-  <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/EleutherAI-pythia-1b_Latency__ms_.png" alt="EleutherAI-pythia-1b Latency">
-  </div>
- </center>
-</div>
-
-## princeton-nlp/Sheared-LLaMA-1.3B
-
-<div class="row"><center>
-  <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/princeton-nlp-Sheared-LLaMA-1.3B_Accuracy.png" alt="princeton-nlp/Sheared-LLaMA-1.3B Lambada prediction accuracy">
-  </div>
- </center>
-</div>
-
-<div class="row"><center>
-  <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/princeton-nlp-Sheared-LLaMA-1.3B_Perplexity.png" alt="princeton-nlp/Sheared-LLaMA-1.3B WikiText perplexity">
-  </div>
- </center>
-</div>
-
-<div class="row"><center>
-  <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/princeton-nlp-Sheared-LLaMA-1.3B_Latency__ms_.png" alt="princeton-nlp/Sheared-LLaMA-1.3B Latency">
+    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/google-gemma-2b_bf16_Latency__ms_.png" alt="google-gemma-2b Latency">
   </div>
  </center>
 </div>
