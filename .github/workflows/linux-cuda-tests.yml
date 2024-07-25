@@ -48,7 +48,7 @@ jobs:
 
       - name: Run models tests
         run: |
-          pip install accelerate transformers
+          pip install accelerate transformers diffusers
           python -m pytest test/models
 
       - name: Run CLI tests
