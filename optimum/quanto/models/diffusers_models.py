@@ -150,10 +150,6 @@ class QuantizedDiffusersModel:
             with init_empty_weights():
                 model = cls.base_class.from_config(config)
 
-            # Hack: store the positional embeddings. See
-            # https://github.com/huggingface/optimum-quanto/pull/255#issuecomment-2248320442
-            initial_pos_embed = model.pos_embed.pos_embed
-
             # Look for the index of a sharded checkpoint
             checkpoint_file = os.path.join(model_name_or_path, SAFE_WEIGHTS_INDEX_NAME)
             if os.path.exists(checkpoint_file):
@@ -171,8 +167,6 @@ class QuantizedDiffusersModel:
 
             # Requantize and load quantized weights from state_dict
             requantize(model, state_dict=state_dict, quantization_map=qmap)
-            # Hack: re-assign the initial position embeddings as `requantize()` destroys it.
-            model.pos_embed.pos_embed = initial_pos_embed
             model.eval()
             return cls(model)
         else:
