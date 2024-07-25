@@ -49,7 +49,7 @@ def save_bar_chart(title, labels, ylabel, series, save_path):
 
 def gen_barchart(model_id, title, label, results, dtype):
     dtype_str = "f16" if dtype is torch.float16 else "bf16"
-    activations = (dtype_str, "i8", "f8")
+    activations = (dtype_str, "f8")
     weights = ("i4", "i8", "f8")
     series = {}
     reference = round(results[f"W{dtype_str}A{dtype_str}"], 2)

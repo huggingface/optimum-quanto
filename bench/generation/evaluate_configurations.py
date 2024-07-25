@@ -34,7 +34,6 @@ def evaluate_model_configurations(
 
     activations = [
         "none",
-        "int8",
         "float8",
     ]
 
