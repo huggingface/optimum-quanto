@@ -76,9 +76,8 @@ def test_requantize_serialized_model(
 @pytest.mark.skip_device("cpu")
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
-@pytest.mark.parametrize("weights_only", [True, False], ids=["weights-only", "pickle"])
 @pytest.mark.parametrize("serialization", ["weights_only", "pickle", "safetensors"])
-def test_requantized_model_device_memory(weights, dtype, weights_only, device, serialization):
+def test_requantized_model_device_memory(weights, dtype, serialization, device):
     input_features = 1024
     hidden_features = 2048
     output_features = 1024
