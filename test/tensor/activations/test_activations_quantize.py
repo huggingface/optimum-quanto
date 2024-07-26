@@ -17,7 +17,7 @@ import torch
 from helpers import assert_similar, device_eq, random_tensor
 
 from optimum.quanto import (
-    QBytesTensor,
+    ActivationQBytesTensor,
     absmax_scale,
     qfloat8,
     qfloat8_e4m3fn,
@@ -29,16 +29,11 @@ from optimum.quanto import (
 @pytest.mark.parametrize("input_shape", [(32, 32), (32, 10, 32)])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("qtype", [qint8], ids=["qint8"])
-@pytest.mark.parametrize(
-    "axis",
-    [None, 0, -1],
-    ids=["per-tensor", "first-axis", "last-axis"],
-)
-def test_symmetric_quantize_int(input_shape, dtype, qtype, axis, device):
+def test_symmetric_quantize_int(input_shape, dtype, qtype, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
-    scale = absmax_scale(a, qtype=qtype, axis=axis)
-    qa = QBytesTensor.quantize(a, qtype, axis, scale)
-    assert isinstance(qa, QBytesTensor)
+    scale = absmax_scale(a, qtype=qtype, axis=None)
+    qa = ActivationQBytesTensor.quantize(a, qtype, scale)
+    assert isinstance(qa, ActivationQBytesTensor)
     assert qa.dtype == dtype
     assert qa.qtype == qtype
     assert device_eq(qa.device, device)
@@ -51,16 +46,11 @@ def test_symmetric_quantize_int(input_shape, dtype, qtype, axis, device):
 @pytest.mark.parametrize(
     "qtype", [qfloat8, qfloat8_e4m3fn, qfloat8_e5m2], ids=["qfloat8", "qfloat8_e4m3fn", "qfloat8_e5m2"]
 )
-@pytest.mark.parametrize(
-    "axis",
-    [None, 0, -1],
-    ids=["per-tensor", "first-axis", "last-axis"],
-)
-def test_symmetric_quantize_float8(input_shape, dtype, qtype, axis, device):
+def test_symmetric_quantize_float8(input_shape, dtype, qtype, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
-    scale = absmax_scale(a, qtype=qtype, axis=axis)
-    qa = QBytesTensor.quantize(a, qtype, axis, scale)
-    assert isinstance(qa, QBytesTensor)
+    scale = absmax_scale(a, qtype=qtype, axis=None)
+    qa = ActivationQBytesTensor.quantize(a, qtype, scale)
+    assert isinstance(qa, ActivationQBytesTensor)
     assert qa.dtype == dtype
     assert qa.qtype == qtype
     assert device_eq(qa.device, device)

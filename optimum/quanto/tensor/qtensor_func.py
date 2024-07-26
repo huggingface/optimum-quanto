@@ -16,9 +16,10 @@ from functools import partial
 
 import torch
 
+from .activations import ActivationQBytesTensor
 from .qbits import AWQBitsTensor, TinyGemmQBitsTensor
-from .qbytes import QBytesTensor
 from .qtensor import qfallback
+from .weights import WeightQBytesTensor
 
 
 __all__ = ["get_qtensor_func", "register_qtensor_func"]
@@ -119,8 +120,8 @@ class QTensorLinear(torch.autograd.Function):
                 input.view(-1, in_features), other._data._data, other._group_size, other._scale_shift
             )
             output = output.view(output_shape)
-        elif isinstance(other, QBytesTensor):
-            if isinstance(input, QBytesTensor):
+        elif isinstance(other, WeightQBytesTensor):
+            if isinstance(input, ActivationQBytesTensor):
                 output = torch.ops.quanto.qbytes_mm(input._data, other._data, input._scale * other._scale)
             else:
                 output = torch.ops.quanto.qbytes_mm(input, other._data, other._scale)

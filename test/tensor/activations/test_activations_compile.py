@@ -16,7 +16,7 @@ import pytest
 import torch
 from helpers import random_tensor, torch_min_version
 
-from optimum.quanto import QBytesTensor, absmax_scale, qint8, quantize_activation
+from optimum.quanto import ActivationQBytesTensor, absmax_scale, qint8, quantize_activation
 
 
 def compile_for_device(f, device):
@@ -42,7 +42,7 @@ def test_compile_quantize_tensor(input_shape, qtype, dtype, device):
 
     compiled_f = compile_for_device(f, device)
     qa = compiled_f(a, qtype)
-    assert isinstance(qa, QBytesTensor)
+    assert isinstance(qa, ActivationQBytesTensor)
     assert qa.qtype == qtype
     assert qa._scale.dtype == dtype
     assert qa.axis is None
@@ -61,6 +61,6 @@ def test_compile_qtensor_to(device):
     scale = absmax_scale(a)
     qa = quantize_activation(a, qtype=qint8, scale=scale)
     cqa = compiled_f(qa, torch.float16)
-    assert isinstance(cqa, QBytesTensor)
+    assert isinstance(cqa, ActivationQBytesTensor)
     assert cqa.qtype == qint8
     assert cqa._scale.dtype == torch.float16

@@ -18,10 +18,11 @@ from typing import Optional, Union
 import torch
 
 from ..tensor import (
+    ActivationQBytesTensor,
     Optimizer,
     QBitsTensor,
-    QBytesTensor,
     QTensor,
+    WeightQBytesTensor,
     qint2,
     qint4,
     qtype,
@@ -156,7 +157,7 @@ class QModuleMixin(ABC):
             # The weight Tensor is not present because it is a flattened QTensor
             weight_prefix = weight_name + "."
             if self.weight_qtype.bits == 8:
-                deserialized_weight = QBytesTensor.load_from_state_dict(
+                deserialized_weight = WeightQBytesTensor.load_from_state_dict(
                     state_dict,
                     weight_prefix,
                     qtype=self.weight_qtype,
@@ -242,7 +243,7 @@ class QModuleMixin(ABC):
 
     def quantize_input(self, module: torch.nn.Module, input: torch.Tensor) -> torch.Tensor:
         input = input[0]
-        if isinstance(input, QBytesTensor):
+        if isinstance(input, ActivationQBytesTensor):
             if input.qtype != self.activation_qtype:
                 raise ValueError(
                     "Models with heterogeneous quantized activations are not supported:"
