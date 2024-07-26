@@ -27,5 +27,8 @@ def is_diffusers_available() -> bool:
 
 
 if is_transformers_available():
-    from .diffusers_models import *
     from .transformers_models import *
+
+
+if is_diffusers_available():
+    from .diffusers_models import *
