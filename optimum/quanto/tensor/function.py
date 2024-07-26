@@ -39,7 +39,7 @@ class QuantizedLinearFunction(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, input, other, bias):
+    def forward(ctx, input, other, bias=None):
         ctx.save_for_backward(input, other)
         output = torch.matmul(input, other.t())
         if bias is not None:

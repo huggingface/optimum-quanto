@@ -17,6 +17,7 @@ import ast
 import torch
 from torch.autograd import Function
 
+from ...function import QuantizedLinearFunction
 from ...qtype import qtypes
 from ..group import group, ungroup
 from ..qbits import QBitsTensor
@@ -36,6 +37,24 @@ class TinyGemmQBitsDequantizer(Function):
     @staticmethod
     def backward(ctx, gO):
         return gO
+
+
+class TinyGemmQBitsLinearFunction(QuantizedLinearFunction):
+    @staticmethod
+    def forward(ctx, input, other, bias):
+        ctx.save_for_backward(input, other)
+        if type(input) is not torch.Tensor:
+            input = input.dequantize()
+        in_features = input.shape[-1]
+        out_features = other.shape[0]
+        output_shape = input.shape[:-1] + (out_features,)
+        output = torch._weight_int4pack_mm(
+            input.view(-1, in_features), other._data._data, other._group_size, other._scale_shift
+        )
+        output = output.view(output_shape)
+        if bias is not None:
+            output = output + bias
+        return output
 
 
 class TinyGemmQBitsTensor(QBitsTensor):
@@ -139,14 +158,13 @@ class TinyGemmQBitsTensor(QBitsTensor):
         During the execution of the standard torch function, a second-level of dispatch will
         happen, but this time directly on individual torch Tensor operations (mainly ATEN).
         """
-        from ...qtensor_func import get_qtensor_func
-
         kwargs = kwargs or {}
+        if func is torch.nn.functional.linear:
 
-        # Look for a func accepting QTensor inputs
-        qfunc = get_qtensor_func(func)
-        if qfunc is not None:
-            return qfunc(*args, **kwargs)
-        # Defer to dispatcher to look instead for QTensor subclasses operations
+            def qlinear(input, other, bias=None):
+                return TinyGemmQBitsLinearFunction.apply(input, other, bias)
+
+            return qlinear(*args, **kwargs)
+        # Defer to operations dispatcher
         with torch._C.DisableTorchFunctionSubclass():
             return func(*args, **kwargs)

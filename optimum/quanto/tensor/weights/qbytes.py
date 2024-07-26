@@ -17,6 +17,7 @@ import ast
 import torch
 from torch.autograd import Function
 
+from ..function import QuantizedLinearFunction
 from ..qbytes import QBytesTensor
 from ..qtensor import qfallback
 from ..qtype import qtype, qtypes
@@ -42,6 +43,19 @@ class WeightQBytesQuantizer(Function):
     def backward(ctx, gO):
         # For autograd, quantization is a no-op
         return gO, None, None, None, None, None
+
+
+class WeightQBytesLinearFunction(QuantizedLinearFunction):
+    @staticmethod
+    def forward(ctx, input, other, bias=None):
+        ctx.save_for_backward(input, other)
+        if isinstance(input, QBytesTensor):
+            output = torch.ops.quanto.qbytes_mm(input._data, other._data, input._scale * other._scale)
+        else:
+            output = torch.ops.quanto.qbytes_mm(input, other._data, other._scale)
+        if bias is not None:
+            output = output + bias
+        return output
 
 
 class WeightQBytesTensor(QBytesTensor):
@@ -104,15 +118,14 @@ class WeightQBytesTensor(QBytesTensor):
         During the execution of the standard torch function, a second-level of dispatch will
         happen, but this time directly on individual torch Tensor operations (mainly ATEN).
         """
-        from ..qtensor_func import get_qtensor_func
-
         kwargs = kwargs or {}
+        if func is torch.nn.functional.linear:
 
-        # Look for a func accepting QTensor inputs
-        qfunc = get_qtensor_func(func)
-        if qfunc is not None:
-            return qfunc(*args, **kwargs)
-        # Defer to dispatcher to look instead for QTensor subclasses operations
+            def qlinear(input, other, bias=None):
+                return WeightQBytesLinearFunction.apply(input, other, bias)
+
+            return qlinear(*args, **kwargs)
+        # Defer to operations dispatcher
         with torch._C.DisableTorchFunctionSubclass():
             return func(*args, **kwargs)
 
@@ -149,4 +162,5 @@ class WeightQBytesTensor(QBytesTensor):
                 out_axis = 0 if out_axis == -1 else -1
             return WeightQBytesTensor(t.qtype, out_axis, out_size, out_stride, out_data, out_scale)
         # No dispatch available: qfallback
+        kwargs = kwargs or {}
         return qfallback(op, *args, **kwargs)
