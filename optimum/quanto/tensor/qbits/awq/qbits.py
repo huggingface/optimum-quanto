@@ -17,6 +17,7 @@ import ast
 import torch
 from torch.autograd import Function
 
+from ...function import QuantizedLinearFunction
 from ...qtype import qtypes
 from ..group import group, ungroup
 from ..qbits import QBitsTensor
@@ -43,6 +44,30 @@ class AWQBitsDequantizer(Function):
     @staticmethod
     def backward(ctx, gO):
         return gO
+
+
+class AWQBitsLinearFunction(QuantizedLinearFunction):
+    @staticmethod
+    def forward(ctx, input, other, bias):
+        ctx.save_for_backward(input, other)
+        if type(input) is not torch.Tensor:
+            input = input.dequantize()
+        out_features, in_features = other.shape
+        rows = input.numel() // in_features
+        output = torch.ops.quanto.gemm(
+            input,
+            other._data._data,
+            other._scale,
+            other._shift,
+            rows=rows,
+            out_cols=out_features,
+            in_cols=in_features,
+            bits=4,
+            group_size=other._group_size,
+        )
+        if bias is not None:
+            output = output + bias
+        return output
 
 
 class AWQBitsTensor(QBitsTensor):
@@ -124,14 +149,13 @@ class AWQBitsTensor(QBitsTensor):
         During the execution of the standard torch function, a second-level of dispatch will
         happen, but this time directly on individual torch Tensor operations (mainly ATEN).
         """
-        from ...qtensor_func import get_qtensor_func
-
         kwargs = kwargs or {}
+        if func is torch.nn.functional.linear:
 
-        # Look for a func accepting QTensor inputs
-        qfunc = get_qtensor_func(func)
-        if qfunc is not None:
-            return qfunc(*args, **kwargs)
-        # Defer to dispatcher to look instead for QTensor subclasses operations
+            def qlinear(input, other, bias=None):
+                return AWQBitsLinearFunction.apply(input, other, bias)
+
+            return qlinear(*args, **kwargs)
+        # Defer to operations dispatcher
         with torch._C.DisableTorchFunctionSubclass():
             return func(*args, **kwargs)

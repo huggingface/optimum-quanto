@@ -83,6 +83,7 @@ class ActivationQBytesTensor(QBytesTensor):
     def __torch_dispatch__(cls, op, types, args, kwargs=None):
         from .qbytes_ops import get_qbytestensor_op_dispatch
 
+        kwargs = kwargs or {}
         # Do not use directly op, but rather its overload
         op = op.overloadpacket
         qdispatch = get_qbytestensor_op_dispatch(op)
