@@ -63,31 +63,3 @@ class QTensor(torch.Tensor):
 
     def numpy(self):
         return self.dequantize().cpu().numpy()
-
-    @classmethod
-    def __torch_function__(cls, func, types, args=(), kwargs=None):
-        """Dispatch torch functions applied on QTensor inputs
-
-        This method is called whenever a torch function (such as `torch.nn.functional.linear`)
-        is called with at least one QTensor parameter. It is shared by all QTensor subclasses.
-
-        It looks for registered dispatched functions (see qtensor_func.py):
-        - if a quantized implementation exists for the selected function, it is called,
-        - otherwise, the original implementation is called, deactivating further functional dispatch.
-
-        During the execution of the standard torch function, a second-level of dispatch will
-        happen, but this time directly on individual torch Tensor operations (mainly ATEN).
-
-        This second dispatch phase is specific to each QTensor subclass.
-        """
-        from .qtensor_func import get_qtensor_func
-
-        kwargs = kwargs or {}
-
-        # Look for a func accepting QTensor inputs
-        qfunc = get_qtensor_func(func)
-        if qfunc is not None:
-            return qfunc(*args, **kwargs)
-        # Defer to dispatcher to look instead for QTensor subclasses operations
-        with torch._C.DisableTorchFunctionSubclass():
-            return func(*args, **kwargs)
