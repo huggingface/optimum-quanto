@@ -22,7 +22,7 @@ from torch.nn.modules.module import (
 from torch.overrides import TorchFunctionMode
 
 from .nn import QModuleMixin
-from .tensor import QBytesTensor, QTensor, axis_to_dim, dtype_info, qint8, qtype
+from .tensor import ActivationQBytesTensor, QTensor, axis_to_dim, dtype_info, qint8, qtype
 
 
 __all__ = ["Calibration", "absmax_scale"]
@@ -95,7 +95,7 @@ class Calibration(TorchFunctionMode):
             for i, arg in enumerate(args):
                 module = getattr(arg, "src_module", None)
                 if module is not None:
-                    if isinstance(output, QBytesTensor):
+                    if isinstance(output, ActivationQBytesTensor):
                         # Quantized activations are required for that module
                         self.modules_qactivations[module] = True
                     elif isinstance(output, torch.Tensor):
@@ -124,7 +124,7 @@ class Calibration(TorchFunctionMode):
         """
         if isinstance(module, QModuleMixin) and module.activation_qtype is not None:
             input = input[0]
-            if isinstance(input, QBytesTensor):
+            if isinstance(input, ActivationQBytesTensor):
                 # Just adopt the maximum scale of the input
                 module.input_scale = torch.max(input._scale)
             else:

@@ -20,9 +20,9 @@ from helpers import assert_similar, get_device_memory, random_tensor
 
 from optimum.quanto import (
     AbsmaxOptimizer,
+    ActivationQBytesTensor,
     Calibration,
     MaxOptimizer,
-    QBytesTensor,
     QLinear,
     QTensor,
     absmax_scale,
@@ -75,7 +75,7 @@ def _test_quantize_mlp(weights, activations, optimizer, frozen, device, atol=1e-
     with context():
         qoutput = model(inputs)
     if activations is not None:
-        assert isinstance(qoutput, QBytesTensor)
+        assert isinstance(qoutput, ActivationQBytesTensor)
     # Don't expect more than a 0.99 similarity
     assert_similar(output, qoutput, atol=atol)
 

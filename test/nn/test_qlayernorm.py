@@ -16,7 +16,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_qactivation
 
-from optimum.quanto import Calibration, QBytesTensor, qfloat8_e4m3fn, qfloat8_e5m2, qint8
+from optimum.quanto import ActivationQBytesTensor, Calibration, qfloat8_e4m3fn, qfloat8_e5m2, qint8
 from optimum.quanto.nn import QLayerNorm
 
 
@@ -29,7 +29,7 @@ def _test_quantize_layernorm(batch_size, tokens, embeddings, dtype, activations,
     with torch.no_grad(), Calibration():
         qout = qnorm(qinputs)
     qout = qnorm(qinputs)
-    assert isinstance(qout, QBytesTensor)
+    assert isinstance(qout, ActivationQBytesTensor)
     assert qout.dtype == dtype
     assert qout.qtype == activations
     # Compare with the float results

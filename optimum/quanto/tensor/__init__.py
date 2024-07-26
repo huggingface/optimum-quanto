@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .activations import *
 from .core import *
 from .optimizers import *
-from .qactivation import *
 from .qbits import *
 from .qbytes import *
 from .qtensor import *
 from .qtype import *
-from .qweight import *
+from .weights import *
