@@ -16,9 +16,10 @@ from typing import Optional
 
 import torch
 
-from .optimizers import AbsmaxOptimizer, AffineOptimizer, MaxOptimizer, Optimizer, SymmetricOptimizer
-from .qtype import qtype
-from .quantizers import AffineQuantizer, SymmetricQuantizer
+from ..optimizers import AbsmaxOptimizer, AffineOptimizer, MaxOptimizer, Optimizer, SymmetricOptimizer
+from ..qbits import QBitsTensor
+from ..qtype import qtype
+from .qbytes import WeightQBytesTensor
 
 
 __all__ = ["quantize_weight"]
@@ -67,7 +68,7 @@ def quantize_weight(
             # Quantizing along an axis of dimension 1 means quantizing per-tensor
             axis = None
         scale = optimizer(t, qtype.qmax, axis)
-        return SymmetricQuantizer.apply(t, qtype, axis, scale, activation_qtype, "weight")
+        return WeightQBytesTensor.quantize(t, qtype, axis, scale, activation_qtype, "weight")
     if optimizer is None:
         optimizer = default_affine_optimizer
     else:
@@ -77,4 +78,4 @@ def quantize_weight(
     if zeropoint:
         # Round shift to make sure zero can be represented exactly using 'shift' as quantized value
         shift = torch.clamp(torch.round(shift / scale), 0, 2**qtype.bits - 1).to(torch.uint8)
-    return AffineQuantizer.apply(t, qtype, axis, group_size, scale, shift, activation_qtype, "weight")
+    return QBitsTensor.quantize(t, qtype, axis, group_size, scale, shift, activation_qtype, "weight")

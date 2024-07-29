@@ -18,7 +18,7 @@ from typing import Optional
 import torch
 from torch.autograd import Function
 
-from .qtensor import QTensor, qfallback
+from .qtensor import QTensor
 from .qtype import qtype, qtypes
 
 
