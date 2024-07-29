@@ -20,10 +20,9 @@ import torch
 from optimum.quanto.library.extensions.cuda import ext  # noqa: F401
 
 from ..tensor import Optimizer, QBytesTensor, qtype
-from ..tensor.marlin import MarlinF8QBytesTensor
 from ..tensor.qbits.awq.qbits import AWQBitsTensor
 from ..tensor.qbits.tinygemm.qbits import TinyGemmQBitsTensor
-from ..tensor.qtensor_func import register_qtensor_func
+from ..tensor.weights.marlin import MarlinF8QBytesTensor
 from .qmodule import QModuleMixin, register_qmodule
 
 
@@ -153,8 +152,3 @@ class QLinear(QModuleMixin, torch.nn.Linear):
             return QLinearFunction.apply(input, self.qweight, self.bias)
         else:
             return _forward_linear(input, self.qweight, bias=self.bias)
-
-
-@register_qtensor_func([torch.nn.functional.linear])
-def linear(func, input, other, bias=None):
-    return QLinearFunction.apply(input, other, bias)

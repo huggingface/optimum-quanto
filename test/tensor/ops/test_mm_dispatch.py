@@ -25,7 +25,7 @@ from optimum.quanto import qint8
 @pytest.mark.parametrize("out_features", [5, 16, 24])
 def test_qactivation_qweight_matmul(dtype, in_features, hidden, out_features, device):
     qa = random_qactivation((in_features, hidden), qint8, dtype=dtype).to(device)
-    qb = random_qweight((hidden, out_features), qint8, dtype=dtype, axis=-1, activation_qtype=dtype).to(device)
+    qb = random_qweight((hidden, out_features), qint8, dtype=dtype, axis=-1).to(device)
     qmatmul = torch.matmul(qa, qb)
     # The outputs should be almost identical if we use the dequantized inputs
     matmul = torch.matmul(qa.dequantize(), qb.dequantize())

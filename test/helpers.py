@@ -60,9 +60,9 @@ def random_qactivation(shape, qtype=qint8, dtype=torch.float32, device="cpu"):
     return quantize_activation(t, qtype=qtype, scale=scale)
 
 
-def random_qweight(shape, qtype, dtype=torch.float32, axis=0, group_size=None, device="cpu", activation_qtype=None):
+def random_qweight(shape, qtype, dtype=torch.float32, axis=0, group_size=None, device="cpu"):
     t = random_tensor(shape, dtype, device=device)
-    return quantize_weight(t, qtype=qtype, axis=axis, group_size=group_size, activation_qtype=activation_qtype)
+    return quantize_weight(t, qtype=qtype, axis=axis, group_size=group_size)
 
 
 def random_qbits_tensor(shape, qtype, dtype, group_size, device):

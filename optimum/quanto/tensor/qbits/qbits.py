@@ -29,6 +29,30 @@ from .packed import PackedTensor
 __all__ = ["QBitsTensor"]
 
 
+class QBitsQuantizer(Function):
+
+    @staticmethod
+    def forward(
+        ctx, base: torch.Tensor, qtype: qtype, axis: int, group_size: int, scale: torch.Tensor, shift: torch.Tensor
+    ):
+        if qtype not in (qint2, qint4):
+            raise ValueError("QBitsTensor can only be of qint2 or qint4 qtype")
+        if axis not in (0, -1):
+            raise ValueError("QBitsTensor axis parameter must be 0 (first axis) or -1 (last axis)")
+        size = base.size()
+        stride = base.stride()
+        data = torch.ops.quanto.quantize_affine(
+            base, bits=qtype.bits, axis=axis, group_size=group_size, scale=scale, shift=shift
+        )
+
+        return QBitsTensor.create(qtype, axis, group_size, size, stride, data, scale, shift)
+
+    @staticmethod
+    def backward(ctx, gO):
+        # For autograd, quantization is a no-op
+        return gO, None, None, None, None, None
+
+
 class QBitsDequantizer(Function):
     @staticmethod
     def forward(ctx, t):
@@ -67,7 +91,6 @@ class QBitsTensor(QTensor):
         scale,
         shift,
         activation_qtype: Optional[qtype] = None,
-        tensor_type: Optional[str] = None,
         requires_grad=False,
     ):
         """Factory method to create a QBitsTensor
@@ -89,8 +112,6 @@ class QBitsTensor(QTensor):
                 The floating point scale expressed as a torch.Tensor.
             activation_qtype (`qtype`, defaults to `None`):
                 The qtype used for the activations. If one needs to use a different tensor subclass e.g. for weights depending on the activations qtype, this argument must be specified accordingly when calling `QBitsTensor.create`.
-            tensor_type (`Optional[str]`, defaults to `None`):
-                Specifies whether the tensor is to be considered as a `"weight"` or `"activation"`, which may influence the tensor subclass to be used.
             shift (`torch.Tensor`):
                 The shift expressed as a torch.Tensor. It can be either an integer representing zero
                 (i.e. zero-point) or a float value.

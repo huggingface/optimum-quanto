@@ -16,7 +16,7 @@ import pytest
 import torch
 
 from optimum.quanto import qfloat8_e4m3fn
-from optimum.quanto.tensor.marlin import MarlinF8QBytesTensor
+from optimum.quanto.tensor.weights.marlin import MarlinF8QBytesTensor
 
 
 @pytest.mark.parametrize("in_features", [64, 128, 192, 256])
