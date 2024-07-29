@@ -229,7 +229,7 @@ class QModuleMixin(ABC):
         if isinstance(self.weight, QTensor):
             # Frozen QModule
             return self.weight
-
+        # Quantize dynamically the weights per-axis
         return quantize_weight(
             self.weight,
             qtype=self.weight_qtype,

@@ -39,13 +39,6 @@ class QBytesDequantizer(Function):
 
 
 class QBytesTensor(QTensor):
-    @staticmethod
-    def __new__(cls, qtype, axis, size, stride, data, scale, requires_grad=False):
-        assert data.device == scale.device
-        return torch.Tensor._make_wrapper_subclass(
-            cls, size, strides=stride, dtype=scale.dtype, device=data.device, requires_grad=requires_grad
-        )
-
     def __init__(self, qtype, axis, size, stride, data, scale, requires_grad=False):
         super().__init__(qtype, axis)
         self._data = data

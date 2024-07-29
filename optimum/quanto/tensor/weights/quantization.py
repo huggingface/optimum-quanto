@@ -72,7 +72,6 @@ def quantize_weight(
             # Quantizing along an axis of dimension 1 means quantizing per-tensor
             axis = None
         scale = optimizer(t, qtype.qmax, axis)
-
         return WeightQBytesTensor.quantize(t, qtype, axis, scale, activation_qtype)
     if optimizer is None:
         optimizer = default_affine_optimizer
