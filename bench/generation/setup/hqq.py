@@ -13,9 +13,13 @@
 # limitations under the License.
 
 import torch
-from hqq.core.quantize import BaseQuantizeConfig
-from hqq.engine.hf import HQQModelForCausalLM
 from transformers import AutoTokenizer
+from transformers.utils.import_utils import _is_package_available
+
+
+if _is_package_available("awq"):
+    from hqq.core.quantize import BaseQuantizeConfig
+    from hqq.engine.hf import HQQModelForCausalLM
 
 
 def setup(model_id: str, weights: str, activations: str, device: torch.device, group_size: int = 64):

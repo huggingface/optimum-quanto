@@ -21,16 +21,7 @@ from tqdm.auto import tqdm
 from transformers import GenerationConfig
 
 
-def latency(
-    model,
-    tokenizer,
-    device,
-    batch_size=1,
-    prompt_length=512,
-    nb_tokens=512,
-    iterations=10,
-    torch_compile: bool = False,
-):
+def decode_latency(model, tokenizer, device, batch_size=1, nb_tokens=512, iterations=10, torch_compile: bool = False):
     def synchronize(device):
         if device.type == "cuda":
             torch.cuda.synchronize()
@@ -81,11 +72,13 @@ def latency(
         print(f"Device memory: {memory / (2 ** 30):.4f} GB")
 
     latencies = []
-    input_ids = torch.randint(1, model.config.vocab_size - 1, size=(batch_size, prompt_length)).to(device)
-    masks = torch.ones(batch_size, prompt_length, dtype=torch.int32).to(device)
+
+    # Sequence length of 2 for bos token.
+    input_ids = torch.randint(1, model.config.vocab_size - 1, size=(batch_size, 2)).to(device)
+    masks = torch.ones(batch_size, 2, dtype=torch.int32).to(device)
 
     if torch_compile:
-        model.forward = torch.compile(model.forward, fullgraph=True, mode="reduce-overhead")
+        model.forward = torch.compile(model.forward, mode="reduce-overhead", fullgraph=True)
 
     # warmup
     for _ in tqdm(range(3), desc="warmup"):
@@ -108,8 +101,8 @@ def latency(
         peak_memory = torch.cuda.max_memory_allocated()
         print(f"Peak memory during benchmark: {peak_memory / (2 ** 30):.4f} GB")
 
-    mean_latency = np.mean(latencies) / generation_config.min_new_tokens
-    print(f"Average latency per token: {mean_latency} ms")
+    mean_latency = np.mean(latencies) / nb_tokens
+    print(f"Average decode latency per token: {mean_latency} ms")
     return mean_latency
 
 

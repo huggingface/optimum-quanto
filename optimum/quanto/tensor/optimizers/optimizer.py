@@ -22,7 +22,6 @@ __all__ = ["Optimizer"]
 
 
 class Optimizer(ABC):
-
     def __call__(
         self, base: torch.Tensor, bits: int, axis: int, group_size: Optional[int] = None
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:

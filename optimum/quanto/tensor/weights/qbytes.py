@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import ast
+from typing import Optional
 
 import torch
 from torch.autograd import Function
@@ -29,15 +30,24 @@ __all__ = ["WeightQBytesTensor"]
 class WeightQBytesQuantizer(Function):
 
     @staticmethod
-    def forward(ctx, base: torch.Tensor, qtype: qtype, axis: int, scale: torch.Tensor) -> torch.Tensor:
+    def forward(
+        ctx, base: torch.Tensor, qtype: qtype, axis: int, scale: torch.Tensor, activation_qtype: Optional[qtype]
+    ) -> torch.Tensor:
         if qtype.bits != 8:
             raise ValueError("QBytesTensor can only be of 8-bit qtype")
-        size = base.size()
-        stride = base.stride()
         data = torch.ops.quanto.quantize_symmetric(base, dtype=qtype.dtype, axis=axis, scale=scale)
         # The instantiation of the quantized tensor must happen within the context of the Function
         # for the autograd magic to work.
-        return WeightQBytesTensor(qtype, axis, size, stride, data, scale)
+
+        return WeightQBytesTensor.create(
+            qtype,
+            axis,
+            size=base.size(),
+            stride=base.stride(),
+            data=data,
+            scale=scale,
+            activation_qtype=activation_qtype,
+        )
 
     @staticmethod
     def backward(ctx, gO):
@@ -60,6 +70,57 @@ class WeightQBytesLinearFunction(QuantizedLinearFunction):
 
 class WeightQBytesTensor(QBytesTensor):
     @staticmethod
+    def create(
+        qtype,
+        axis,
+        size,
+        stride,
+        data,
+        scale,
+        activation_qtype: Optional[qtype] = None,
+        requires_grad=False,
+    ):
+        """Factory method to create a QBytesTensor
+
+        This selects the most appropriate QBytesTensor based on the configuration.
+
+        Args:
+            axis (`int`):
+                The axis that is preserved by quantization (usually zero for linear weights).
+            size ():
+                The Tensor size.
+            stride():
+                The Tensor stride.
+            data (`torch.Tensor`):
+                The tensor data, either as a raw uint8 torch.Tensor or as a PackedTensor.
+            scale (`torch.Tensor`):
+                The floating point scale expressed as a torch.Tensor.
+            activation_qtype (`qtype`, defaults to `None`):
+                The qtype used for the activations. If one needs to use a different tensor subclass e.g. for weights depending on the activations qtype, this argument must be specified accordingly when calling `QBytesTensor.create`.
+            requires_grad (`bool`):
+                If the Tensor must be receive a gradient or not.
+
+        Returns:
+            a `QBytesTensor` (can be a subclass).
+        """
+        from .marlin import MarlinF8QBytesTensor
+
+        init_cls = WeightQBytesTensor
+        if (
+            qtype == qtypes["qfloat8_e4m3fn"]
+            and activation_qtype is None
+            and scale.dtype in [torch.float16, torch.bfloat16]
+            and len(size) == 2
+            and data.device.type == "cuda"
+            and axis == 0
+            and torch.cuda.get_device_capability(data.device)[0] >= 8
+        ):
+            if data.dtype == torch.int32 or (data.shape[0] % 64 == 0 and data.shape[1] % 16 == 0):
+                init_cls = MarlinF8QBytesTensor
+
+        return init_cls(qtype, axis, size, stride, data, scale, requires_grad)
+
+    @staticmethod
     def __new__(cls, qtype, axis, size, stride, data, scale, requires_grad=False):
         assert data.device == scale.device
         return torch.Tensor._make_wrapper_subclass(
@@ -67,8 +128,10 @@ class WeightQBytesTensor(QBytesTensor):
         )
 
     @classmethod
-    def quantize(cls, base: torch.Tensor, qtype: qtype, axis: int, scale: torch.Tensor) -> torch.Tensor:
-        return WeightQBytesQuantizer.apply(base, qtype, axis, scale)
+    def quantize(
+        cls, base: torch.Tensor, qtype: qtype, axis: int, scale: torch.Tensor, activation_qtype: Optional[qtype] = None
+    ) -> torch.Tensor:
+        return WeightQBytesQuantizer.apply(base, qtype, axis, scale, activation_qtype)
 
     @staticmethod
     def load_from_state_dict(state_dict, prefix, qtype, axis, size, stride):
@@ -138,7 +201,7 @@ class WeightQBytesTensor(QBytesTensor):
             # Detach both data and scale
             out_data = op(t._data)
             out_scale = op(t._scale)
-            return WeightQBytesTensor(t.qtype, t.axis, t.size(), t.stride(), out_data, out_scale)
+            return cls(t.qtype, t.axis, t.size(), t.stride(), out_data, out_scale)
         elif op in [torch.ops.aten._to_copy, torch.ops.aten.to]:
             t = args[0]
             dtype = kwargs.get("dtype", t.dtype)
@@ -146,7 +209,7 @@ class WeightQBytesTensor(QBytesTensor):
             # For data, ignore dtype and use the inner type instead
             out_data = op(t._data, dtype=t._data.dtype, device=device)
             out_scale = op(t._scale, dtype=dtype, device=device)
-            return WeightQBytesTensor(t.qtype, t.axis, t.size(), t.stride(), out_data, out_scale)
+            return cls(t.qtype, t.axis, t.size(), t.stride(), out_data, out_scale)
         elif op is torch.ops.aten.t:
             t = args[0]
             out_data = op(t._data)
@@ -160,7 +223,7 @@ class WeightQBytesTensor(QBytesTensor):
                 # We need to transpose also the scale
                 out_scale = op(out_scale)
                 out_axis = 0 if out_axis == -1 else -1
-            return WeightQBytesTensor(t.qtype, out_axis, out_size, out_stride, out_data, out_scale)
+            return cls(t.qtype, out_axis, out_size, out_stride, out_data, out_scale)
         # No dispatch available: qfallback
         kwargs = kwargs or {}
         return qfallback(op, *args, **kwargs)

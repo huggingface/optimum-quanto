@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 from torch.autograd import Function
 
 from .qtensor import QTensor
@@ -37,7 +38,6 @@ class QBytesDequantizer(Function):
 
 
 class QBytesTensor(QTensor):
-
     def __init__(self, qtype, axis, size, stride, data, scale, requires_grad=False):
         super().__init__(qtype, axis)
         self._data = data

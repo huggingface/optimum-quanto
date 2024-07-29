@@ -8,7 +8,6 @@ from torch.utils.cpp_extension import load
 
 
 class Extension(object):
-
     def __init__(
         self,
         name: str,

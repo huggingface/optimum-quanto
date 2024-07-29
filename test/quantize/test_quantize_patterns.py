@@ -36,7 +36,6 @@ class MLP(torch.nn.Module):
 
 
 class ClassificationModel(torch.nn.Module):
-
     def __init__(self, input_size, output_size, hidden_size, classes):
         super().__init__()
         self.model = MLP(input_size, output_size, hidden_size)

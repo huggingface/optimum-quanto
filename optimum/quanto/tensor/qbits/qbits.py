@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import ast
+from typing import Optional
 
 import torch
 from packaging import version
@@ -80,7 +81,18 @@ class QBitsDequantizer(Function):
 
 class QBitsTensor(QTensor):
     @staticmethod
-    def create(qtype, axis, group_size, size, stride, data, scale, shift, requires_grad=False):
+    def create(
+        qtype,
+        axis,
+        group_size,
+        size,
+        stride,
+        data,
+        scale,
+        shift,
+        activation_qtype: Optional[qtype] = None,
+        requires_grad=False,
+    ):
         """Factory method to create a QBitsTensor
 
         This selects the most appropriate QBitsTensor based on the configuration.
@@ -98,6 +110,8 @@ class QBitsTensor(QTensor):
                 The tensor data, either as a raw uint8 torch.Tensor or as a PackedTensor.
             scale (`torch.Tensor`):
                 The floating point scale expressed as a torch.Tensor.
+            activation_qtype (`qtype`, defaults to `None`):
+                The qtype used for the activations. If one needs to use a different tensor subclass e.g. for weights depending on the activations qtype, this argument must be specified accordingly when calling `QBitsTensor.create`.
             shift (`torch.Tensor`):
                 The shift expressed as a torch.Tensor. It can be either an integer representing zero
                 (i.e. zero-point) or a float value.

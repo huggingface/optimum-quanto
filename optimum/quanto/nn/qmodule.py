@@ -236,6 +236,7 @@ class QModuleMixin(ABC):
             axis=0,
             group_size=self.weight_group_size,
             optimizer=self.optimizer,
+            activation_qtype=self.activation_qtype,
         )
 
     def qforward(self, input: torch.Tensor) -> torch.Tensor:

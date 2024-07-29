@@ -30,7 +30,6 @@ def qfallback(callable, *args, **kwargs):
 
 
 class QTensor(torch.Tensor):
-
     def __init__(self, qtype, axis):
         self._qtype = qtype
         self._axis = axis
