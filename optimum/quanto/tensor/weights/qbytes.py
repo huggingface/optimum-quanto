@@ -30,15 +30,24 @@ __all__ = ["WeightQBytesTensor"]
 class WeightQBytesQuantizer(Function):
 
     @staticmethod
-    def forward(ctx, base: torch.Tensor, qtype: qtype, axis: int, scale: torch.Tensor) -> torch.Tensor:
+    def forward(
+        ctx, base: torch.Tensor, qtype: qtype, axis: int, scale: torch.Tensor, activation_qtype: Optional[qtype]
+    ) -> torch.Tensor:
         if qtype.bits != 8:
             raise ValueError("QBytesTensor can only be of 8-bit qtype")
-        size = base.size()
-        stride = base.stride()
         data = torch.ops.quanto.quantize_symmetric(base, dtype=qtype.dtype, axis=axis, scale=scale)
         # The instantiation of the quantized tensor must happen within the context of the Function
         # for the autograd magic to work.
-        return WeightQBytesTensor.create(qtype, axis, size, stride, data, scale)
+
+        return WeightQBytesTensor.create(
+            qtype,
+            axis,
+            size=base.size(),
+            stride=base.stride(),
+            data=data,
+            scale=scale,
+            activation_qtype=activation_qtype,
+        )
 
     @staticmethod
     def backward(ctx, gO):
@@ -103,7 +112,7 @@ class WeightQBytesTensor(QBytesTensor):
             and scale.dtype in [torch.float16, torch.bfloat16]
             and len(size) == 2
             and data.device.type == "cuda"
-            and axis is None
+            and axis == 0
             and torch.cuda.get_device_capability(data.device)[0] >= 8
         ):
             if data.dtype == torch.int32 or (data.shape[0] % 64 == 0 and data.shape[1] % 16 == 0):
@@ -119,8 +128,10 @@ class WeightQBytesTensor(QBytesTensor):
         )
 
     @classmethod
-    def quantize(cls, base: torch.Tensor, qtype: qtype, axis: int, scale: torch.Tensor) -> torch.Tensor:
-        return WeightQBytesQuantizer.apply(base, qtype, axis, scale)
+    def quantize(
+        cls, base: torch.Tensor, qtype: qtype, axis: int, scale: torch.Tensor, activation_qtype: Optional[qtype] = None
+    ) -> torch.Tensor:
+        return WeightQBytesQuantizer.apply(base, qtype, axis, scale, activation_qtype)
 
     @staticmethod
     def load_from_state_dict(state_dict, prefix, qtype, axis, size, stride):

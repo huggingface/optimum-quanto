@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import pytest
 import torch
 from helpers import assert_similar, random_tensor
 
 from optimum.quanto import AWQPackedTensor, AWQPacking
-from optimum.quanto.tensor.weights.marlin.packed import pack_fp8_as_int32
+from optimum.quanto.tensor.weights.marlin.packed import get_scale_perms, pack_fp8_as_int32
 
 
 @pytest.mark.parametrize("batch_size", [1, 10, None], ids=["single", "batched", "static"])
@@ -99,7 +100,7 @@ def test_gemm_fp16_int4(batch_size, tokens, in_features, out_features):
     reason="CUDA device >= sm80 not available",
 )
 @pytest.mark.parametrize("tokens", [1, 10, 128])
-@pytest.mark.parametrize("in_features, out_features", [(256, 256), (512, 256)])
+@pytest.mark.parametrize("in_features, out_features", [(256, 1024), (512, 2048)])
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16], ids=["bf16", "fp16"])
 def test_fp8_marlin(tokens, in_features, out_features, dtype):
     # This is required to be able to access `torch.ops.quanto_ext.*` members defined in C++ through `TORCH_LIBRARY`.
@@ -116,8 +117,12 @@ def test_fp8_marlin(tokens, in_features, out_features, dtype):
     other_data_repack = torch.ops.quanto_ext.gptq_marlin_repack(
         b_q_weight=other_data_int32, perm=perm, size_k=in_features, size_n=out_features, num_bits=8
     )
-    other_scale = torch.rand(1, dtype=dtype, device=device)
-    other_scale = other_scale.repeat(1, out_features)
+    other_scale = torch.rand(1, out_features, dtype=dtype, device=device)
+    other_scale_original = other_scale.clone()
+
+    scale_perm_single = get_scale_perms()
+    other_scale = other_scale.reshape((-1, len(scale_perm_single)))[:, scale_perm_single]
+    other_scale = other_scale.reshape(-1, out_features).contiguous()
 
     workspace = torch.zeros(out_features // 64 * 16, dtype=torch.int, device=device)
     lib_outputs = torch.ops.quanto_ext.fp8_marlin_gemm(
@@ -131,7 +136,7 @@ def test_fp8_marlin(tokens, in_features, out_features, dtype):
         size_k=in_features,
     )
     # Evaluate the matrix multiplication using pytorch mm
-    other = other_data.to(dtype) * other_scale
+    other = other_data.to(dtype) * other_scale_original
     pt_outputs = torch.matmul(inputs.to(dtype), other)
     # Verify the results are similar
     assert_similar(lib_outputs, pt_outputs)

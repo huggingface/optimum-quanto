@@ -19,10 +19,10 @@ from optimum.quanto import qfloat8_e4m3fn
 from optimum.quanto.tensor.weights.marlin import MarlinF8QBytesTensor
 
 
-@pytest.mark.parametrize("in_features", [64, 128, 192, 256])
-@pytest.mark.parametrize("out_features", [16, 32, 48, 64])
+@pytest.mark.parametrize("in_features", [16, 32, 48, 64])
+@pytest.mark.parametrize("out_features", [64, 128, 192, 256])
 def test_pack_unpack(in_features: int, out_features: int):
-    data = torch.randint(0, 256, size=(in_features, out_features), dtype=torch.uint8, device="cuda")
+    data = torch.randint(0, 256, size=(out_features, in_features), dtype=torch.uint8, device="cuda")
 
     # Remove nans.
     data[data == 127] = 0
@@ -31,10 +31,10 @@ def test_pack_unpack(in_features: int, out_features: int):
     data = data.view(torch.float8_e4m3fn)
 
     qtype = qfloat8_e4m3fn
-    axis = None
+    axis = 0
     size = data.shape
     stride = data.stride()
-    scale = torch.tensor(0.1, dtype=torch.float16, device="cuda")
+    scale = torch.rand((out_features, 1), dtype=torch.float16, device="cuda")
     marlin_tensor = MarlinF8QBytesTensor(qtype, axis, size, stride, data, scale)
 
     data_dequantized = marlin_tensor.dequantize()

@@ -32,14 +32,15 @@ default_symmetric_optimizer = AbsmaxOptimizer()
 def quantize_weight(
     t: torch.Tensor,
     qtype: qtype,
-    axis: Optional[int],
+    axis: int,
     group_size: Optional[int] = None,
     optimizer: Optional[Optimizer] = None,
     zeropoint: bool = False,
-) -> torch.Tensor:
+    activation_qtype: Optional[qtype] = None,
+):
     """Quantize a weight Tensor.
 
-    Weights can be quantized per-axis or per-tensor.
+    Weights are always quantized per-axis.
 
     Args:
         t (`torch.Tensor`): the weight Tensor to quantize
@@ -51,10 +52,14 @@ def quantize_weight(
         zeropoint (`bool`): Allow an exact representation of zero. If True, the shifts are stored as
             integer instead of float, which results in a slightly smaller model, but might also reduce
             the model performance. Defaults to False.
+        activation_qtype (`Optional[qtype]`, defaults to `None`):
+            Which quantization type is being used for the activations. The function `quantize_weight` initializes `torch.Tensor` subclasses that may depend on the activation dtype. `None` corresponds to no quantization.
 
     Returns:
         A quantized Tensor.
     """
+    if axis not in (0, -1):
+        raise ValueError("axis parameter must be 0 (first axis) or -1 (last axis)")
     if qtype.bits == 8:
         if optimizer is None:
             optimizer = default_symmetric_optimizer
@@ -67,7 +72,8 @@ def quantize_weight(
             # Quantizing along an axis of dimension 1 means quantizing per-tensor
             axis = None
         scale = optimizer(t, qtype.qmax, axis)
-        return WeightQBytesTensor.quantize(t, qtype, axis, scale)
+
+        return WeightQBytesTensor.quantize(t, qtype, axis, scale, activation_qtype)
     if optimizer is None:
         optimizer = default_affine_optimizer
     else:
