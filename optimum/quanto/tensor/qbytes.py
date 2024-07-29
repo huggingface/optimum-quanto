@@ -13,7 +13,6 @@
 # limitations under the License.
 
 
-import torch
 from torch.autograd import Function
 
 from .qtensor import QTensor

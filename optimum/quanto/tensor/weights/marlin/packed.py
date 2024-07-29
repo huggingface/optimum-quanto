@@ -17,9 +17,6 @@ from copy import copy
 import torch
 from torch.utils import _pytree as pytree
 
-# This is required to be able to access `torch.ops.quanto_ext.*` members defined in C++ through `TORCH_LIBRARY`.
-from optimum.quanto.library.extensions.cuda import ext  # noqa: F401
-
 
 def pack_fp8_as_int32(fp8_tensor: torch.Tensor) -> torch.Tensor:
     """

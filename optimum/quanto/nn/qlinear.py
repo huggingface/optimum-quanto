@@ -16,9 +16,6 @@ from typing import Optional
 
 import torch
 
-# This is required to be able to access `torch.ops.quanto_ext.*` members defined in C++ through `TORCH_LIBRARY`.
-from optimum.quanto.library.extensions.cuda import ext  # noqa: F401
-
 from ..tensor import Optimizer, QBytesTensor, qtype
 from ..tensor.qbits.awq.qbits import AWQBitsTensor
 from ..tensor.qbits.tinygemm.qbits import TinyGemmQBitsTensor

@@ -18,6 +18,12 @@ from contextlib import contextmanager
 import torch
 
 
+if torch.cuda.is_available():
+    from .extensions.cuda import ext
+
+    # This is required to be able to access `torch.ops.quanto_ext.*` members defined in C++ through `TORCH_LIBRARY`.
+    _ = ext.lib
+
 # This file contains the definitions of all operations under torch.ops.quanto
 
 
