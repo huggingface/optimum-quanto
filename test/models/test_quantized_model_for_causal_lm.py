@@ -3,18 +3,47 @@ from tempfile import TemporaryDirectory
 
 import pytest
 import torch
+from helpers import TOKEN, USER, _run_staging
+from huggingface_hub import delete_repo
 
 from optimum.quanto import QModuleMixin, is_transformers_available, qint4, qint8
 
-from ..helpers import TOKEN, USER, is_staging_test
 
-
-def quantized_model_for_causal_lm(model_id, qtype, exclude):
-    from transformers import AutoModelForCausalLM
+def quantized_model_for_causal_lm(model_id, qtype, exclude, from_config=False):
+    from transformers import AutoModelForCausalLM, OPTConfig
 
     from optimum.quanto import QuantizedModelForCausalLM
 
-    model = AutoModelForCausalLM.from_pretrained(model_id)
+    if from_config:
+        config = OPTConfig(
+            **{
+                "activation_dropout": 0.0,
+                "activation_function": "relu",
+                "architectures": ["OPTForCausalLM"],
+                "attention_dropout": 0.0,
+                "bos_token_id": 2,
+                "do_layer_norm_before": True,
+                "dropout": 0.1,
+                "eos_token_id": 2,
+                "ffn_dim": 32,
+                "hidden_size": 8,
+                "init_std": 0.02,
+                "layerdrop": 0.0,
+                "max_position_embeddings": 16,
+                "model_type": "opt",
+                "num_attention_heads": 2,
+                "num_hidden_layers": 2,
+                "pad_token_id": 1,
+                "prefix": "</s>",
+                "torch_dtype": "float16",
+                "use_cache": True,
+                "vocab_size": 64,
+                "word_embed_proj_dim": 8,
+            }
+        )
+        model = AutoModelForCausalLM.from_config(config).eval()
+    else:
+        model = AutoModelForCausalLM.from_pretrained(model_id)
     return QuantizedModelForCausalLM.quantize(model, weights=qtype, exclude=exclude)
 
 
@@ -75,37 +104,40 @@ def test_quantized_model_for_causal_lm_sharded():
     compare_models(quantized, requantized)
 
 
-@is_staging_test
+@pytest.mark.skipif(not _run_staging, reason="requires staging env.")
 def test_causal_lm_base_push_to_hub():
     from optimum.quanto import QuantizedModelForCausalLM
 
     identifier = uuid.uuid4()
 
-    model_id = "facebook/opt-125m"
     qtype = qint4
     exclude = None
-    quantized = quantized_model_for_causal_lm(model_id, qtype, exclude)
+    quantized = quantized_model_for_causal_lm(None, qtype, exclude, from_config=True)
 
     repo_id = f"test-model-{identifier}"
-    quantized.push_to_hub(repo_id)
-    requantized = QuantizedModelForCausalLM.from_pretrained(repo_id, token=TOKEN)
+    quantized.push_to_hub(repo_id, token=TOKEN)
+    requantized = QuantizedModelForCausalLM.from_pretrained(f"{USER}/{repo_id}", token=TOKEN)
 
     compare_models(quantized, requantized)
 
+    delete_repo(f"{USER}/{repo_id}", token=TOKEN)
 
-@is_staging_test
+
+@pytest.mark.skipif(not _run_staging, reason="requires staging env.")
 def test_causal_lm_base_push_to_hub_in_org():
     from optimum.quanto import QuantizedModelForCausalLM
 
     identifier = uuid.uuid4()
 
-    model_id = "facebook/opt-125m"
     qtype = qint4
     exclude = None
-    quantized = quantized_model_for_causal_lm(model_id, qtype, exclude)
+    quantized = quantized_model_for_causal_lm(None, qtype, exclude, from_config=True)
 
-    org_repo_id = f"{USER}/test-model-{identifier}"
-    quantized.push_to_hub(org_repo_id)
+    repo_id = f"test-model-{identifier}"
+    org_repo_id = f"valid_org/{repo_id}-org"
+    quantized.push_to_hub(org_repo_id, token=TOKEN)
     requantized = QuantizedModelForCausalLM.from_pretrained(org_repo_id, token=TOKEN)
 
     compare_models(quantized, requantized)
+
+    delete_repo(org_repo_id, token=TOKEN)
