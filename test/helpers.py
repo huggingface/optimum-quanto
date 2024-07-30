@@ -15,7 +15,6 @@
 import functools
 import gc
 import os
-import unittest
 
 import pytest
 import torch
@@ -119,16 +118,4 @@ def get_device_memory(device):
     return None
 
 
-_run_staging = os.getenviron("HUGGINGFACE_CO_STAGING", False)
-
-
-def is_staging_test(test_case):
-    """
-    Decorator marking a test as a staging test.
-
-    Those tests will run using the staging environment of huggingface.co instead of the real model hub.
-    """
-    if not _run_staging:
-        return unittest.skip("test is staging test")(test_case)
-    else:
-        return pytest.mark.is_staging_test()(test_case)
+_run_staging = os.getenv("HUGGINGFACE_CO_STAGING", False)
