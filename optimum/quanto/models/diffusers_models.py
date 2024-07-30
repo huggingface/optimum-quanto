@@ -16,6 +16,8 @@ import json
 import os
 from typing import Any, List, Optional, Union
 
+from huggingface_hub import snapshot_download
+
 from ..quantize import Optimizer, freeze, qtype, quantization_map, quantize, requantize
 from . import is_diffusers_available
 
@@ -36,10 +38,11 @@ from diffusers.utils import (
     is_accelerate_available,
 )
 
+from .hub_utils import PushToHubMixin
 from .shared_dict import ShardedStateDict
 
 
-class QuantizedDiffusersModel:
+class QuantizedDiffusersModel(PushToHubMixin):
 
     BASE_NAME = "quanto"
     base_class = None
@@ -115,7 +118,7 @@ class QuantizedDiffusersModel:
         return cls(model)
 
     @classmethod
-    def from_pretrained(cls, model_name_or_path: Union[str, os.PathLike]):
+    def from_pretrained(cls, model_name_or_path: Union[str, os.PathLike], **kwargs):
         if cls.base_class is None:
             raise ValueError("The `base_class` attribute needs to be configured.")
 
@@ -124,53 +127,55 @@ class QuantizedDiffusersModel:
         from accelerate import init_empty_weights
 
         if os.path.isdir(model_name_or_path):
-            # Look for a quantization map
-            qmap_path = os.path.join(model_name_or_path, cls._qmap_name())
-            if not os.path.exists(qmap_path):
-                raise ValueError(f"No quantization map found in {model_name_or_path}: is this a quantized model ?")
-
-            # Look for original model config file.
-            model_config_path = os.path.join(model_name_or_path, CONFIG_NAME)
-            if not os.path.exists(model_config_path):
-                raise ValueError(f"{CONFIG_NAME} not found in {model_name_or_path}.")
-
-            with open(qmap_path, "r", encoding="utf-8") as f:
-                qmap = json.load(f)
-
-            with open(model_config_path, "r", encoding="utf-8") as f:
-                original_model_cls_name = json.load(f)["_class_name"]
-            configured_cls_name = cls.base_class.__name__
-            if configured_cls_name != original_model_cls_name:
-                raise ValueError(
-                    f"Configured base class ({configured_cls_name}) differs from what was derived from the provided configuration ({original_model_cls_name})."
-                )
-
-            # Create an empty model
-            config = cls.base_class.load_config(model_name_or_path)
-            with init_empty_weights():
-                model = cls.base_class.from_config(config)
-
-            # Look for the index of a sharded checkpoint
-            checkpoint_file = os.path.join(model_name_or_path, SAFE_WEIGHTS_INDEX_NAME)
-            if os.path.exists(checkpoint_file):
-                # Convert the checkpoint path to a list of shards
-                _, sharded_metadata = _get_checkpoint_shard_files(model_name_or_path, checkpoint_file)
-                # Create a mapping for the sharded safetensor files
-                state_dict = ShardedStateDict(model_name_or_path, sharded_metadata["weight_map"])
-            else:
-                # Look for a single checkpoint file
-                checkpoint_file = os.path.join(model_name_or_path, SAFETENSORS_WEIGHTS_NAME)
-                if not os.path.exists(checkpoint_file):
-                    raise ValueError(f"No safetensor weights found in {model_name_or_path}.")
-                # Get state_dict from model checkpoint
-                state_dict = load_state_dict(checkpoint_file)
-
-            # Requantize and load quantized weights from state_dict
-            requantize(model, state_dict=state_dict, quantization_map=qmap)
-            model.eval()
-            return cls(model)
+            working_dir = model_name_or_path
         else:
-            raise NotImplementedError("Reloading quantized models directly from the hub is not supported yet.")
+            working_dir = snapshot_download(model_name_or_path, **kwargs)
+
+        # Look for a quantization map
+        qmap_path = os.path.join(working_dir, cls._qmap_name())
+        if not os.path.exists(qmap_path):
+            raise ValueError(f"No quantization map found in {model_name_or_path}: is this a quantized model ?")
+
+        # Look for original model config file.
+        model_config_path = os.path.join(working_dir, CONFIG_NAME)
+        if not os.path.exists(model_config_path):
+            raise ValueError(f"{CONFIG_NAME} not found in {model_name_or_path}.")
+
+        with open(qmap_path, "r", encoding="utf-8") as f:
+            qmap = json.load(f)
+
+        with open(model_config_path, "r", encoding="utf-8") as f:
+            original_model_cls_name = json.load(f)["_class_name"]
+        configured_cls_name = cls.base_class.__name__
+        if configured_cls_name != original_model_cls_name:
+            raise ValueError(
+                f"Configured base class ({configured_cls_name}) differs from what was derived from the provided configuration ({original_model_cls_name})."
+            )
+
+        # Create an empty model
+        config = cls.base_class.load_config(model_name_or_path, **kwargs)
+        with init_empty_weights():
+            model = cls.base_class.from_config(config)
+
+        # Look for the index of a sharded checkpoint
+        checkpoint_file = os.path.join(working_dir, SAFE_WEIGHTS_INDEX_NAME)
+        if os.path.exists(checkpoint_file):
+            # Convert the checkpoint path to a list of shards
+            _, sharded_metadata = _get_checkpoint_shard_files(working_dir, checkpoint_file)
+            # Create a mapping for the sharded safetensor files
+            state_dict = ShardedStateDict(working_dir, sharded_metadata["weight_map"])
+        else:
+            # Look for a single checkpoint file
+            checkpoint_file = os.path.join(working_dir, SAFETENSORS_WEIGHTS_NAME)
+            if not os.path.exists(checkpoint_file):
+                raise ValueError(f"No safetensor weights found in {model_name_or_path}.")
+            # Get state_dict from model checkpoint
+            state_dict = load_state_dict(checkpoint_file)
+
+        # Requantize and load quantized weights from state_dict
+        requantize(model, state_dict=state_dict, quantization_map=qmap)
+        model.eval()
+        return cls(model)
 
     def save_pretrained(self, save_directory: Union[str, os.PathLike], max_shard_size: Union[int, str] = "10GB"):
         self._wrapped.save_pretrained(save_directory, max_shard_size=max_shard_size)

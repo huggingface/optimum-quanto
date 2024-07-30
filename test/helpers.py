@@ -14,12 +14,22 @@
 
 import functools
 import gc
+import os
+import unittest
 
 import pytest
 import torch
 from packaging import version
 
 from optimum.quanto import QBitsTensor, absmax_scale, qint8, quantize_activation, quantize_weight
+
+
+# Used to test the hub
+USER = "__DUMMY_TRANSFORMERS_USER__"
+ENDPOINT_STAGING = "https://hub-ci.huggingface.co"
+
+# Not critical, only usable on the sandboxed CI instance.
+TOKEN = "hf_94wBhPGp6KrrTH3KDchhKpRxZwd6dmHWLL"
 
 
 def torch_min_version(v):
@@ -107,3 +117,18 @@ def get_device_memory(device):
         torch.mps.empty_cache()
         return torch.mps.current_allocated_memory()
     return None
+
+
+_run_staging = os.getenviron("HUGGINGFACE_CO_STAGING", False)
+
+
+def is_staging_test(test_case):
+    """
+    Decorator marking a test as a staging test.
+
+    Those tests will run using the staging environment of huggingface.co instead of the real model hub.
+    """
+    if not _run_staging:
+        return unittest.skip("test is staging test")(test_case)
+    else:
+        return pytest.mark.is_staging_test()(test_case)

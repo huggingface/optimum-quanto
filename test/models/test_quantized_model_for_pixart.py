@@ -1,9 +1,13 @@
+import uuid
 from tempfile import TemporaryDirectory
 
 import pytest
 import torch
+from huggingface_hub import delete_repo
 
 from optimum.quanto import QModuleMixin, is_diffusers_available, qint4, qint8
+
+from ..helpers import TOKEN, is_staging_test
 
 
 def quantized_model_for_pixart(qtype, exclude):
@@ -86,3 +90,38 @@ def test_quantized_model_for_pixart(qtype, exclude_proj_out):
         requantized = QuantizedPixArtTransformer2DModel.from_pretrained(tmpdir)
 
     compare_models(quantized, requantized)
+
+
+@is_staging_test
+def test_push_to_hub():
+    from optimum.quanto import QuantizedPixArtTransformer2DModel
+
+    identifier = uuid.uuid4()
+
+    exclude = None
+    quantized = quantized_model_for_pixart("qint8", exclude)
+    repo_id = f"test-model-{identifier}"
+    quantized.push_to_hub(repo_id=repo_id, token=TOKEN)
+
+    requantized = QuantizedPixArtTransformer2DModel.from_pretrained(repo_id)
+    compare_models(quantized, requantized)
+
+    delete_repo(repo_id, token=TOKEN)
+
+
+@is_staging_test
+def test_push_to_hub_in_org():
+    from optimum.quanto import QuantizedPixArtTransformer2DModel
+
+    identifier = uuid.uuid4()
+
+    exclude = None
+    quantized = quantized_model_for_pixart("qint8", exclude)
+    repo_id = f"test-model-{identifier}"
+    org_repo_id = f"valid_org/{repo_id}-org"
+    quantized.push_to_hub(repo_id=org_repo_id, token=TOKEN)
+
+    requantized = QuantizedPixArtTransformer2DModel.from_pretrained(org_repo_id)
+    compare_models(quantized, requantized)
+
+    delete_repo(repo_id, token=TOKEN)

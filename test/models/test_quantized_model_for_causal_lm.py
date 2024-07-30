@@ -1,9 +1,12 @@
+import uuid
 from tempfile import TemporaryDirectory
 
 import pytest
 import torch
 
 from optimum.quanto import QModuleMixin, is_transformers_available, qint4, qint8
+
+from ..helpers import TOKEN, USER, is_staging_test
 
 
 def quantized_model_for_causal_lm(model_id, qtype, exclude):
@@ -68,5 +71,41 @@ def test_quantized_model_for_causal_lm_sharded():
     with TemporaryDirectory() as tmpdir:
         quantized.save_pretrained(tmpdir, max_shard_size="100MB")
         requantized = QuantizedModelForCausalLM.from_pretrained(tmpdir)
+
+    compare_models(quantized, requantized)
+
+
+@is_staging_test
+def test_causal_lm_base_push_to_hub():
+    from optimum.quanto import QuantizedModelForCausalLM
+
+    identifier = uuid.uuid4()
+
+    model_id = "facebook/opt-125m"
+    qtype = qint4
+    exclude = None
+    quantized = quantized_model_for_causal_lm(model_id, qtype, exclude)
+
+    repo_id = f"test-model-{identifier}"
+    quantized.push_to_hub(repo_id)
+    requantized = QuantizedModelForCausalLM.from_pretrained(repo_id, token=TOKEN)
+
+    compare_models(quantized, requantized)
+
+
+@is_staging_test
+def test_causal_lm_base_push_to_hub_in_org():
+    from optimum.quanto import QuantizedModelForCausalLM
+
+    identifier = uuid.uuid4()
+
+    model_id = "facebook/opt-125m"
+    qtype = qint4
+    exclude = None
+    quantized = quantized_model_for_causal_lm(model_id, qtype, exclude)
+
+    org_repo_id = f"{USER}/test-model-{identifier}"
+    quantized.push_to_hub(org_repo_id)
+    requantized = QuantizedModelForCausalLM.from_pretrained(org_repo_id, token=TOKEN)
 
     compare_models(quantized, requantized)
