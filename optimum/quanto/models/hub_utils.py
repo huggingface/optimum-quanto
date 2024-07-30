@@ -17,9 +17,8 @@ Adapted from
 https://github.com/huggingface/diffusers/blob/69e72b1dd113927ed638f26e82738e9735385edc/src/diffusers/utils/hub_utils.py#L503C1-L601C14
 """
 
-import os
 import tempfile
-from typing import Optional, Union
+from typing import Optional
 
 from huggingface_hub import create_repo, upload_folder
 
@@ -28,24 +27,6 @@ class PushToHubMixin:
     """
     A Mixin to push a model, scheduler, or pipeline to the Hugging Face Hub.
     """
-
-    def _upload_folder(
-        self,
-        working_dir: Union[str, os.PathLike],
-        repo_id: str,
-        token: Optional[str] = None,
-        commit_message: Optional[str] = None,
-        create_pr: bool = False,
-    ):
-        """
-        Uploads all files in `working_dir` to `repo_id`.
-        """
-        if commit_message is None:
-            commit_message = f"Upload {self.__class__.__name__}"
-
-        return upload_folder(
-            repo_id=repo_id, folder_path=working_dir, token=token, commit_message=commit_message, create_pr=create_pr
-        )
 
     def push_to_hub(
         self,
@@ -81,10 +62,9 @@ class PushToHubMixin:
         with tempfile.TemporaryDirectory() as tmpdir:
             self.save_pretrained(tmpdir)
 
-            return self._upload_folder(
-                tmpdir,
-                repo_id,
-                token=token,
-                commit_message=commit_message,
-                create_pr=create_pr,
+            if commit_message is None:
+                commit_message = f"Upload {self.__class__.__name__}"
+
+            return upload_folder(
+                repo_id=repo_id, folder_path=tmpdir, token=token, commit_message=commit_message, create_pr=create_pr
             )
