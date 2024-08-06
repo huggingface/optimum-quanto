@@ -6,7 +6,8 @@ Implementations can be provided as part of:
 
 - the generic C++ pytorch extension under `cpp`,
 - the CUDA extension under `cuda`,
-- the Metal Performance Shader extension under `mps`.
+- the Metal Performance Shader extension under `mps`,
+- the XPU SYCL extension under `xpu`.
 
 
 To provide a device-specific implementation of an operation that already has a default implementation (such as unpack), use the following syntax:

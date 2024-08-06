@@ -55,6 +55,7 @@ def test_calibrate_qlinear_activations_int8(batch_size, tokens, embeddings, use_
     ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3", "a-qfloat8-e4m3-uz"],
 )
 @pytest.mark.skip_device("mps")
+@pytest.mark.skip_device("xpu")
 def test_calibrate_qlinear_activations_float8(batch_size, tokens, embeddings, use_bias, activations, device):
     _test_calibrate_qlinear(batch_size, tokens, embeddings, use_bias, activations, device)
 
@@ -95,5 +96,6 @@ def test_calibrate_custom_module_activations_int8(device):
     ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3", "a-qfloat8-e4m3-uz"],
 )
 @pytest.mark.skip_device("mps")
+@pytest.mark.skip_device("xpu")
 def test_calibrate_custom_module_activations_float8(activations, device):
     _test_calibrate_custom_module(activations, device)

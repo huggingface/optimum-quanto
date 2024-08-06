@@ -80,6 +80,7 @@ def test_quantize_conv2d_float32_activations_int8(batch_size, img_shape, out_cha
     ids=["a-float8-e5m2", "a-float8-e4m3", "a-float8_e4m3-uz"],
 )
 @pytest.mark.skip_device("mps")
+@pytest.mark.skip_device("xpu")
 def test_quantize_conv2d_float16_activations_float8(
     batch_size, img_shape, out_channels, use_bias, weights, activations, device
 ):
@@ -97,6 +98,7 @@ def test_quantize_conv2d_float16_activations_float8(
     ids=["a-float8-e5m2", "a-float8-e4m3", "a-float8-e4m3-uz"],
 )
 @pytest.mark.skip_device("mps")
+@pytest.mark.skip_device("xpu")
 def test_quantize_conv2d_float32_activations_float8(
     batch_size, img_shape, out_channels, use_bias, weights, activations, device
 ):
