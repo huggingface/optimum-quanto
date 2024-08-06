@@ -1,4 +1,5 @@
 # Copyright 2024 The HuggingFace Team. All rights reserved.
+# Copyright 2024 Intel Corporation. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,16 +13,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 import torch
 
-from .cpp import *
+from ..extension import Extension
 
 
-if torch.cuda.is_available():
-    from .cuda import *
+__all__ = []
 
-if torch.backends.mps.is_available():
-    from .mps import *
 
-if torch.xpu.is_available():
-    from .xpu import *
+module_path = os.path.dirname(__file__)
+sources = [
+    "unpack.sycl",
+    "pybind_module.cpp",
+]
+ext = Extension(
+    "quanto_xpu",
+    root_dir=os.path.dirname(__file__),
+    sources=sources,
+)
+
+
+@torch.library.impl("quanto_ext::unpack", ["XPU"])
+def unpack_xpu(t: torch.Tensor, bits: int):
+    return ext.lib.unpack(t, bits)
