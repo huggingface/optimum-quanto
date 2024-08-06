@@ -39,6 +39,8 @@ def timing(get_bench_func, device, iterations=10):
             torch.cuda.synchronize()
         elif device.type == "mps":
             torch.mps.synchronize()
+        elif device.type == "xpu":
+            torch.xpu.synchronize()
         else:
             torch.cpu.synchronize()
 
@@ -47,6 +49,9 @@ def timing(get_bench_func, device, iterations=10):
             return torch.cuda.Event(enable_timing=True)
         elif device.type == "mps":
             return torch.mps.Event(enable_timing=True)
+        # See: https://github.com/pytorch/pytorch/issues/131840
+        # elif device.type == "xpu":
+        #     return torch.xpu.Event(enable_timing=True)
 
         class CPUEvent:
             def __init__(self):
@@ -99,6 +104,8 @@ def main():
             device = torch.device("cuda")
         elif torch.backends.mps.is_available():
             device = torch.device("mps")
+        elif torch.xpu.is_available():
+            device = torch.device("xpu")
         else:
             device = torch.device("cpu")
     else:
