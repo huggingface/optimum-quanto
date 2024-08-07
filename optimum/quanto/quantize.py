@@ -87,7 +87,7 @@ def quantize(
             any patterns from the denylist.
     """
     if include is not None:
-        include = [include] if isinstance(include, str) else exclude
+        include = [include] if isinstance(include, str) else include
     if exclude is not None:
         exclude = [exclude] if isinstance(exclude, str) else exclude
     for name, m in model.named_modules():
