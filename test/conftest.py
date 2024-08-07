@@ -21,6 +21,8 @@ if torch.cuda.is_available():
     devices += ["cuda"]
 elif torch.backends.mps.is_available():
     devices += ["mps"]
+elif torch.xpu.is_available():
+    devices += ["xpu"]
 
 
 @pytest.fixture(scope="module", params=devices)

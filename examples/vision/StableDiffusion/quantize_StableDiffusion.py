@@ -59,6 +59,11 @@ def get_device_memory(device):
     elif device.type == "mps":
         torch.mps.empty_cache()
         return torch.mps.current_allocated_memory()
+    elif device.type == "xpu":
+        torch.xpu.empty_cache()
+        # See: https://github.com/pytorch/pytorch/issues/127929
+        # return torch.xpu.memory_allocated()
+        return None
     return None
 
 
@@ -78,6 +83,8 @@ if __name__ == "__main__":
             device = torch.device("cuda")
         elif torch.backends.mps.is_available():
             device = torch.device("mps")
+        elif torch.xpu.is_available():
+            device = torch.device("xpu")
         else:
             device = torch.device("cpu")
     else:
@@ -91,7 +98,13 @@ if __name__ == "__main__":
         run_inference(pipeline, args.batch_size)
 
     time = benchmark_fn(run_inference, pipeline, args.batch_size)
-    memory = bytes_to_giga_bytes(torch.cuda.max_memory_allocated())  # in GBs.
+    if device.type == "cuda":
+        memory = bytes_to_giga_bytes(torch.cuda.max_memory_allocated())  # in GBs.
+    # See: https://github.com/pytorch/pytorch/issues/127929
+    # elif device.type == "xpu":
+    #     memory = bytes_to_giga_bytes(torch.xpu.max_memory_allocated())  # in GBs.
+    else:
+        memory = 0
     get_device_memory(device)
     print(
         f"batch_size: {args.batch_size}, torch_dtype: {args.torch_dtype}, unet_dtype: {args.unet_qtype}  in {time} seconds."

@@ -110,15 +110,17 @@ def main():
             device = torch.device("cuda")
         elif torch.backends.mps.is_available():
             device = torch.device("mps")
+        elif torch.xpu.is_available():
+            device = torch.device("xpu")
         else:
             device = torch.device("cpu")
     else:
         device = torch.device(args.device)
 
     dataset_kwargs = {"batch_size": args.batch_size}
-    if torch.cuda.is_available():
-        cuda_kwargs = {"num_workers": 1, "pin_memory": True, "shuffle": True}
-        dataset_kwargs.update(cuda_kwargs)
+    if torch.cuda.is_available() or torch.xpu.is_available():
+        backend_kwargs = {"num_workers": 1, "pin_memory": True, "shuffle": True}
+        dataset_kwargs.update(backend_kwargs)
 
     transform = transforms.Compose(
         [
