@@ -20,7 +20,7 @@ authors = [{ name = 'David Corvoysier' }]
 maintainers = [
     {name = "HuggingFace Inc. Special Ops Team", email="hardware@huggingface.co"},
 ]
-dependencies = ['torch>=2.4.0', 'ninja', 'numpy', 'safetensors', 'huggingface_hub']
+dependencies = ['torch>=2.3.0', 'ninja', 'numpy', 'safetensors', 'huggingface_hub']
 license = { text = 'Apache-2.0' }
 readme = 'README.md'
 dynamic = ['version']

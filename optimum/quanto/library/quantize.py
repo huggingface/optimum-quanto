@@ -19,7 +19,6 @@ import torch
 from ..tensor import dtype_info, group
 
 
-@torch.library.custom_op("quanto::quantize_symmetric", mutates_args=())
 def quantize_symmetric(
     base: torch.Tensor, dtype: torch.dtype, axis: Union[int, None], scale: torch.Tensor
 ) -> torch.Tensor:
@@ -50,7 +49,6 @@ def quantize_symmetric(
     return torch.clamp(data, min=info.min, max=info.max).to(dtype)
 
 
-@torch.library.custom_op("quanto::quantize_affine", mutates_args=())
 def quantize_affine(
     base: torch.Tensor, bits: int, axis: int, group_size: Union[int, None], scale: torch.Tensor, shift: torch.Tensor
 ) -> torch.Tensor:
@@ -65,3 +63,6 @@ def quantize_affine(
         data = torch.round(base / scale) + shift
 
     return torch.clamp(data, min=0, max=2**bits - 1).to(torch.uint8)
+
+torch.ops.quanto.quantize_symmetric = quantize_symmetric
+torch.ops.quanto.quantize_affine = quantize_affine
