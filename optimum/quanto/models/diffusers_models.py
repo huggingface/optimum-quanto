@@ -11,12 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import json
 import os
+from pathlib import Path
 from typing import Any, List, Optional, Union
 
-from huggingface_hub import snapshot_download
+from huggingface_hub import ModelHubMixin, snapshot_download
 
 from ..quantize import Optimizer, freeze, qtype, quantization_map, quantize, requantize
 from . import is_diffusers_available
@@ -38,11 +38,10 @@ from diffusers.utils import (
     is_accelerate_available,
 )
 
-from .hub_utils import PushToHubMixin
 from .shared_dict import ShardedStateDict
 
 
-class QuantizedDiffusersModel(PushToHubMixin):
+class QuantizedDiffusersModel(ModelHubMixin):
 
     BASE_NAME = "quanto"
     base_class = None
@@ -177,8 +176,8 @@ class QuantizedDiffusersModel(PushToHubMixin):
         model.eval()
         return cls(model)
 
-    def save_pretrained(self, save_directory: Union[str, os.PathLike], max_shard_size: Union[int, str] = "10GB"):
-        self._wrapped.save_pretrained(save_directory, max_shard_size=max_shard_size)
+    def _save_pretrained(self, save_directory: Path) -> None:
+        self._wrapped.save_pretrained(save_directory)
         # Save quantization map to be able to reload the model
         qmap_name = os.path.join(save_directory, self._qmap_name())
         qmap = quantization_map(self._wrapped)
