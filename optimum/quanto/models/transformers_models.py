@@ -14,14 +14,14 @@
 
 import json
 import os
+from pathlib import Path
 from typing import Any, List, Optional, Union
 
-from huggingface_hub import snapshot_download
+from huggingface_hub import ModelHubMixin, snapshot_download
 
 from ..nn import QModuleMixin
 from ..quantize import Optimizer, freeze, qtype, quantization_map, quantize, requantize
 from . import is_transformers_available
-from .hub_utils import PushToHubMixin
 from .shared_dict import ShardedStateDict
 
 
@@ -35,7 +35,7 @@ from transformers.modeling_utils import get_checkpoint_shard_files, load_state_d
 from transformers.utils import SAFE_WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_NAME, is_accelerate_available
 
 
-class QuantizedTransformersModel(PushToHubMixin):
+class QuantizedTransformersModel(ModelHubMixin):
 
     BASE_NAME = "quanto"
     auto_class = None
@@ -155,8 +155,7 @@ class QuantizedTransformersModel(PushToHubMixin):
         model.eval()
         return cls(model)
 
-    def save_pretrained(self, save_directory: Union[str, os.PathLike], max_shard_size: Union[int, str] = "5GB"):
-
+    def _save_pretrained(self, save_directory: Path) -> None:
         model = self._wrapped
         if getattr(model.config, "tie_word_embeddings", True):
             # The original model had tied embedding inputs and outputs
@@ -165,7 +164,7 @@ class QuantizedTransformersModel(PushToHubMixin):
             ):
                 # At least one of the two is quantized, so they are not tied anymore
                 model.config.tie_word_embeddings = False
-        self._wrapped.save_pretrained(save_directory, max_shard_size=max_shard_size, safe_serialization=True)
+        self._wrapped.save_pretrained(save_directory, safe_serialization=True)
         # Save quantization map to be able to reload the model
         qmap_name = os.path.join(save_directory, self._qmap_name())
         qmap = quantization_map(self._wrapped)
