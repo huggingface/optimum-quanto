@@ -124,7 +124,7 @@ class WeightQBytesTensor(QBytesTensor):
             and activation_qtype is None
             and scale.dtype in [torch.float16, torch.bfloat16]
             and len(size) == 2
-            and data.device.type == "cuda"
+            and (data.device.type == "cuda" and torch.version.cuda)
             and axis == 0
             and torch.cuda.get_device_capability(data.device)[0] >= 8
         ):

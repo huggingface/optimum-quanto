@@ -6,7 +6,10 @@ from optimum.quanto.library.extensions import get_extension, is_extension_availa
 
 extension_names = ["quanto_cpp"]
 if torch.cuda.is_available():
-    extension_names.append("quanto_cuda")
+    if torch.version.cuda:
+        extension_names.append("quanto_cuda")
+    if torch.version.hip:
+        extension_names.append("quanto_hip")
 if torch.backends.mps.is_available():
     extension_names.append("quanto_mps")
 
