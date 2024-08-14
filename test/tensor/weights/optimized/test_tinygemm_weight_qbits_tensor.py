@@ -27,6 +27,8 @@ from optimum.quanto.tensor.weights.tinygemm import TinyGemmWeightQBitsTensor
 @pytest.mark.parametrize("out_features", [128, 256, 512, 1024])
 def test_tinygemm_weight_qbits_tensor_from_qbits_tensor(in_features, out_features, device):
     if device.type == "cuda":
+        if torch.version.hip:
+            pytest.skip(reason="TinyGemm not available for ROCm devices")
         if version.parse(torch.version.cuda).release < (12, 1):
             pytest.skip(reason="CUDA runtime must be at least 12.1")
         if torch.cuda.get_device_capability()[0] < 8:
@@ -98,6 +100,8 @@ def test_tinygemm_weight_qbits_tensor_move(device):
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 def test_tinygemm_weight_qbits_tensor_linear(batch_size, tokens, embeddings, use_bias, device):
     if device.type == "cuda":
+        if torch.version.hip:
+            pytest.skip(reason="TinyGemm not available for ROCm devices")
         if version.parse(torch.version.cuda).release < (12, 1):
             pytest.skip(reason="CUDA runtime must be at least 12.1")
         if torch.cuda.get_device_capability()[0] < 8:
