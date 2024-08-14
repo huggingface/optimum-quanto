@@ -12,16 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 import torch
 
-from .cpp import *
+from ..extension import Extension
 
 
-if torch.cuda.is_available():
-    if torch.version.cuda:
-        from .cuda import *
-    elif torch.version.hip:
-        from .hip import *
+__all__ = []
 
-if torch.backends.mps.is_available():
-    from .mps import *
+
+ext = Extension(
+    "quanto_cuda",
+    root_dir=os.path.dirname(__file__),
+    sources=["unpack.cu", "pybind_module.cpp"],
+    extra_cflags=["-std=c++17"],
+)
+
+
+@torch.library.impl("quanto_ext::unpack", ["CUDA"])
+def unpack_cuda(t: torch.Tensor, bits: int):
+    return ext.lib.unpack(t, bits)

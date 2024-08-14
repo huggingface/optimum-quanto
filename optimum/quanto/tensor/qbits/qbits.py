@@ -117,7 +117,7 @@ class QBitsTensor(QTensor):
             and axis == 0
             and group_size == 128
             and len(size) == 2
-            and data.device.type == "cuda"
+            and (data.device.type == "cuda" and torch.version.cuda)
             and torch.cuda.get_device_capability(data.device)[0] >= 8
         ):
             if type(data) is PackedTensor:
@@ -125,7 +125,7 @@ class QBitsTensor(QTensor):
             return AWQBitsTensor(qtype, axis, group_size, size, stride, data, scale, shift, requires_grad)
         if qtype == qint4 and scale.dtype == torch.bfloat16 and axis == 0 and group_size == 128 and len(size) == 2:
             if data.device.type == "cpu" or (
-                data.device.type == "cuda"
+                (data.device.type == "cuda" and torch.version.cuda)
                 and version.parse(torch.version.cuda).release >= (12, 1)
                 and torch.cuda.get_device_capability(data.device)[0] >= 8
             ):
