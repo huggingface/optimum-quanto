@@ -16,7 +16,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_qactivation
 
-from optimum.quanto import ActivationQBytesTensor, Calibration, qfloat8_e4m3fn, qfloat8_e5m2, qint8
+from optimum.quanto import ActivationQBytesTensor, Calibration, qfloat8_e4m3fn, qfloat8_e4m3fnuz, qfloat8_e5m2, qint8
 from optimum.quanto.nn import QLayerNorm
 
 
@@ -37,7 +37,7 @@ def _test_quantize_layernorm(batch_size, tokens, embeddings, dtype, activations,
     # We need to increase atol for float16 dtype
     dtype_atol = {torch.float32: 1e-4, torch.float16: 1e-3}[dtype]
     # We also need to increase atol for float8 qtypes
-    atol = {qint8: dtype_atol, qfloat8_e5m2: 5e-3, qfloat8_e4m3fn: 5e-3}[activations]
+    atol = {qint8: dtype_atol, qfloat8_e5m2: 5e-3, qfloat8_e4m3fn: 5e-3, qfloat8_e4m3fnuz: 5e-3}[activations]
     assert_similar(out, qout, atol=atol)
 
 
@@ -57,8 +57,8 @@ def test_quantize_layernorm_float32_activations_int8(batch_size, tokens, embeddi
 @pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
 @pytest.mark.parametrize(
     "activations",
-    [qfloat8_e5m2, qfloat8_e4m3fn],
-    ids=["a-float8-e5m2", "a-float8-e4m3"],
+    [qfloat8_e5m2, qfloat8_e4m3fn, qfloat8_e4m3fnuz],
+    ids=["a-float8-e5m2", "a-float8-e4m3", "a-float8-e4m3-uz"],
 )
 @pytest.mark.skip_device("mps")
 def test_quantize_layernorm_float16_activations_float8(batch_size, tokens, embeddings, activations, device):
@@ -69,8 +69,8 @@ def test_quantize_layernorm_float16_activations_float8(batch_size, tokens, embed
 @pytest.mark.parametrize("tokens, embeddings", [(32, 32), (10, 32)])
 @pytest.mark.parametrize(
     "activations",
-    [qfloat8_e5m2, qfloat8_e4m3fn],
-    ids=["a-float8-e5m2", "a-float8-e4m3"],
+    [qfloat8_e5m2, qfloat8_e4m3fn, qfloat8_e4m3fnuz],
+    ids=["a-float8-e5m2", "a-float8-e4m3", "a-float8-e4m3-uz"],
 )
 @pytest.mark.skip_device("mps")
 def test_quantize_layernorm_float32_activations_float8(batch_size, tokens, embeddings, activations, device):

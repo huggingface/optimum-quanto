@@ -25,6 +25,7 @@ from optimum.quanto import (
     absmax_scale,
     qfloat8,
     qfloat8_e4m3fn,
+    qfloat8_e4m3fnuz,
     qfloat8_e5m2,
     qint4,
     qint8,
@@ -82,8 +83,8 @@ def test_quantize_linear_float32_activations_int8(batch_size, tokens, embeddings
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
 @pytest.mark.parametrize(
     "activations",
-    [qfloat8_e4m3fn],
-    ids=["a-qfloat8-e4m3"],
+    [qfloat8_e4m3fn, qfloat8_e4m3fnuz],
+    ids=["a-qfloat8-e4m3", "a-float8-e4m3-uz"],
 )
 @pytest.mark.skip_device("mps")
 def test_quantize_linear_float16_activations_float8(
@@ -99,8 +100,8 @@ def test_quantize_linear_float16_activations_float8(
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
 @pytest.mark.parametrize(
     "activations",
-    [qfloat8_e5m2, qfloat8_e4m3fn],
-    ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3"],
+    [qfloat8_e5m2, qfloat8_e4m3fn, qfloat8_e4m3fnuz],
+    ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3", "a-float8-e4m3-uz"],
 )
 @pytest.mark.skip_device("mps")
 def test_quantize_linear_float32_activations_float8(
