@@ -16,7 +16,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_qactivation, random_tensor
 
-from optimum.quanto import ActivationQBytesTensor, Calibration, qfloat8_e4m3fn, qfloat8_e5m2, qint4, qint8
+from optimum.quanto import ActivationQBytesTensor, Calibration, qfloat8_e4m3fn, qfloat8_e4m3fnuz, qfloat8_e5m2, qint4, qint8
 from optimum.quanto.nn import QConv2d
 
 
@@ -37,7 +37,7 @@ def _test_quantize_conv2d(batch_size, img_shape, out_channels, use_bias, weights
     # We need to increase atol for float16 dtype
     dtype_atol = {torch.float32: 1e-4, torch.float16: 1e-3}[dtype]
     # We also need to increase atol for float8 itypes
-    atol = {None: dtype_atol, qint8: dtype_atol, qfloat8_e5m2: 5e-3, qfloat8_e4m3fn: 5e-3}[activations]
+    atol = {None: dtype_atol, qint8: dtype_atol, qfloat8_e5m2: 5e-3, qfloat8_e4m3fn: 5e-3, qfloat8_e4m3fnuz: 5e-3}[activations]
     assert_similar(out, qout, atol=atol)
 
 
@@ -66,8 +66,8 @@ def test_quantize_conv2d_float32_activations_int8(batch_size, img_shape, out_cha
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-int4", "w-int8"])
 @pytest.mark.parametrize(
     "activations",
-    [qfloat8_e5m2, qfloat8_e4m3fn],
-    ids=["a-float8-e5m2", "a-float8-e4m3"],
+    [qfloat8_e5m2, qfloat8_e4m3fn, qfloat8_e4m3fnuz],
+    ids=["a-float8-e5m2", "a-float8-e4m3", "a-float8_e4m3-uz"],
 )
 @pytest.mark.skip_device("mps")
 def test_quantize_conv2d_float16_activations_float8(
@@ -83,8 +83,8 @@ def test_quantize_conv2d_float16_activations_float8(
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-int4", "w-int8"])
 @pytest.mark.parametrize(
     "activations",
-    [qfloat8_e5m2, qfloat8_e4m3fn],
-    ids=["a-float8-e5m2", "a-float8-e4m3"],
+    [qfloat8_e5m2, qfloat8_e4m3fn, qfloat8_e4m3fnuz],
+    ids=["a-float8-e5m2", "a-float8-e4m3", "a-float8-e4m3-uz"],
 )
 @pytest.mark.skip_device("mps")
 def test_quantize_conv2d_float32_activations_float8(

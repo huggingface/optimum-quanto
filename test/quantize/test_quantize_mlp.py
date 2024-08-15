@@ -28,6 +28,7 @@ from optimum.quanto import (
     absmax_scale,
     freeze,
     qfloat8_e4m3fn,
+    qfloat8_e4m3fnuz,
     qfloat8_e5m2,
     qint4,
     qint8,
@@ -96,13 +97,13 @@ def test_quantize_mlp_int8_activations(weights, frozen, device):
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize(
     "activations",
-    [qfloat8_e5m2, qfloat8_e4m3fn],
-    ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3"],
+    [qfloat8_e5m2, qfloat8_e4m3fn, qfloat8_e4m3fnuz],
+    ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3", "a-float8-e4m3-uz"],
 )
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
 @pytest.mark.skip_device("mps")
 def test_quantize_mlp_float8_activations(weights, activations, frozen, device):
-    atol = {qfloat8_e4m3fn: 1e-3, qfloat8_e5m2: 1e-2}[activations]
+    atol = {qfloat8_e4m3fn: 1e-3, qfloat8_e4m3fnuz: 1e-3, qfloat8_e5m2: 1e-2}[activations]
     _test_quantize_mlp(weights, activations, None, frozen, device, atol=atol)
 
 

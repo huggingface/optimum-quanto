@@ -60,6 +60,7 @@ def qfloat(dtype: torch.dtype):
 
 
 qfloat8_e4m3fn = qfloat(torch.float8_e4m3fn)
+qfloat8_e4m3fnuz = qfloat(torch.float8_e4m3fnuz)
 qfloat8_e5m2 = qfloat(torch.float8_e5m2)
 
 # Alias the float8 representation that has the better support and inference efficiency

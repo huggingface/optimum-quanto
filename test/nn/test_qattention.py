@@ -21,7 +21,7 @@ import torch.utils.checkpoint
 from helpers import assert_similar, random_tensor
 from torch import nn
 
-from optimum.quanto import Calibration, qfloat8_e4m3fn, qfloat8_e5m2, qint8, quantize
+from optimum.quanto import Calibration, qfloat8_e4m3fn, qfloat8_e4m3fnuz, qfloat8_e5m2, qint8, quantize
 
 
 class RotaryEmbedding(nn.Module):
@@ -186,7 +186,7 @@ def _test_quantize_attention(device, dtype=torch.float32, weights=qint8, activat
     else:
         with torch.no_grad(), Calibration():
             qoutputs = att(inputs)
-    atol = {None: 1e-4, qint8: 1e-3, qfloat8_e5m2: 1e-2, qfloat8_e4m3fn: 1e-2}[activations]
+    atol = {None: 1e-4, qint8: 1e-3, qfloat8_e5m2: 1e-2, qfloat8_e4m3fn: 1e-2, qfloat8_e4m3fnuz:1e-2}[activations]
     assert_similar(outputs, qoutputs, atol=atol)
 
 
@@ -203,8 +203,8 @@ def test_quantize_attention_activations_int8(weights, device):
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize(
     "activations",
-    [qfloat8_e5m2, qfloat8_e4m3fn],
-    ids=["a-float8-e5m2", "a-float8-e4m3"],
+    [qfloat8_e5m2, qfloat8_e4m3fn, qfloat8_e4m3fnuz],
+    ids=["a-float8-e5m2", "a-float8-e4m3", "a-float8-e4m3-uz"],
 )
 @pytest.mark.skip_device("mps")
 def test_quantize_attention_activations_float8(weights, activations, device):
