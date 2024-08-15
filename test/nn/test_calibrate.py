@@ -16,7 +16,7 @@ import pytest
 import torch
 from helpers import random_qactivation
 
-from optimum.quanto import Calibration, qfloat8_e4m3fn, qfloat8_e5m2, qint8
+from optimum.quanto import Calibration, qfloat8_e4m3fn, qfloat8_e4m3fnuz, qfloat8_e5m2, qint8
 from optimum.quanto.nn import QLinear
 
 
@@ -51,8 +51,8 @@ def test_calibrate_qlinear_activations_int8(batch_size, tokens, embeddings, use_
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize(
     "activations",
-    [qfloat8_e5m2, qfloat8_e4m3fn],
-    ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3"],
+    [qfloat8_e5m2, qfloat8_e4m3fn, qfloat8_e4m3fnuz],
+    ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3", "a-qfloat8-e4m3-uz"],
 )
 @pytest.mark.skip_device("mps")
 def test_calibrate_qlinear_activations_float8(batch_size, tokens, embeddings, use_bias, activations, device):
@@ -91,8 +91,8 @@ def test_calibrate_custom_module_activations_int8(device):
 
 @pytest.mark.parametrize(
     "activations",
-    [qfloat8_e5m2, qfloat8_e4m3fn],
-    ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3"],
+    [qfloat8_e5m2, qfloat8_e4m3fn, qfloat8_e4m3fnuz],
+    ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3", "a-qfloat8-e4m3-uz"],
 )
 @pytest.mark.skip_device("mps")
 def test_calibrate_custom_module_activations_float8(activations, device):
