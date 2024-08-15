@@ -124,7 +124,9 @@ class QuantizedTransformersModel(ModelHubMixin):
         # Look for a quantization map
         qmap_path = os.path.join(working_dir, cls._qmap_name())
         if not os.path.exists(qmap_path):
-            raise ValueError(f"No quantization map found in {pretrained_model_name_or_path}: is this a quantized model ?")
+            raise ValueError(
+                f"No quantization map found in {pretrained_model_name_or_path}: is this a quantized model ?"
+            )
         with open(qmap_path, "r", encoding="utf-8") as f:
             qmap = json.load(f)
         # Create an empty model

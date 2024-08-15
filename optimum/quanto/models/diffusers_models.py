@@ -133,7 +133,9 @@ class QuantizedDiffusersModel(ModelHubMixin):
         # Look for a quantization map
         qmap_path = os.path.join(working_dir, cls._qmap_name())
         if not os.path.exists(qmap_path):
-            raise ValueError(f"No quantization map found in {pretrained_model_name_or_path}: is this a quantized model ?")
+            raise ValueError(
+                f"No quantization map found in {pretrained_model_name_or_path}: is this a quantized model ?"
+            )
 
         # Look for original model config file.
         model_config_path = os.path.join(working_dir, CONFIG_NAME)
