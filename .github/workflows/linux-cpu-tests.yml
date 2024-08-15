@@ -55,11 +55,6 @@ jobs:
           pip install optimum
           python -m pytest test/cli
 
-          - name: Environment
-          run: |
-            python -m venv /opt/venv && export PATH="/opt/venv/bin:$PATH"
-            python utils/print_env.py
-
   run_staging_tests:
     needs: [conventional-commits, python-quality]
     runs-on: ubuntu-latest
