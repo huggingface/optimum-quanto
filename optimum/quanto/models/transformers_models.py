@@ -107,7 +107,7 @@ class QuantizedTransformersModel(ModelHubMixin):
         return cls(model)
 
     @classmethod
-    def from_pretrained(cls, model_name_or_path: Union[str, os.PathLike], **kwargs):
+    def from_pretrained(cls, pretrained_model_name_or_path: Union[str, os.PathLike], **kwargs):
         if cls.auto_class is None:
             raise ValueError(
                 "Quantized models cannot be reloaded using {cls}: use a specialized quantized class such as QuantizedModelForCausalLM instead."
@@ -116,19 +116,19 @@ class QuantizedTransformersModel(ModelHubMixin):
             raise ValueError("Reloading a quantized transformers model requires the accelerate library.")
         from accelerate import init_empty_weights
 
-        if os.path.isdir(model_name_or_path):
-            working_dir = model_name_or_path
+        if os.path.isdir(pretrained_model_name_or_path):
+            working_dir = pretrained_model_name_or_path
         else:
-            working_dir = snapshot_download(model_name_or_path, **kwargs)
+            working_dir = snapshot_download(pretrained_model_name_or_path, **kwargs)
 
         # Look for a quantization map
         qmap_path = os.path.join(working_dir, cls._qmap_name())
         if not os.path.exists(qmap_path):
-            raise ValueError(f"No quantization map found in {model_name_or_path}: is this a quantized model ?")
+            raise ValueError(f"No quantization map found in {pretrained_model_name_or_path}: is this a quantized model ?")
         with open(qmap_path, "r", encoding="utf-8") as f:
             qmap = json.load(f)
         # Create an empty model
-        config = AutoConfig.from_pretrained(model_name_or_path, **kwargs)
+        config = AutoConfig.from_pretrained(pretrained_model_name_or_path, **kwargs)
         with init_empty_weights():
             model = cls.auto_class.from_config(config)
         # Look for the index of a sharded checkpoint
@@ -142,7 +142,7 @@ class QuantizedTransformersModel(ModelHubMixin):
             # Look for a single checkpoint file
             checkpoint_file = os.path.join(working_dir, SAFE_WEIGHTS_NAME)
             if not os.path.exists(checkpoint_file):
-                raise ValueError(f"No safetensor weights found in {model_name_or_path}.")
+                raise ValueError(f"No safetensor weights found in {pretrained_model_name_or_path}.")
             # Get state_dict from model checkpoint
             state_dict = load_state_dict(checkpoint_file)
         # Requantize and load quantized weights from state_dict

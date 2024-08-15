@@ -117,7 +117,7 @@ class QuantizedDiffusersModel(ModelHubMixin):
         return cls(model)
 
     @classmethod
-    def from_pretrained(cls, model_name_or_path: Union[str, os.PathLike], **kwargs):
+    def from_pretrained(cls, pretrained_model_name_or_path: Union[str, os.PathLike], **kwargs):
         if cls.base_class is None:
             raise ValueError("The `base_class` attribute needs to be configured.")
 
@@ -125,20 +125,20 @@ class QuantizedDiffusersModel(ModelHubMixin):
             raise ValueError("Reloading a quantized diffusers model requires the accelerate library.")
         from accelerate import init_empty_weights
 
-        if os.path.isdir(model_name_or_path):
-            working_dir = model_name_or_path
+        if os.path.isdir(pretrained_model_name_or_path):
+            working_dir = pretrained_model_name_or_path
         else:
-            working_dir = snapshot_download(model_name_or_path, **kwargs)
+            working_dir = snapshot_download(pretrained_model_name_or_path, **kwargs)
 
         # Look for a quantization map
         qmap_path = os.path.join(working_dir, cls._qmap_name())
         if not os.path.exists(qmap_path):
-            raise ValueError(f"No quantization map found in {model_name_or_path}: is this a quantized model ?")
+            raise ValueError(f"No quantization map found in {pretrained_model_name_or_path}: is this a quantized model ?")
 
         # Look for original model config file.
         model_config_path = os.path.join(working_dir, CONFIG_NAME)
         if not os.path.exists(model_config_path):
-            raise ValueError(f"{CONFIG_NAME} not found in {model_name_or_path}.")
+            raise ValueError(f"{CONFIG_NAME} not found in {pretrained_model_name_or_path}.")
 
         with open(qmap_path, "r", encoding="utf-8") as f:
             qmap = json.load(f)
@@ -152,7 +152,7 @@ class QuantizedDiffusersModel(ModelHubMixin):
             )
 
         # Create an empty model
-        config = cls.base_class.load_config(model_name_or_path, **kwargs)
+        config = cls.base_class.load_config(pretrained_model_name_or_path, **kwargs)
         with init_empty_weights():
             model = cls.base_class.from_config(config)
 
@@ -167,7 +167,7 @@ class QuantizedDiffusersModel(ModelHubMixin):
             # Look for a single checkpoint file
             checkpoint_file = os.path.join(working_dir, SAFETENSORS_WEIGHTS_NAME)
             if not os.path.exists(checkpoint_file):
-                raise ValueError(f"No safetensor weights found in {model_name_or_path}.")
+                raise ValueError(f"No safetensor weights found in {pretrained_model_name_or_path}.")
             # Get state_dict from model checkpoint
             state_dict = load_state_dict(checkpoint_file)
 
