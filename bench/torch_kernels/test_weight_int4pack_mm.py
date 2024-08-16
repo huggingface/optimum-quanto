@@ -16,6 +16,7 @@ import argparse
 import timeit
 
 import torch
+from packaging import version
 
 
 def _group_quantize_tensor(w, n_bit=4, q_group_size=16):
@@ -90,7 +91,11 @@ def main():
     B = torch.rand([3200, 4800], dtype=dtype, device=device)
     group_size = 128
     B_int32, B_scale_and_zeros = _group_quantize_tensor(B, n_bit=4, q_group_size=group_size)
-    B_packed = torch._convert_weight_to_int4pack(B_int32, innerKTiles=2)
+    if version.parse(torch.__version__).release >= version.parse("2.5.0").release:
+        B_uint8 = (B_int32[::, ::2] << 4 | B_int32[::, 1::2]).to(torch.uint8)
+        B_packed = torch._convert_weight_to_int4pack(B_uint8, innerKTiles=2)
+    else:
+        B_packed = torch._convert_weight_to_int4pack(B_int32, innerKTiles=2)
 
     # Check quantized mm is close to float mm
     qout = torch._weight_int4pack_mm(A, B_packed, group_size, B_scale_and_zeros)
