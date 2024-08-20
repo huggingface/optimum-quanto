@@ -28,6 +28,8 @@ from optimum.quanto import AWQPackedTensor, AWQPacking
 def test_qbytes_mm(batch_size, input_features, input_dtype, weight_dtype, output_features, output_dtype, device):
     if device.type == "mps" and weight_dtype.is_floating_point:
         pytest.skip("Float8 types are not supported on MPS device")
+    if device.type == "cuda" and weight_dtype == torch.float8_e4m3fnuz:
+        pytest.skip("CUDA implements e4m3fn style")
     input_shape = (32, input_features)
     if batch_size is not None:
         input_shape = (batch_size,) + input_shape

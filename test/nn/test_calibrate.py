@@ -56,6 +56,8 @@ def test_calibrate_qlinear_activations_int8(batch_size, tokens, embeddings, use_
 )
 @pytest.mark.skip_device("mps")
 def test_calibrate_qlinear_activations_float8(batch_size, tokens, embeddings, use_bias, activations, device):
+    if device.type == "cuda" and activations == qfloat8_e4m3fnuz:
+        pytest.skip("CUDA implements e4m3fn style")
     _test_calibrate_qlinear(batch_size, tokens, embeddings, use_bias, activations, device)
 
 
@@ -96,4 +98,6 @@ def test_calibrate_custom_module_activations_int8(device):
 )
 @pytest.mark.skip_device("mps")
 def test_calibrate_custom_module_activations_float8(activations, device):
+    if device.type == "cuda" and activations == qfloat8_e4m3fnuz:
+        pytest.skip("CUDA implements e4m3fn style")
     _test_calibrate_custom_module(activations, device)

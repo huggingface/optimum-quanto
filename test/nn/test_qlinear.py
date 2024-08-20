@@ -91,6 +91,8 @@ def test_quantize_linear_float32_activations_int8(batch_size, tokens, embeddings
 def test_quantize_linear_float16_activations_float8(
     batch_size, tokens, embeddings, use_bias, weights, activations, device
 ):
+    if device.type == "cuda" and activations == qfloat8_e4m3fnuz:
+        pytest.skip("CUDA implements e4m3fn style")
     _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, torch.float16, device)
 
 
@@ -107,6 +109,8 @@ def test_quantize_linear_float16_activations_float8(
 def test_quantize_linear_float32_activations_float8(
     batch_size, tokens, embeddings, use_bias, weights, activations, device
 ):
+    if device.type == "cuda" and activations == qfloat8_e4m3fnuz:
+        pytest.skip("CUDA implements e4m3fn style")
     _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, torch.float32, device)
 
 

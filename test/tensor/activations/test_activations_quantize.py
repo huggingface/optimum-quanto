@@ -48,6 +48,8 @@ def test_symmetric_quantize_int(input_shape, dtype, qtype, device):
     "qtype", [qfloat8, qfloat8_e4m3fn, qfloat8_e4m3fnuz, qfloat8_e5m2], ids=["qfloat8", "qfloat8_e4m3fn", "qfloat8_e4m3fnuz", "qfloat8_e5m2"]
 )
 def test_symmetric_quantize_float8(input_shape, dtype, qtype, device):
+    if device.type == "cuda" and qtype == qfloat8_e4m3fnuz:
+        pytest.skip("CUDA implements e4m3fn style")
     a = random_tensor(input_shape, dtype=dtype).to(device)
     scale = absmax_scale(a, qtype=qtype, axis=None)
     qa = ActivationQBytesTensor.quantize(a, qtype, scale)

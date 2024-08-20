@@ -208,4 +208,6 @@ def test_quantize_attention_activations_int8(weights, device):
 )
 @pytest.mark.skip_device("mps")
 def test_quantize_attention_activations_float8(weights, activations, device):
+    if device.type == "cuda" and activations == qfloat8_e4m3fnuz:
+        pytest.skip("CUDA implements e4m3fn style")
     _test_quantize_attention(device, weights=weights, activations=activations)

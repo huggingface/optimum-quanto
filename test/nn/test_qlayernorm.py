@@ -62,6 +62,8 @@ def test_quantize_layernorm_float32_activations_int8(batch_size, tokens, embeddi
 )
 @pytest.mark.skip_device("mps")
 def test_quantize_layernorm_float16_activations_float8(batch_size, tokens, embeddings, activations, device):
+    if device.type == "cuda" and activations == qfloat8_e4m3fnuz:
+        pytest.skip("CUDA implements e4m3fn style")
     _test_quantize_layernorm(batch_size, tokens, embeddings, torch.float16, activations, device)
 
 
@@ -74,6 +76,8 @@ def test_quantize_layernorm_float16_activations_float8(batch_size, tokens, embed
 )
 @pytest.mark.skip_device("mps")
 def test_quantize_layernorm_float32_activations_float8(batch_size, tokens, embeddings, activations, device):
+    if device.type == "cuda" and activations == qfloat8_e4m3fnuz:
+        pytest.skip("CUDA implements e4m3fn style")
     _test_quantize_layernorm(batch_size, tokens, embeddings, torch.float32, activations, device)
 
 

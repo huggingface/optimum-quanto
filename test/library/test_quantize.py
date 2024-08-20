@@ -59,6 +59,8 @@ def test_symmetric_quantize_int(input_shape, dtype, qtype, axis, device):
     ids=["per-tensor", "first-axis", "last-axis"],
 )
 def test_symmetric_quantize_float8(input_shape, dtype, qtype, axis, device):
+    if device.type == "cuda" and qtype == qfloat8_e4m3fnuz:
+        pytest.skip("CUDA implements e4m3fn style")
     a = random_tensor(input_shape, dtype=dtype).to(device)
     scale = absmax_scale(a, qtype=qtype, axis=axis)
     data = torch.ops.quanto.quantize_symmetric(a, dtype=qtype.dtype, axis=axis, scale=scale)

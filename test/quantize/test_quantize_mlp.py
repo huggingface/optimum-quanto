@@ -103,6 +103,8 @@ def test_quantize_mlp_int8_activations(weights, frozen, device):
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
 @pytest.mark.skip_device("mps")
 def test_quantize_mlp_float8_activations(weights, activations, frozen, device):
+    if device.type == "cuda" and activations == qfloat8_e4m3fnuz:
+        pytest.skip("CUDA implements e4m3fn style")
     atol = {qfloat8_e4m3fn: 1e-3, qfloat8_e4m3fnuz: 1e-3, qfloat8_e5m2: 1e-2}[activations]
     _test_quantize_mlp(weights, activations, None, frozen, device, atol=atol)
 
