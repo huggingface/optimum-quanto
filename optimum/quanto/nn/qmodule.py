@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from accelerate import init_empty_weights
 from abc import ABC
 from typing import Optional, Union
 
@@ -200,13 +201,15 @@ class QModuleMixin(ABC):
         activations: Optional[qtype] = None,
         optimizer: Optional[Optimizer] = None,
     ):
-        qmodule = cls.qcreate(module, weights, activations, optimizer)
+        with init_empty_weights():
+            qmodule = cls.qcreate(module, weights, activations, optimizer)
         if qmodule is None:
             return None
         with torch.no_grad():
-            qmodule.weight.copy_(module.weight)
+            qmodule.weight = module.weight
             if module.bias is not None:
-                qmodule.bias.copy_(module.bias)
+                qmodule.bias = module.bias
+
         return qmodule.to(module.weight.device)
 
     @classmethod
