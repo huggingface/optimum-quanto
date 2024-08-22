@@ -3,7 +3,6 @@ from tempfile import TemporaryDirectory
 
 import pytest
 import torch
-from helpers import TOKEN, USER, _run_staging
 from huggingface_hub import delete_repo
 
 from optimum.quanto import QModuleMixin, is_diffusers_available, qint4, qint8
@@ -91,8 +90,8 @@ def test_quantized_model_for_pixart(qtype, exclude_proj_out):
     compare_models(quantized, requantized)
 
 
-@pytest.mark.skipif(not _run_staging, reason="requires staging env.")
-def test_push_to_hub():
+@pytest.mark.parametrize("in_org", [True, False], ids=["org", "user"])
+def test_push_to_hub(staging, in_org):
     from optimum.quanto import QuantizedPixArtTransformer2DModel
 
     identifier = uuid.uuid4()
@@ -100,27 +99,14 @@ def test_push_to_hub():
     exclude = None
     quantized = quantized_model_for_pixart("qint8", exclude)
     repo_id = f"test-model-{identifier}"
-    quantized.push_to_hub(repo_id=repo_id, token=TOKEN)
+    if in_org:
+        quantized.push_to_hub(repo_id, token=staging["token"])
+        hub_repo_id = f"{staging['user']}/{repo_id}"
+    else:
+        hub_repo_id = f"valid_org/{repo_id}-org"
+        quantized.push_to_hub(hub_repo_id, token=staging["token"])
 
-    requantized = QuantizedPixArtTransformer2DModel.from_pretrained(f"{USER}/{repo_id}")
+    requantized = QuantizedPixArtTransformer2DModel.from_pretrained(hub_repo_id, token=staging["token"])
     compare_models(quantized, requantized)
 
-    delete_repo(repo_id, token=TOKEN)
-
-
-@pytest.mark.skipif(not _run_staging, reason="requires staging env.")
-def test_push_to_hub_in_org():
-    from optimum.quanto import QuantizedPixArtTransformer2DModel
-
-    identifier = uuid.uuid4()
-
-    exclude = None
-    quantized = quantized_model_for_pixart("qint8", exclude)
-    repo_id = f"test-model-{identifier}"
-    org_repo_id = f"valid_org/{repo_id}-org"
-    quantized.push_to_hub(repo_id=org_repo_id, token=TOKEN)
-
-    requantized = QuantizedPixArtTransformer2DModel.from_pretrained(org_repo_id)
-    compare_models(quantized, requantized)
-
-    delete_repo(org_repo_id, token=TOKEN)
+    delete_repo(hub_repo_id, token=staging["token"])

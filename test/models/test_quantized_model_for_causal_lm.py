@@ -3,7 +3,6 @@ from tempfile import TemporaryDirectory
 
 import pytest
 import torch
-from helpers import TOKEN, USER, _run_staging
 from huggingface_hub import delete_repo
 
 from optimum.quanto import QModuleMixin, is_transformers_available, qint4, qint8
@@ -104,8 +103,8 @@ def test_quantized_model_for_causal_lm_sharded():
     compare_models(quantized, requantized)
 
 
-@pytest.mark.skipif(not _run_staging, reason="requires staging env.")
-def test_causal_lm_base_push_to_hub():
+@pytest.mark.parametrize("in_org", [True, False], ids=["org", "user"])
+def test_causal_lm_base_push_to_hub(staging, in_org):
     from optimum.quanto import QuantizedModelForCausalLM
 
     identifier = uuid.uuid4()
@@ -115,29 +114,15 @@ def test_causal_lm_base_push_to_hub():
     quantized = quantized_model_for_causal_lm(None, qtype, exclude, from_config=True)
 
     repo_id = f"test-model-{identifier}"
-    quantized.push_to_hub(repo_id, token=TOKEN)
-    requantized = QuantizedModelForCausalLM.from_pretrained(f"{USER}/{repo_id}", token=TOKEN)
+    if in_org:
+        quantized.push_to_hub(repo_id, token=staging["token"])
+        hub_repo_id = f"{staging['user']}/{repo_id}"
+    else:
+        hub_repo_id = f"valid_org/{repo_id}-org"
+        quantized.push_to_hub(hub_repo_id, token=staging["token"])
+
+    requantized = QuantizedModelForCausalLM.from_pretrained(hub_repo_id, token=staging["token"])
 
     compare_models(quantized, requantized)
 
-    delete_repo(f"{USER}/{repo_id}", token=TOKEN)
-
-
-@pytest.mark.skipif(not _run_staging, reason="requires staging env.")
-def test_causal_lm_base_push_to_hub_in_org():
-    from optimum.quanto import QuantizedModelForCausalLM
-
-    identifier = uuid.uuid4()
-
-    qtype = qint4
-    exclude = None
-    quantized = quantized_model_for_causal_lm(None, qtype, exclude, from_config=True)
-
-    repo_id = f"test-model-{identifier}"
-    org_repo_id = f"valid_org/{repo_id}-org"
-    quantized.push_to_hub(org_repo_id, token=TOKEN)
-    requantized = QuantizedModelForCausalLM.from_pretrained(org_repo_id, token=TOKEN)
-
-    compare_models(quantized, requantized)
-
-    delete_repo(org_repo_id, token=TOKEN)
+    delete_repo(hub_repo_id, token=staging["token"])

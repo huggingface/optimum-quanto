@@ -23,14 +23,6 @@ from packaging import version
 from optimum.quanto import QBitsTensor, absmax_scale, qint8, quantize_activation, quantize_weight
 
 
-# Used to test the hub
-USER = "__DUMMY_TRANSFORMERS_USER__"
-ENDPOINT_STAGING = "https://hub-ci.huggingface.co"
-
-# Not critical, only usable on the sandboxed CI instance.
-TOKEN = "hf_94wBhPGp6KrrTH3KDchhKpRxZwd6dmHWLL"
-
-
 def torch_min_version(v):
     def torch_min_version_decorator(test):
         @functools.wraps(test)
