@@ -103,6 +103,7 @@ def test_quantized_model_for_causal_lm_sharded():
     compare_models(quantized, requantized)
 
 
+@pytest.mark.skipif(not is_transformers_available(), reason="requires transformers")
 @pytest.mark.parametrize("in_org", [True, False], ids=["org", "user"])
 def test_causal_lm_base_push_to_hub(staging, in_org):
     from optimum.quanto import QuantizedModelForCausalLM
