@@ -216,9 +216,10 @@ class QModuleMixin(ABC):
         qmodule.input_scale = torch.ones_like(qmodule.input_scale)
         qmodule.output_scale = torch.ones_like(qmodule.output_scale)
         with torch.no_grad():
-            qmodule.weight.copy_(module.weight)
+            qmodule.weight = module.weight
             if module.bias is not None:
-                qmodule.bias.copy_(module.bias)
+                qmodule.bias = module.bias
+
         return qmodule.to(module.weight.device)
 
     @classmethod
