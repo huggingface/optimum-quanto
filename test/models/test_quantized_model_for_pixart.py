@@ -90,6 +90,7 @@ def test_quantized_model_for_pixart(qtype, exclude_proj_out):
     compare_models(quantized, requantized)
 
 
+@pytest.mark.skipif(not is_diffusers_available(), reason="requires diffusers")
 @pytest.mark.parametrize("in_org", [True, False], ids=["org", "user"])
 def test_push_to_hub(staging, in_org):
     from optimum.quanto import QuantizedPixArtTransformer2DModel
