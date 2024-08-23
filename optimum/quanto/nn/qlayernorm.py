@@ -32,6 +32,7 @@ class QLayerNorm(QModuleMixin, torch.nn.LayerNorm):
         weights: Optional[qtype] = None,
         activations: Optional[qtype] = None,
         optimizer: Optional[Optimizer] = None,
+        device: Optional[torch.device] = None,
     ):
         if activations is None:
             return None
@@ -41,7 +42,7 @@ class QLayerNorm(QModuleMixin, torch.nn.LayerNorm):
             module.elementwise_affine,
             module.bias is not None,
             dtype=module.weight.dtype,
-            device=module.weight.device,
+            device=device,
             weights=None,  # We never quantize QLayerNorm weights
             activations=activations,
             optimizer=None,  # We never quantize QLayerNorm weights
