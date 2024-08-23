@@ -96,6 +96,7 @@ class QModuleMixin(ABC):
         activations: Optional[Union[qtype, str]] = None,
         optimizer: Optional[Optimizer] = None,
         quantize_input: Optional[bool] = False,
+        device: Optional[torch.device] = None,
         **kwargs,
     ):
         # The tests below are meant to help people writing their own quantized Module class
@@ -107,7 +108,7 @@ class QModuleMixin(ABC):
                 "QModuleMixin must be placed before any torch.nn.Module class in quantized module inheritance."
             )
         # This will setup the torch.nn.Module
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, device=device, **kwargs)
         if weights is not None and not isinstance(weights, qtype):
             weights = qtypes[weights]
         if activations is not None and not isinstance(activations, qtype):
@@ -130,8 +131,8 @@ class QModuleMixin(ABC):
                 self._quantize_hooks["input"] = self.register_forward_pre_hook(self.quantize_input)
             self._quantize_hooks["output"] = self.register_forward_hook(self.quantize_output)
         self.optimizer = optimizer
-        self.register_buffer("input_scale", torch.ones(()))
-        self.register_buffer("output_scale", torch.ones(()))
+        self.register_buffer("input_scale", torch.ones((), device=device))
+        self.register_buffer("output_scale", torch.ones((), device=device))
 
     def disable_output_quantization(self):
         if "output" in self._quantize_hooks:
@@ -210,7 +211,14 @@ class QModuleMixin(ABC):
         return qmodule.to(module.weight.device)
 
     @classmethod
-    def qcreate(cls, module: torch.nn.Module, weights: Optional[qtype], activations: Optional[qtype] = None):
+    def qcreate(
+        cls,
+        module: torch.nn.Module,
+        weights: Optional[qtype],
+        activations: Optional[qtype] = None,
+        optimizer: Optional[Optimizer] = None,
+        device: Optional[torch.device] = None,
+    ):
         raise NotImplementedError
 
     @property
