@@ -201,9 +201,15 @@ class QModuleMixin(ABC):
         activations: Optional[qtype] = None,
         optimizer: Optional[Optimizer] = None,
     ):
-        qmodule = cls.qcreate(module, weights, activations, optimizer)
+        # Create the quantized module on the meta device to prevent weights intialization
+        qmodule = cls.qcreate(module, weights, activations, optimizer, device="meta")
         if qmodule is None:
             return None
+        # Move the quantized module to the target device, but with empty weights
+        qmodule = qmodule.to_empty(device=module.weight.device)
+        # Set scales that were initialized to empty values
+        qmodule.input_scale = torch.ones_like(qmodule.input_scale)
+        qmodule.output_scale = torch.ones_like(qmodule.output_scale)
         with torch.no_grad():
             qmodule.weight.copy_(module.weight)
             if module.bias is not None:
