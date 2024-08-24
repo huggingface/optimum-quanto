@@ -267,6 +267,9 @@ class QBitsTensor(QTensor):
                 return QuantizedLinearFunction.apply(input, other, bias)
 
             return qlinear(*args, **kwargs)
+        elif func is torch.equal:
+            input, other = args
+            return input.equal(other)
         # Defer to operations dispatcher
         with torch._C.DisableTorchFunctionSubclass():
             return func(*args, **kwargs)
