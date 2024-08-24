@@ -14,6 +14,16 @@ def test_weight_qytes_tensor_to_device(device):
     assert qa._scale.device.type == device.type
 
 
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16, torch.float32], ids=["bf16", "fp16", "fp32"])
+@pytest.mark.parametrize("qtype", [qint8])
+@pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
+def test_weight_qbytes_tensor_equal(dtype, qtype, axis, device):
+    a = random_tensor((32, 32), dtype=dtype, device=device)
+    qa1 = quantize_weight(a, qtype=qtype, axis=axis)
+    qa2 = quantize_weight(a, qtype=qtype, axis=axis)
+    assert torch.equal(qa1, qa2)
+
+
 @pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
 @pytest.mark.parametrize("qtype", [qint8])
 def test_weight_qbytes_tensor_transpose_contiguous(axis, qtype, device):
