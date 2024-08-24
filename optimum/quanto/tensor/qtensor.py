@@ -63,3 +63,18 @@ class QTensor(torch.Tensor):
 
     def numpy(self):
         return self.dequantize().cpu().numpy()
+
+    def equal(self, other):
+        if type(self) is not type(other):
+            return False
+        self_tensors, self_meta = self.__tensor_flatten__()
+        _, other_meta = other.__tensor_flatten__()
+        for name, value in self_meta.items():
+            if other_meta[name] != value:
+                return False
+        for name in self_tensors:
+            self_t = getattr(self, name)
+            other_t = getattr(other, name)
+            if not torch.equal(self_t, other_t):
+                return False
+        return True

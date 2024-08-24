@@ -44,3 +44,16 @@ def test_qbitstensor_instantiate(input_shape, dtype, qtype, axis, group_size, de
     assert qa.dtype == dtype
     assert qa.qtype == qtype
     assert qa.shape == input_shape
+
+
+@pytest.mark.parametrize("input_shape, group_size", [[(32, 32), 16], [(1024, 1024), 128]])
+@pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16, torch.float32], ids=["bf16", "fp16", "fp32"])
+@pytest.mark.parametrize("qtype", [qint2, qint4], ids=["qint2", "qint4"])
+def test_qbitstensor_equal(input_shape, dtype, qtype, axis, group_size, device):
+    data, scale, shift = random_data_scale_shift(input_shape, dtype, qtype, axis, group_size)
+    qa = QBitsTensor(qtype, axis, group_size, data.size(), data.stride(), data, scale=scale, shift=shift).to(device)
+    qb = QBitsTensor(
+        qtype, axis, group_size, data.size(), data.stride(), data.clone(), scale=scale.clone(), shift=shift.clone()
+    ).to(device)
+    assert qa.equal(qb)
