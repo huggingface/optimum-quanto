@@ -46,8 +46,7 @@ def compare_models(a_model, b_model):
         if isinstance(b_m, QModuleMixin):
             assert isinstance(a_m, QModuleMixin)
         if isinstance(a_m, QModuleMixin):
-            assert torch.equal(a_m.weight._data, b_m.weight._data)
-            assert torch.equal(a_m.weight._scale, b_m.weight._scale)
+            assert torch.equal(a_m.weight, b_m.weight)
         for (a_p_name, a_p), (b_p_name, b_p) in zip(a_m.named_parameters(), b_m.named_parameters()):
             assert a_p_name == b_p_name
             assert isinstance(a_p, torch.Tensor)
