@@ -14,9 +14,9 @@
 
 import pytest
 import torch
-from helpers import assert_similar, random_qweight
+from helpers import assert_similar, random_qweight, random_tensor
 
-from optimum.quanto import QBitsTensor, qint4
+from optimum.quanto import QBitsTensor, qint2, qint4, quantize_weight
 
 
 @pytest.mark.parametrize("group_size", [None, 128], ids=["channel-wise", "group-wise"])
@@ -45,3 +45,13 @@ def test_qbitstensor_detach():
     qa = random_qweight((32, 32), qtype=qint4)
     dqa = qa.detach()
     assert isinstance(dqa, QBitsTensor)
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16, torch.float32], ids=["bf16", "fp16", "fp32"])
+@pytest.mark.parametrize("qtype", [qint2, qint4])
+@pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
+def test_qbitstensor_equal(dtype, qtype, axis, device):
+    a = random_tensor((1024, 1024), dtype=dtype, device=device)
+    qa1 = quantize_weight(a, qtype=qtype, axis=axis, group_size=128)
+    qa2 = quantize_weight(a, qtype=qtype, axis=axis, group_size=128)
+    assert torch.equal(qa1, qa2)
