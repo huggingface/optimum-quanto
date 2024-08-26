@@ -157,6 +157,7 @@ class QModuleMixin(ABC):
         if self.weight_qtype is not None and weight_name not in state_dict:
             # The weight Tensor is not present because it is a flattened QTensor
             weight_prefix = weight_name + "."
+            # note: deserialized_weight can be None if a key is missing in the state_dict
             if self.weight_qtype.bits == 8:
                 deserialized_weight = WeightQBytesTensor.load_from_state_dict(
                     state_dict,
@@ -165,6 +166,7 @@ class QModuleMixin(ABC):
                     axis=0,
                     size=self.weight.size(),
                     stride=self.weight.stride(),
+                    missing_keys=missing_keys,
                 )
             else:
                 deserialized_weight = QBitsTensor.load_from_state_dict(
@@ -175,13 +177,15 @@ class QModuleMixin(ABC):
                     group_size=self.weight_group_size,
                     size=self.weight.size(),
                     stride=self.weight.stride(),
+                    missing_keys=missing_keys,
                 )
-                deserialized_weight = deserialized_weight.optimize()
+                if deserialized_weight is not None:
+                    deserialized_weight = deserialized_weight.optimize()
 
             assign_to_params_buffers = local_metadata.get("assign_to_params_buffers", False)
-            if assign_to_params_buffers:
+            if assign_to_params_buffers and (deserialized_weight is not None):
                 self.weight = torch.nn.Parameter(deserialized_weight)
-            else:
+            elif deserialized_weight is not None:
                 if type(self.weight.data) is not type(deserialized_weight):
                     # Reloading frozen weights into unfrozen module: move to the correct device and force assignment
                     self.weight = torch.nn.Parameter(deserialized_weight.to(self.weight.device))

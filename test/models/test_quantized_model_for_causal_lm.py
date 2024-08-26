@@ -126,3 +126,24 @@ def test_causal_lm_base_push_to_hub(staging, in_org):
     compare_models(quantized, requantized)
 
     delete_repo(hub_repo_id, token=staging["token"])
+
+
+@pytest.mark.skipif(not is_transformers_available(), reason="requires transformers")
+@pytest.mark.parametrize("model_id", ["facebook/opt-125m"])
+@pytest.mark.parametrize("qtype", [qint4, qint8], ids=["qint4", "qint8"])
+def test_quantized_model_load_state_dict_non_strict(model_id, qtype):
+    # see issue #278
+    quantized = quantized_model_for_causal_lm(model_id, qtype, exclude=None)
+    sd = quantized.state_dict()
+
+    # delete a key used by both qint4 and qint8 from the state dict
+    key = "model.decoder.layers.0.self_attn.k_proj.weight._scale"
+    del sd[key]
+
+    # strict loading should raise a RuntimeError, which is what PyTorch does in this case
+    with pytest.raises(RuntimeError, match=key):
+        quantized.load_state_dict(sd)
+
+    # non-strict loading should not raise an errror
+    result = quantized.load_state_dict(sd, strict=False)
+    assert result.missing_keys == [key]
