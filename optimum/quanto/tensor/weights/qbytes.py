@@ -71,10 +71,19 @@ class WeightQBytesTensor(QBytesTensor):
         return WeightQBytesQuantizer.apply(base, qtype, axis, scale)
 
     @staticmethod
-    def load_from_state_dict(state_dict, prefix, qtype, axis, size, stride):
+    def load_from_state_dict(state_dict, prefix, qtype, axis, size, stride, missing_keys):
         inner_tensors_dict = {}
+        missing = False
         for name in ["_data", "_scale"]:
-            inner_tensors_dict[name] = state_dict.pop(prefix + name)
+            if prefix + name not in state_dict:
+                missing_keys.append(prefix + name)
+                missing = True
+            else:
+                inner_tensors_dict[name] = state_dict.pop(prefix + name)
+
+        if missing:  # could not deserialize because of missing keys
+            return None
+
         meta = {
             "qtype": qtype.name,
             "axis": str(axis),
