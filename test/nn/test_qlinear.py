@@ -33,7 +33,7 @@ from optimum.quanto import (
 from optimum.quanto.nn import QLinear
 
 
-def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, dtype, device):
+def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, dtype, device, atol=None):
     linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(dtype).to(device)
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
     assert qlinear.qweight.qtype == weights
@@ -53,18 +53,15 @@ def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, act
     # Align linear weights with quantized linear weights for comparison
     linear.weight = torch.nn.Parameter(qlinear.qweight.dequantize())
     out = linear(inputs)
-    # We need to increase atol for float16 dtype
-    dtype_atol = {torch.float32: 1e-4, torch.float16: 1e-3}[dtype]
-    # We also need to increase atol for float8 qtypes
-    atol = {None: dtype_atol, qint8: dtype_atol, qfloat8_e5m2: 5e-3, qfloat8_e4m3fn: 5e-3}[activations]
     assert_similar(out, qout, atol=atol)
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
 @pytest.mark.parametrize("tokens, embeddings", [(10, 32), (10, 256)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16], ids=["bf16", "fp16"])
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
-def test_quantize_linear_float16_activations_int8(batch_size, tokens, embeddings, use_bias, weights, device):
+def test_quantize_linear_float16_activations_int8(batch_size, tokens, embeddings, use_bias, dtype, weights, device):
     _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, qint8, torch.float16, device)
 
 
@@ -73,12 +70,15 @@ def test_quantize_linear_float16_activations_int8(batch_size, tokens, embeddings
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
 def test_quantize_linear_float32_activations_int8(batch_size, tokens, embeddings, use_bias, weights, device):
-    _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, qint8, torch.float32, device)
+    # Default atol for float32 is 1e-6
+    atol = 1e-4
+    _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, qint8, torch.float32, device, atol)
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
 @pytest.mark.parametrize("tokens, embeddings", [(10, 32), (10, 256)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16], ids=["bf16", "fp16"])
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
 @pytest.mark.parametrize(
     "activations",
@@ -87,9 +87,10 @@ def test_quantize_linear_float32_activations_int8(batch_size, tokens, embeddings
 )
 @pytest.mark.skip_device("mps")
 def test_quantize_linear_float16_activations_float8(
-    batch_size, tokens, embeddings, use_bias, weights, activations, device
+    batch_size, tokens, embeddings, use_bias, dtype, weights, activations, device
 ):
-    _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, torch.float16, device)
+    atol = 1e-4
+    _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, dtype, device, atol)
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
@@ -105,7 +106,10 @@ def test_quantize_linear_float16_activations_float8(
 def test_quantize_linear_float32_activations_float8(
     batch_size, tokens, embeddings, use_bias, weights, activations, device
 ):
-    _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, torch.float32, device)
+    atol = 5e-3
+    _test_quantize_linear(
+        batch_size, tokens, embeddings, use_bias, weights, activations, torch.float32, device, atol=atol
+    )
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
