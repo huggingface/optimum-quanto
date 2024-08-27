@@ -132,8 +132,10 @@ def test_quantize_linear_float32_weight_only(batch_size, tokens, embeddings, use
 
 @pytest.mark.parametrize("tokens, embeddings", [(10, 32), (10, 256)])
 @pytest.mark.parametrize("activations", [None, qint8], ids=["a-float", "a-qint8"])
-@pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
+@pytest.mark.parametrize("weights", [qint4, qint8, qfloat8], ids=["w-qint4", "w-qint8", "w-float8"])
 def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
+    if device.type == "mps" and weights == qfloat8:
+        pytest.skip("Float8 is not supported on MPS device")
     batch_size = 10
     linear = torch.nn.Linear(embeddings, embeddings).to(device)
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
@@ -161,7 +163,7 @@ def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
     atol = 1e-5
     assert_similar(qlinear.weight.grad, linear.weight.grad, atol=atol)
     # Inputs gradients are slightly different because they depend on the quantized weights
-    atol = {qint8: 1e-5, qint4: 5e-3}[weights]
+    atol = {qint8: 1e-5, qint4: 5e-3, qfloat8: 5e-3}[weights]
     assert_similar(inputs.grad, dqinputs.grad, atol=atol)
 
 
