@@ -22,7 +22,6 @@ from helpers import assert_similar, random_qactivation, random_tensor
 from optimum.quanto import (
     ActivationQBytesTensor,
     Calibration,
-    QBitsTensor,
     absmax_scale,
     qfloat8,
     qfloat8_e4m3fn,
@@ -162,17 +161,19 @@ def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
     assert_similar(inputs.grad, dqinputs.grad, atol=atol)
 
 
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16, torch.float32], ids=["bf16", "fp16", "fp32"])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
-@pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-int4", "w-int8"])
-def test_move_qlinear(use_bias, weights, device):
-    linear = torch.nn.Linear(32, 32, bias=use_bias)
+@pytest.mark.parametrize("weights", [qint4, qint8, qfloat8], ids=["w-int4", "w-int8", "w-float8"])
+def test_move_qlinear(dtype, use_bias, weights, device):
+    linear = torch.nn.Linear(1024, 1024, bias=use_bias).to(dtype)
     qlinear = QLinear.from_module(linear, weights=weights)
     qlinear.freeze()
     qlinear.to(device)
-    assert qlinear.weight._data.device.type == device.type
-    assert qlinear.weight._scale.device.type == device.type
-    if isinstance(qlinear.weight, QBitsTensor):
-        assert qlinear.weight._shift.device.type == device.type
+    inner_tensor_names, _ = qlinear.weight.__tensor_flatten__()
+    for name in inner_tensor_names:
+        assert getattr(qlinear.weight, name).device.type == device.type
+    if use_bias:
+        assert qlinear.bias.device.type == device.type
 
 
 @pytest.mark.parametrize("features", [10, 256], ids=["per-axis", "per-group"])
