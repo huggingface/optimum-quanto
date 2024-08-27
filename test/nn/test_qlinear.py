@@ -188,15 +188,17 @@ def test_move_qlinear(dtype, use_bias, weights, device):
 
 @pytest.mark.parametrize("features", [10, 256], ids=["per-axis", "per-group"])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
-@pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
-@pytest.mark.parametrize("activations", [None, qint8], ids=["a-float", "a-qint8"])
-@pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
+@pytest.mark.parametrize("weights", [qint4, qint8, qfloat8], ids=["w-qint4", "w-qint8", "w-qfloat8"])
+@pytest.mark.parametrize("activations", [None, qint8, qfloat8], ids=["a-float", "a-qint8", "a-qfloat8"])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16], ids=["fp16", "bf16"])
 @pytest.mark.parametrize("weights_only", [True, False], ids=["weights-only", "pickle"])
 def test_qlinear_serialization(features, use_bias, activations, weights, dtype, weights_only, device):
+    if device.type == "mps" and (activations == qfloat8 or weights == qfloat8):
+        pytest.skip("Float8 is not supported on MPS device")
     linear = torch.nn.Linear(features, features, bias=use_bias).to(dtype).to(device)
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
     if activations is not None:
-        qinputs = random_qactivation((10, 10, features), dtype=dtype).to(device)
+        qinputs = random_qactivation((10, 10, features), qtype=activations, dtype=dtype).to(device)
         with Calibration():
             qlinear(qinputs)
     qlinear.freeze()
@@ -209,11 +211,7 @@ def test_qlinear_serialization(features, use_bias, activations, weights, dtype, 
     assert qlinear_reloaded.weight_qtype == weights
     w = qlinear.weight
     w_reloaded = qlinear_reloaded.weight
-    assert w.qtype == w_reloaded.qtype
-    assert torch.equal(w._data, w_reloaded._data)
-    assert torch.equal(w._scale, w_reloaded._scale)
-    assert w_reloaded.dtype == dtype
-    assert w_reloaded.axis == w.axis
+    assert torch.equal(w, w_reloaded)
     if activations is not None:
         assert qlinear_reloaded.activation_qtype == activations
         for attr in ["input_scale", "output_scale"]:
