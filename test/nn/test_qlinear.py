@@ -131,10 +131,10 @@ def test_quantize_linear_float32_weight_only(batch_size, tokens, embeddings, use
 
 
 @pytest.mark.parametrize("tokens, embeddings", [(10, 32), (10, 256)])
-@pytest.mark.parametrize("activations", [None, qint8], ids=["a-float", "a-qint8"])
+@pytest.mark.parametrize("activations", [None, qint8, qfloat8], ids=["a-float", "a-qint8", "a-float8"])
 @pytest.mark.parametrize("weights", [qint4, qint8, qfloat8], ids=["w-qint4", "w-qint8", "w-float8"])
 def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
-    if device.type == "mps" and weights == qfloat8:
+    if device.type == "mps" and (activations == qfloat8 or weights == qfloat8):
         pytest.skip("Float8 is not supported on MPS device")
     batch_size = 10
     linear = torch.nn.Linear(embeddings, embeddings).to(device)
@@ -144,12 +144,16 @@ def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
     # Run an inference with dynamically quantized inputs
     inputs = random_tensor((batch_size, tokens, embeddings), dtype=torch.float32, device=device)
     inputs.requires_grad = True
-    qinputs = quantize_activation(inputs, qtype=qint8, scale=absmax_scale(inputs, qint8))
-    qout = qlinear(qinputs)
-    # Run an equivalent inference with float inputs
-    dqinputs = qinputs.dequantize().clone().detach()
-    dqinputs.requires_grad = True
-    out = linear(dqinputs)
+    if activations is None:
+        qout = qlinear(inputs)
+        float_inputs = inputs.clone().detach()
+    else:
+        qinputs = quantize_activation(inputs, qtype=activations, scale=absmax_scale(inputs, activations))
+        qout = qlinear(qinputs)
+        # Run an equivalent inference with float inputs
+        float_inputs = qinputs.dequantize().clone().detach()
+    float_inputs.requires_grad = True
+    out = linear(float_inputs)
     # Outputs are not identical because of the quantization
     assert not torch.equal(qout, out)
     # Compute gradients and compare
@@ -164,7 +168,7 @@ def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
     assert_similar(qlinear.weight.grad, linear.weight.grad, atol=atol)
     # Inputs gradients are slightly different because they depend on the quantized weights
     atol = {qint8: 1e-5, qint4: 5e-3, qfloat8: 5e-3}[weights]
-    assert_similar(inputs.grad, dqinputs.grad, atol=atol)
+    assert_similar(inputs.grad, float_inputs.grad, atol=atol)
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16, torch.float32], ids=["bf16", "fp16", "fp32"])
