@@ -75,6 +75,12 @@ class QTensor(torch.Tensor):
         for name in self_tensors:
             self_t = getattr(self, name)
             other_t = getattr(other, name)
-            if not torch.equal(self_t, other_t):
+            if self_t.device.type == "cpu" and self_t.dtype in (torch.float8_e4m3fn, torch.float8_e5m2):
+                # torch.equal is not implemented on CPU for float8 types
+                if self_t.dtype != other_t.dtype:
+                    return False
+                if not torch.equal(self_t.to(torch.float32), other_t.to(torch.float32)):
+                    return False
+            elif not torch.equal(self_t, other_t):
                 return False
         return True

@@ -133,10 +133,9 @@ def requantize(
             setattr(m, name, torch.nn.Parameter(move_tensor(param, "cpu")))
         for name, param in m.named_buffers(recurse=False):
             setattr(m, name, move_tensor(param, "cpu"))
-    # Freeze model and move to target device
-    freeze(model)
-    model.to(device)
 
+    # Move to target device
+    model.to(device)
     # Load the quantized model weights
     model.load_state_dict(state_dict, strict=False)
 

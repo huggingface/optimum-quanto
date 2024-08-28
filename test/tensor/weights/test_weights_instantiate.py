@@ -38,7 +38,9 @@ def test_qbytestensor_instantiate(input_shape, dtype, qtype, device):
     if qtype.is_floating_point and device.type == "mps":
         pytest.skip("float8 types are not supported on MPS device")
     data, scale = random_data_scale(input_shape, dtype, qtype)
-    qa = WeightQBytesTensor(qtype, None, data.size(), data.stride(), data, scale=scale).to(device)
+    qa = WeightQBytesTensor(qtype, None, data.size(), data.stride(), data, scale=scale, activation_qtype=None).to(
+        device
+    )
     assert torch.max(torch.abs(qa.dequantize())) <= 1
     assert qa.dtype == dtype
     assert qa.qtype == qtype
@@ -50,6 +52,10 @@ def test_qbytestensor_instantiate(input_shape, dtype, qtype, device):
 @pytest.mark.parametrize("qtype", [qint8], ids=["qint8"])
 def test_qbytestensor_equal(input_shape, dtype, qtype, device):
     data, scale = random_data_scale(input_shape, dtype, qtype)
-    qa = WeightQBytesTensor(qtype, None, data.size(), data.stride(), data, scale=scale).to(device)
-    qb = WeightQBytesTensor(qtype, None, data.size(), data.stride(), data.clone(), scale=scale).to(device)
+    qa = WeightQBytesTensor(qtype, None, data.size(), data.stride(), data, scale=scale, activation_qtype=None).to(
+        device
+    )
+    qb = WeightQBytesTensor(
+        qtype, None, data.size(), data.stride(), data.clone(), scale=scale, activation_qtype=None
+    ).to(device)
     assert qa.equal(qb)

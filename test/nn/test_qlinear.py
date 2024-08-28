@@ -22,7 +22,6 @@ from helpers import assert_similar, random_qactivation, random_tensor
 from optimum.quanto import (
     ActivationQBytesTensor,
     Calibration,
-    QBitsTensor,
     absmax_scale,
     qfloat8,
     qfloat8_e4m3fn,
@@ -34,7 +33,7 @@ from optimum.quanto import (
 from optimum.quanto.nn import QLinear
 
 
-def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, dtype, device):
+def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, dtype, device, atol=None):
     linear = torch.nn.Linear(embeddings, embeddings, bias=use_bias).to(dtype).to(device)
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
     assert qlinear.qweight.qtype == weights
@@ -54,18 +53,15 @@ def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, act
     # Align linear weights with quantized linear weights for comparison
     linear.weight = torch.nn.Parameter(qlinear.qweight.dequantize())
     out = linear(inputs)
-    # We need to increase atol for float16 dtype
-    dtype_atol = {torch.float32: 1e-4, torch.float16: 1e-3}[dtype]
-    # We also need to increase atol for float8 qtypes
-    atol = {None: dtype_atol, qint8: dtype_atol, qfloat8_e5m2: 5e-3, qfloat8_e4m3fn: 5e-3}[activations]
     assert_similar(out, qout, atol=atol)
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
 @pytest.mark.parametrize("tokens, embeddings", [(10, 32), (10, 256)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16], ids=["bf16", "fp16"])
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
-def test_quantize_linear_float16_activations_int8(batch_size, tokens, embeddings, use_bias, weights, device):
+def test_quantize_linear_float16_activations_int8(batch_size, tokens, embeddings, use_bias, dtype, weights, device):
     _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, qint8, torch.float16, device)
 
 
@@ -74,12 +70,15 @@ def test_quantize_linear_float16_activations_int8(batch_size, tokens, embeddings
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
 def test_quantize_linear_float32_activations_int8(batch_size, tokens, embeddings, use_bias, weights, device):
-    _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, qint8, torch.float32, device)
+    # Default atol for float32 is 1e-6
+    atol = 1e-4
+    _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, qint8, torch.float32, device, atol)
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
 @pytest.mark.parametrize("tokens, embeddings", [(10, 32), (10, 256)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16], ids=["bf16", "fp16"])
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
 @pytest.mark.parametrize(
     "activations",
@@ -88,9 +87,10 @@ def test_quantize_linear_float32_activations_int8(batch_size, tokens, embeddings
 )
 @pytest.mark.skip_device("mps")
 def test_quantize_linear_float16_activations_float8(
-    batch_size, tokens, embeddings, use_bias, weights, activations, device
+    batch_size, tokens, embeddings, use_bias, dtype, weights, activations, device
 ):
-    _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, torch.float16, device)
+    atol = 1e-4
+    _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, dtype, device, atol)
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
@@ -106,7 +106,10 @@ def test_quantize_linear_float16_activations_float8(
 def test_quantize_linear_float32_activations_float8(
     batch_size, tokens, embeddings, use_bias, weights, activations, device
 ):
-    _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, torch.float32, device)
+    atol = 5e-3
+    _test_quantize_linear(
+        batch_size, tokens, embeddings, use_bias, weights, activations, torch.float32, device, atol=atol
+    )
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
@@ -116,7 +119,11 @@ def test_quantize_linear_float32_activations_float8(
 def test_quantize_linear_float16_weight_only(batch_size, tokens, embeddings, use_bias, weights, device):
     if device.type == "mps" and weights == qfloat8:
         pytest.skip("Float 8 are not supported on MPS device")
-    _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, None, torch.float16, device)
+    atol = None
+    if device.type == "cuda" and weights == qfloat8 and embeddings % 64 == 0:
+        # FIXME: accuracy is slightly worse using MARLIN FP8 kernels
+        atol = 1e-2
+    _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, None, torch.float16, device, atol)
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
@@ -128,9 +135,11 @@ def test_quantize_linear_float32_weight_only(batch_size, tokens, embeddings, use
 
 
 @pytest.mark.parametrize("tokens, embeddings", [(10, 32), (10, 256)])
-@pytest.mark.parametrize("activations", [None, qint8], ids=["a-float", "a-qint8"])
-@pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
+@pytest.mark.parametrize("activations", [None, qint8, qfloat8], ids=["a-float", "a-qint8", "a-float8"])
+@pytest.mark.parametrize("weights", [qint4, qint8, qfloat8], ids=["w-qint4", "w-qint8", "w-float8"])
 def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
+    if device.type == "mps" and (activations == qfloat8 or weights == qfloat8):
+        pytest.skip("Float8 is not supported on MPS device")
     batch_size = 10
     linear = torch.nn.Linear(embeddings, embeddings).to(device)
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
@@ -139,12 +148,16 @@ def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
     # Run an inference with dynamically quantized inputs
     inputs = random_tensor((batch_size, tokens, embeddings), dtype=torch.float32, device=device)
     inputs.requires_grad = True
-    qinputs = quantize_activation(inputs, qtype=qint8, scale=absmax_scale(inputs, qint8))
-    qout = qlinear(qinputs)
-    # Run an equivalent inference with float inputs
-    dqinputs = qinputs.dequantize().clone().detach()
-    dqinputs.requires_grad = True
-    out = linear(dqinputs)
+    if activations is None:
+        qout = qlinear(inputs)
+        float_inputs = inputs.clone().detach()
+    else:
+        qinputs = quantize_activation(inputs, qtype=activations, scale=absmax_scale(inputs, activations))
+        qout = qlinear(qinputs)
+        # Run an equivalent inference with float inputs
+        float_inputs = qinputs.dequantize().clone().detach()
+    float_inputs.requires_grad = True
+    out = linear(float_inputs)
     # Outputs are not identical because of the quantization
     assert not torch.equal(qout, out)
     # Compute gradients and compare
@@ -158,34 +171,38 @@ def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
     atol = 1e-5
     assert_similar(qlinear.weight.grad, linear.weight.grad, atol=atol)
     # Inputs gradients are slightly different because they depend on the quantized weights
-    atol = {qint8: 1e-5, qint4: 5e-3}[weights]
-    assert_similar(inputs.grad, dqinputs.grad, atol=atol)
+    atol = {qint8: 1e-5, qint4: 5e-3, qfloat8: 5e-3}[weights]
+    assert_similar(inputs.grad, float_inputs.grad, atol=atol)
 
 
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16, torch.float32], ids=["bf16", "fp16", "fp32"])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
-@pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-int4", "w-int8"])
-def test_move_qlinear(use_bias, weights, device):
-    linear = torch.nn.Linear(32, 32, bias=use_bias)
+@pytest.mark.parametrize("weights", [qint4, qint8, qfloat8], ids=["w-int4", "w-int8", "w-float8"])
+def test_move_qlinear(dtype, use_bias, weights, device):
+    linear = torch.nn.Linear(1024, 1024, bias=use_bias).to(dtype)
     qlinear = QLinear.from_module(linear, weights=weights)
     qlinear.freeze()
     qlinear.to(device)
-    assert qlinear.weight._data.device.type == device.type
-    assert qlinear.weight._scale.device.type == device.type
-    if isinstance(qlinear.weight, QBitsTensor):
-        assert qlinear.weight._shift.device.type == device.type
+    inner_tensor_names, _ = qlinear.weight.__tensor_flatten__()
+    for name in inner_tensor_names:
+        assert getattr(qlinear.weight, name).device.type == device.type
+    if use_bias:
+        assert qlinear.bias.device.type == device.type
 
 
 @pytest.mark.parametrize("features", [10, 256], ids=["per-axis", "per-group"])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
-@pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
-@pytest.mark.parametrize("activations", [None, qint8], ids=["a-float", "a-qint8"])
-@pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
+@pytest.mark.parametrize("weights", [qint4, qint8, qfloat8], ids=["w-qint4", "w-qint8", "w-qfloat8"])
+@pytest.mark.parametrize("activations", [None, qint8, qfloat8], ids=["a-float", "a-qint8", "a-qfloat8"])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16], ids=["fp16", "bf16"])
 @pytest.mark.parametrize("weights_only", [True, False], ids=["weights-only", "pickle"])
 def test_qlinear_serialization(features, use_bias, activations, weights, dtype, weights_only, device):
+    if device.type == "mps" and (activations == qfloat8 or weights == qfloat8):
+        pytest.skip("Float8 is not supported on MPS device")
     linear = torch.nn.Linear(features, features, bias=use_bias).to(dtype).to(device)
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)
     if activations is not None:
-        qinputs = random_qactivation((10, 10, features), dtype=dtype).to(device)
+        qinputs = random_qactivation((10, 10, features), qtype=activations, dtype=dtype).to(device)
         with Calibration():
             qlinear(qinputs)
     qlinear.freeze()
@@ -198,11 +215,7 @@ def test_qlinear_serialization(features, use_bias, activations, weights, dtype, 
     assert qlinear_reloaded.weight_qtype == weights
     w = qlinear.weight
     w_reloaded = qlinear_reloaded.weight
-    assert w.qtype == w_reloaded.qtype
-    assert torch.equal(w._data, w_reloaded._data)
-    assert torch.equal(w._scale, w_reloaded._scale)
-    assert w_reloaded.dtype == dtype
-    assert w_reloaded.axis == w.axis
+    assert torch.equal(w, w_reloaded)
     if activations is not None:
         assert qlinear_reloaded.activation_qtype == activations
         for attr in ["input_scale", "output_scale"]:

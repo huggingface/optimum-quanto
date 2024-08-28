@@ -165,7 +165,7 @@ class QBitsTensor(QTensor):
         return QBitsDequantizer.apply(self)
 
     @staticmethod
-    def load_from_state_dict(state_dict, prefix, qtype, axis, group_size, size, stride):
+    def load_from_state_dict(state_dict, prefix, qtype, axis, group_size, size, stride, missing_keys):
         if group_size is None:
             data_size = size
             data_stride = stride
@@ -176,11 +176,20 @@ class QBitsTensor(QTensor):
             data_stride = (data_size[1], 1)
         inner_tensors_dict = {
             "_data": PackedTensor.load_from_state_dict(
-                state_dict, prefix + "_data.", qtype.bits, data_size, data_stride
+                state_dict, prefix + "_data.", qtype.bits, data_size, data_stride, missing_keys=missing_keys
             )
         }
+        missing = inner_tensors_dict["_data"] is None
         for name in ["_scale", "_shift"]:
-            inner_tensors_dict[name] = state_dict.pop(prefix + name)
+            if prefix + name not in state_dict:
+                missing_keys.append(prefix + name)
+                missing = True
+            else:
+                inner_tensors_dict[name] = state_dict.pop(prefix + name)
+
+        if missing:  # could not deserialize because of missing keys
+            return None
+
         meta = {
             "qtype": qtype.name,
             "axis": str(axis),
@@ -191,7 +200,11 @@ class QBitsTensor(QTensor):
         return QBitsTensor.__tensor_unflatten__(inner_tensors_dict, meta, None, None)
 
     def optimize(self):
-        """Allows to convert an existing QBitsTensor to an optimized subclass"""
+        """Allows to convert an existing QBitsTensor to an optimized subclass
+
+        This is used in particular after reloading a serialized QBitsTensor (which is
+        always saved using the kernel-agnostic packing).
+        """
         if type(self) is not QBitsTensor:
             return self
         data = self._data.unpack()

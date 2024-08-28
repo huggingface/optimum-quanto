@@ -69,6 +69,8 @@ sources = [
     "unpack.cu",
     "awq/v2/gemm_cuda.cu",
     "awq/v2/gemv_cuda.cu",
+    "marlin/fp8_marlin.cu",
+    "marlin/gptq_marlin_repack.cu",
     "pybind_module.cpp",
 ]
 ext = Extension(
@@ -125,3 +127,29 @@ def gemm_cuda(
     if rows < 8:
         return ext.lib.awq_v2_gemv_f16i4(input, other, scales, shift, rows, out_cols, in_cols, group_size)
     return ext.lib.awq_v2_gemm_f16i4(input, other, scales, shift)
+
+
+@torch.library.custom_op("quanto::fp8_marlin_gemm", mutates_args=(), device_types=["cuda"])
+def fp8_marlin_gemm(
+    a: torch.Tensor,
+    b_q_weight: torch.Tensor,
+    b_scales: torch.Tensor,
+    workspace: torch.Tensor,
+    num_bits: int,
+    size_m: int,
+    size_n: int,
+    size_k: int,
+) -> torch.Tensor:
+    assert b_scales.dtype == torch.float16 or b_scales.dtype == torch.bfloat16
+    assert b_q_weight.dim() == 2
+    assert b_q_weight.dtype == torch.int32
+    return ext.lib.fp8_marlin_gemm(a, b_q_weight, b_scales, workspace, num_bits, size_m, size_n, size_k)
+
+
+@torch.library.custom_op("quanto::gptq_marlin_repack", mutates_args=(), device_types=["cuda"])
+def gptq_marlin_repack(
+    b_q_weight: torch.Tensor, perm: torch.Tensor, size_k: int, size_n: int, num_bits: int
+) -> torch.Tensor:
+    assert b_q_weight.dim() == 2
+    assert b_q_weight.dtype == torch.int32
+    return ext.lib.gptq_marlin_repack(b_q_weight, perm, size_k, size_n, num_bits)
