@@ -19,7 +19,9 @@ from helpers import device_eq, random_qbits_tensor
 from optimum.quanto import AWQBitsTensor, QBitsTensor, qint4
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@pytest.mark.skipif(
+    not torch.cuda.is_available() or torch.cuda.get_device_capability()[0] < 8, reason="CUDA >= sm80 not available"
+)
 @pytest.mark.parametrize("in_features", [128, 256, 512, 1024])
 @pytest.mark.parametrize("out_features", [128, 256, 512, 1024])
 def test_awq_qbits_tensor_from_qbits_tensor(in_features, out_features):
