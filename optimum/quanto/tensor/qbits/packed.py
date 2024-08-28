@@ -111,7 +111,11 @@ class PackedTensor(torch.Tensor):
         return torch.uint8
 
     @staticmethod
-    def load_from_state_dict(state_dict, prefix, bits, size, stride):
+    def load_from_state_dict(state_dict, prefix, bits, size, stride, missing_keys):
+        if prefix + "_data" not in state_dict:
+            missing_keys.append(prefix + "_data")
+            return
+
         inner_tensors_dict = {"_data": state_dict.pop(prefix + "_data")}
         meta = [name.replace(prefix, "") for name in state_dict.keys() if name.startswith(prefix)]
         meta = {"bits": str(bits), "size": str(list(size)), "stride": str(stride)}

@@ -77,13 +77,19 @@ def _test_quantize_mlp(weights, activations, optimizer, frozen, device, atol=1e-
         qoutput = model(inputs)
     if activations is not None:
         assert isinstance(qoutput, ActivationQBytesTensor)
-    # Don't expect more than a 0.99 similarity
     assert_similar(output, qoutput, atol=atol)
 
 
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
 def test_quantize_mlp_weights_only(weights, frozen, device):
+    _test_quantize_mlp(weights, None, None, frozen, device)
+
+
+@pytest.mark.skip_device("mps")
+@pytest.mark.parametrize("weights", [qfloat8_e4m3fn], ids=["w-float8_e4m3fn"])
+@pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
+def test_quantize_mlp_weights_only_float8(weights, frozen, device):
     _test_quantize_mlp(weights, None, None, frozen, device)
 
 

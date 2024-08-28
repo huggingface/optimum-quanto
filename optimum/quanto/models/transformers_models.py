@@ -14,7 +14,10 @@
 
 import json
 import os
+from pathlib import Path
 from typing import Any, List, Optional, Union
+
+from huggingface_hub import ModelHubMixin, snapshot_download
 
 from ..nn import QModuleMixin
 from ..quantize import Optimizer, freeze, qtype, quantization_map, quantize, requantize
@@ -32,7 +35,7 @@ from transformers.modeling_utils import get_checkpoint_shard_files, load_state_d
 from transformers.utils import SAFE_WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_NAME, is_accelerate_available
 
 
-class QuantizedTransformersModel:
+class QuantizedTransformersModel(ModelHubMixin):
 
     BASE_NAME = "quanto"
     auto_class = None
@@ -104,7 +107,7 @@ class QuantizedTransformersModel:
         return cls(model)
 
     @classmethod
-    def from_pretrained(cls, model_name_or_path: Union[str, os.PathLike]):
+    def from_pretrained(cls, pretrained_model_name_or_path: Union[str, os.PathLike], **kwargs):
         if cls.auto_class is None:
             raise ValueError(
                 "Quantized models cannot be reloaded using {cls}: use a specialized quantized class such as QuantizedModelForCausalLM instead."
@@ -113,45 +116,48 @@ class QuantizedTransformersModel:
             raise ValueError("Reloading a quantized transformers model requires the accelerate library.")
         from accelerate import init_empty_weights
 
-        if os.path.isdir(model_name_or_path):
-            # Look for a quantization map
-            qmap_path = os.path.join(model_name_or_path, cls._qmap_name())
-            if not os.path.exists(qmap_path):
-                raise ValueError(f"No quantization map found in {model_name_or_path}: is this a quantized model ?")
-            with open(qmap_path, "r", encoding="utf-8") as f:
-                qmap = json.load(f)
-            # Create an empty model
-            config = AutoConfig.from_pretrained(model_name_or_path)
-            with init_empty_weights():
-                model = cls.auto_class.from_config(config)
-            # Look for the index of a sharded checkpoint
-            checkpoint_file = os.path.join(model_name_or_path, SAFE_WEIGHTS_INDEX_NAME)
-            if os.path.exists(checkpoint_file):
-                # Convert the checkpoint path to a list of shards
-                checkpoint_file, sharded_metadata = get_checkpoint_shard_files(model_name_or_path, checkpoint_file)
-                # Create a mapping for the sharded safetensor files
-                state_dict = ShardedStateDict(model_name_or_path, sharded_metadata["weight_map"])
-            else:
-                # Look for a single checkpoint file
-                checkpoint_file = os.path.join(model_name_or_path, SAFE_WEIGHTS_NAME)
-                if not os.path.exists(checkpoint_file):
-                    raise ValueError(f"No safetensor weights found in {model_name_or_path}.")
-                # Get state_dict from model checkpoint
-                state_dict = load_state_dict(checkpoint_file)
-            # Requantize and load quantized weights from state_dict
-            requantize(model, state_dict=state_dict, quantization_map=qmap)
-            if getattr(model.config, "tie_word_embeddings", True):
-                # Tie output weight embeddings to input weight embeddings
-                # Note that if they were quantized they would NOT be tied
-                model.tie_weights()
-            # Set model in evaluation mode as it is done in transformers
-            model.eval()
-            return cls(model)
+        if os.path.isdir(pretrained_model_name_or_path):
+            working_dir = pretrained_model_name_or_path
         else:
-            raise NotImplementedError("Reloading quantized models directly from the hub is not supported yet.")
+            working_dir = snapshot_download(pretrained_model_name_or_path, **kwargs)
 
-    def save_pretrained(self, save_directory: Union[str, os.PathLike], max_shard_size: Union[int, str] = "5GB"):
+        # Look for a quantization map
+        qmap_path = os.path.join(working_dir, cls._qmap_name())
+        if not os.path.exists(qmap_path):
+            raise ValueError(
+                f"No quantization map found in {pretrained_model_name_or_path}: is this a quantized model ?"
+            )
+        with open(qmap_path, "r", encoding="utf-8") as f:
+            qmap = json.load(f)
+        # Create an empty model
+        config = AutoConfig.from_pretrained(pretrained_model_name_or_path, **kwargs)
+        with init_empty_weights():
+            model = cls.auto_class.from_config(config)
+        # Look for the index of a sharded checkpoint
+        checkpoint_file = os.path.join(working_dir, SAFE_WEIGHTS_INDEX_NAME)
+        if os.path.exists(checkpoint_file):
+            # Convert the checkpoint path to a list of shards
+            checkpoint_file, sharded_metadata = get_checkpoint_shard_files(working_dir, checkpoint_file)
+            # Create a mapping for the sharded safetensor files
+            state_dict = ShardedStateDict(working_dir, sharded_metadata["weight_map"])
+        else:
+            # Look for a single checkpoint file
+            checkpoint_file = os.path.join(working_dir, SAFE_WEIGHTS_NAME)
+            if not os.path.exists(checkpoint_file):
+                raise ValueError(f"No safetensor weights found in {pretrained_model_name_or_path}.")
+            # Get state_dict from model checkpoint
+            state_dict = load_state_dict(checkpoint_file)
+        # Requantize and load quantized weights from state_dict
+        requantize(model, state_dict=state_dict, quantization_map=qmap)
+        if getattr(model.config, "tie_word_embeddings", True):
+            # Tie output weight embeddings to input weight embeddings
+            # Note that if they were quantized they would NOT be tied
+            model.tie_weights()
+        # Set model in evaluation mode as it is done in transformers
+        model.eval()
+        return cls(model)
 
+    def _save_pretrained(self, save_directory: Path) -> None:
         model = self._wrapped
         if getattr(model.config, "tie_word_embeddings", True):
             # The original model had tied embedding inputs and outputs
@@ -160,7 +166,7 @@ class QuantizedTransformersModel:
             ):
                 # At least one of the two is quantized, so they are not tied anymore
                 model.config.tie_word_embeddings = False
-        self._wrapped.save_pretrained(save_directory, max_shard_size=max_shard_size, safe_serialization=True)
+        self._wrapped.save_pretrained(save_directory, safe_serialization=True)
         # Save quantization map to be able to reload the model
         qmap_name = os.path.join(save_directory, self._qmap_name())
         qmap = quantization_map(self._wrapped)

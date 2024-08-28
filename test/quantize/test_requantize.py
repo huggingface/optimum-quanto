@@ -44,7 +44,7 @@ def save_and_reload_state_dict(state_dict, serialization):
     ids=["small", "large"],
 )
 @pytest.mark.parametrize("weights", [qint4, qint8], ids=["w-qint4", "w-qint8"])
-@pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16, torch.float32], ids=["bf16", "fp16", "fp32"])
 @pytest.mark.parametrize("serialization", ["weights_only", "pickle", "safetensors"])
 @pytest.mark.parametrize("activations", [None, qint8], ids=["a-none", "a-qint8"])
 def test_requantize_serialized_model(
@@ -64,11 +64,9 @@ def test_requantize_serialized_model(
     for name, module in model.named_modules():
         if isinstance(module, QModuleMixin):
             module_reloaded = getattr(model_reloaded, name)
-            assert module_reloaded.weight.qtype == module.weight.qtype
+            assert torch.equal(module_reloaded.weight, module.weight)
             assert module_reloaded.weight_qtype == module.weight_qtype
             assert module_reloaded.activation_qtype == module.activation_qtype
-            assert torch.equal(module_reloaded.weight._data, module.weight._data)
-            assert torch.equal(module_reloaded.weight._scale, module.weight._scale)
             assert torch.equal(module_reloaded.input_scale, module.input_scale)
             assert torch.equal(module_reloaded.output_scale, module.output_scale)
 

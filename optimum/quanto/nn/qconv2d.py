@@ -27,7 +27,12 @@ __all__ = ["QConv2d"]
 class QConv2d(QModuleMixin, torch.nn.Conv2d):
     @classmethod
     def qcreate(
-        cls, module, weights: qtype, activations: Optional[qtype] = None, optimizer: Optional[Optimizer] = None
+        cls,
+        module,
+        weights: qtype,
+        activations: Optional[qtype] = None,
+        optimizer: Optional[Optimizer] = None,
+        device: Optional[torch.device] = None,
     ):
         return cls(
             in_channels=module.in_channels,
@@ -40,7 +45,7 @@ class QConv2d(QModuleMixin, torch.nn.Conv2d):
             bias=module.bias is not None,
             padding_mode=module.padding_mode,
             dtype=module.weight.dtype,
-            device=module.weight.device,
+            device=device,
             weights=weights,
             activations=activations,
             optimizer=optimizer,

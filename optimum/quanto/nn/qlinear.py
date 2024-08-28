@@ -27,14 +27,19 @@ __all__ = ["QLinear"]
 class QLinear(QModuleMixin, torch.nn.Linear):
     @classmethod
     def qcreate(
-        cls, module, weights: qtype, activations: Optional[qtype] = None, optimizer: Optional[Optimizer] = None
+        cls,
+        module,
+        weights: qtype,
+        activations: Optional[qtype] = None,
+        optimizer: Optional[Optimizer] = None,
+        device: Optional[torch.device] = None,
     ):
         return cls(
             module.in_features,
             module.out_features,
             module.bias is not None,
             dtype=module.weight.dtype,
-            device=module.weight.device,
+            device=device,
             weights=weights,
             activations=activations,
             optimizer=optimizer,

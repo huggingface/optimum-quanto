@@ -171,7 +171,7 @@ class Attention(nn.Module):
         return self.o_proj(attn_output)
 
 
-def _test_quantize_attention(device, dtype=torch.float32, weights=qint8, activations=None):
+def _test_quantize_attention(device, dtype=torch.float32, weights=qint8, activations=None, atol=None):
     att = Attention().to(dtype).to(device)
     batch_size = 10
     seq_len = 64
@@ -186,18 +186,22 @@ def _test_quantize_attention(device, dtype=torch.float32, weights=qint8, activat
     else:
         with torch.no_grad(), Calibration():
             qoutputs = att(inputs)
-    atol = {None: 1e-4, qint8: 1e-3, qfloat8_e5m2: 1e-2, qfloat8_e4m3fn: 1e-2, qfloat8_e4m3fnuz:1e-2}[activations]
-    assert_similar(outputs, qoutputs, atol=atol)
+assert_similar(outputs, qoutputs, atol=atol)
 
 
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 def test_quantize_attention_weights_only(weights, device):
-    _test_quantize_attention(device, weights=weights)
+    _test_quantize_attention(device, weights=weights, atol=1e-4)
+
+
+@pytest.mark.skip_device("mps")
+def test_quantize_attention_weights_only_float8(device):
+    _test_quantize_attention(device, weights=qfloat8_e4m3fn, atol=1e-3)
 
 
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 def test_quantize_attention_activations_int8(weights, device):
-    _test_quantize_attention(device, weights=weights, activations=qint8)
+    _test_quantize_attention(device, weights=weights, activations=qint8, atol=1e-3)
 
 
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
@@ -210,4 +214,4 @@ def test_quantize_attention_activations_int8(weights, device):
 def test_quantize_attention_activations_float8(weights, activations, device):
     if device.type == "cuda" and activations == qfloat8_e4m3fnuz:
         pytest.skip("CUDA implements e4m3fn style")
-    _test_quantize_attention(device, weights=weights, activations=activations)
+    _test_quantize_attention(device, weights=weights, activations=activations, atol=1e-2)

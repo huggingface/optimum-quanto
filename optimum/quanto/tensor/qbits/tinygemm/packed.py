@@ -16,6 +16,7 @@ import ast
 from copy import copy
 
 import torch
+from packaging import version
 from torch.utils import _pytree as pytree
 
 
@@ -53,7 +54,11 @@ class TinyGemmPackedTensor(torch.Tensor):
         """
         inner_ktiles = 2
         t = t.to(torch.int32).contiguous()
-        data = torch._convert_weight_to_int4pack(t, innerKTiles=inner_ktiles)
+        if version.parse(torch.__version__).release >= version.parse("2.5.0").release:
+            t_uint8 = (t[::, ::2] << 4 | t[::, 1::2]).to(torch.uint8)
+            data = torch._convert_weight_to_int4pack(t_uint8, innerKTiles=inner_ktiles)
+        else:
+            data = torch._convert_weight_to_int4pack(t, innerKTiles=inner_ktiles)
         # We need to store size and stride to make sure the unpacked data has the correct shape
         return TinyGemmPackedTensor(data, t.size(), t.stride())
 

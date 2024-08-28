@@ -14,6 +14,7 @@
 
 import functools
 import gc
+import os
 
 import pytest
 import torch
@@ -107,3 +108,6 @@ def get_device_memory(device):
         torch.mps.empty_cache()
         return torch.mps.current_allocated_memory()
     return None
+
+
+_run_staging = os.getenv("HUGGINGFACE_CO_STAGING", False)

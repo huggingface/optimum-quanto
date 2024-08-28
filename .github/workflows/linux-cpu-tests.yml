@@ -49,7 +49,33 @@ jobs:
           pip install accelerate transformers diffusers
           python -m pytest test/models
 
+
       - name: Run CLI tests
         run: |
           pip install optimum
           python -m pytest test/cli
+
+  run_staging_tests:
+    needs: [conventional-commits, python-quality]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.8", "3.11"]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Build and install quanto
+        run: |
+          pip install --upgrade pip
+          pip install -e .[dev]
+
+      - name: Run models hub tests
+        run: |
+          pip install accelerate transformers diffusers
+          HUGGINGFACE_CO_STAGING=true python -m pytest test/models -k "hub"

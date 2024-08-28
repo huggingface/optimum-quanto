@@ -1,7 +1,9 @@
+import uuid
 from tempfile import TemporaryDirectory
 
 import pytest
 import torch
+from huggingface_hub import delete_repo
 
 from optimum.quanto import QModuleMixin, is_diffusers_available, qint4, qint8
 
@@ -44,8 +46,7 @@ def compare_models(a_model, b_model):
         if isinstance(b_m, QModuleMixin):
             assert isinstance(a_m, QModuleMixin)
         if isinstance(a_m, QModuleMixin):
-            assert torch.equal(a_m.weight._data, b_m.weight._data)
-            assert torch.equal(a_m.weight._scale, b_m.weight._scale)
+            assert torch.equal(a_m.weight, b_m.weight)
         for (a_p_name, a_p), (b_p_name, b_p) in zip(a_m.named_parameters(), b_m.named_parameters()):
             assert a_p_name == b_p_name
             assert isinstance(a_p, torch.Tensor)
@@ -86,3 +87,26 @@ def test_quantized_model_for_pixart(qtype, exclude_proj_out):
         requantized = QuantizedPixArtTransformer2DModel.from_pretrained(tmpdir)
 
     compare_models(quantized, requantized)
+
+
+@pytest.mark.skipif(not is_diffusers_available(), reason="requires diffusers")
+@pytest.mark.parametrize("in_org", [True, False], ids=["org", "user"])
+def test_push_to_hub(staging, in_org):
+    from optimum.quanto import QuantizedPixArtTransformer2DModel
+
+    identifier = uuid.uuid4()
+
+    exclude = None
+    quantized = quantized_model_for_pixart("qint8", exclude)
+    repo_id = f"test-model-{identifier}"
+    if in_org:
+        quantized.push_to_hub(repo_id, token=staging["token"])
+        hub_repo_id = f"{staging['user']}/{repo_id}"
+    else:
+        hub_repo_id = f"valid_org/{repo_id}-org"
+        quantized.push_to_hub(hub_repo_id, token=staging["token"])
+
+    requantized = QuantizedPixArtTransformer2DModel.from_pretrained(hub_repo_id, token=staging["token"])
+    compare_models(quantized, requantized)
+
+    delete_repo(hub_repo_id, token=staging["token"])

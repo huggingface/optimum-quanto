@@ -63,3 +63,24 @@ class QTensor(torch.Tensor):
 
     def numpy(self):
         return self.dequantize().cpu().numpy()
+
+    def equal(self, other):
+        if type(self) is not type(other):
+            return False
+        self_tensors, self_meta = self.__tensor_flatten__()
+        _, other_meta = other.__tensor_flatten__()
+        for name, value in self_meta.items():
+            if other_meta[name] != value:
+                return False
+        for name in self_tensors:
+            self_t = getattr(self, name)
+            other_t = getattr(other, name)
+            if self_t.device.type == "cpu" and self_t.dtype in (torch.float8_e4m3fn, torch.float8_e5m2):
+                # torch.equal is not implemented on CPU for float8 types
+                if self_t.dtype != other_t.dtype:
+                    return False
+                if not torch.equal(self_t.to(torch.float32), other_t.to(torch.float32)):
+                    return False
+            elif not torch.equal(self_t, other_t):
+                return False
+        return True
