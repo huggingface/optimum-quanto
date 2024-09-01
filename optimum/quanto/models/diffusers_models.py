@@ -15,7 +15,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any, List, Optional, Union
-
+import torch
 from huggingface_hub import ModelHubMixin, snapshot_download
 
 from ..quantize import Optimizer, freeze, qtype, quantization_map, quantize, requantize
@@ -157,7 +157,8 @@ class QuantizedDiffusersModel(ModelHubMixin):
         config = cls.base_class.load_config(pretrained_model_name_or_path, **kwargs)
         with init_empty_weights():
             model = cls.base_class.from_config(config)
-
+            dtype = kwargs.get("torch_dtype", torch.float16)
+            model = model.to(dtype=dtype)
         # Look for the index of a sharded checkpoint
         checkpoint_file = os.path.join(working_dir, SAFE_WEIGHTS_INDEX_NAME)
         if os.path.exists(checkpoint_file):

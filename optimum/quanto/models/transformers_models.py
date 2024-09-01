@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, List, Optional, Union
 
 from huggingface_hub import ModelHubMixin, snapshot_download
+import torch
 
 from ..nn import QModuleMixin
 from ..quantize import Optimizer, freeze, qtype, quantization_map, quantize, requantize
@@ -133,6 +134,8 @@ class QuantizedTransformersModel(ModelHubMixin):
         config = AutoConfig.from_pretrained(pretrained_model_name_or_path, **kwargs)
         with init_empty_weights():
             model = cls.auto_class.from_config(config)
+            dtype = kwargs.get("torch_dtype", torch.float16)
+            model = model.to(dtype=dtype)
         # Look for the index of a sharded checkpoint
         checkpoint_file = os.path.join(working_dir, SAFE_WEIGHTS_INDEX_NAME)
         if os.path.exists(checkpoint_file):
