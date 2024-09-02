@@ -65,7 +65,7 @@ def compare_models(a_model, b_model):
     with torch.no_grad():
         output_a = a_model.forward(inputs)
         output_b = b_model.forward(inputs)
-    assert torch.equal(output_a.last_hidden_state, output_b.last_hidden_state)
+    assert torch.equal(output_a.logits, output_b.logits)
     for i, a_key_value in enumerate(output_a.past_key_values):
         b_key_value = output_b.past_key_values[i]
         for j, a_value in enumerate(a_key_value):
