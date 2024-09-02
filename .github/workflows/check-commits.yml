@@ -1,0 +1,17 @@
+name: Check Commits
+
+on: [workflow_call]
+
+jobs:
+  build:
+    name: Check commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: huggingface/action-check-commits@v1.0.0
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          max-commits: "10"
+          min-words: "3"
+          forbidden-words: "fixup"
