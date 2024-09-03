@@ -71,6 +71,8 @@ sources = [
     "awq/v2/gemv_cuda.cu",
     "marlin/fp8_marlin.cu",
     "marlin/gptq_marlin_repack.cu",
+    "marlin/marlin_cuda.cpp",
+    "marlin/marlin_cuda_kernel.cu",
     "pybind_module.cpp",
 ]
 ext = Extension(
