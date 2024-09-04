@@ -131,8 +131,8 @@ class QModuleMixin(ABC):
                 self._quantize_hooks["input"] = self.register_forward_pre_hook(self.quantize_input)
             self._quantize_hooks["output"] = self.register_forward_hook(self.quantize_output)
         self.optimizer = optimizer
-        self.register_buffer("input_scale", torch.ones((), device=device))
-        self.register_buffer("output_scale", torch.ones((), device=device))
+        self.register_buffer("input_scale", torch.ones((), dtype=self.weight.dtype, device=device))
+        self.register_buffer("output_scale", torch.ones((), dtype=self.weight.dtype, device=device))
 
     def disable_output_quantization(self):
         if "output" in self._quantize_hooks:
