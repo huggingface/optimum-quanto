@@ -25,6 +25,8 @@
 
 template <typename T> inline std::string str(T x) { return std::to_string(x); }
 
+namespace marlin {
+
 constexpr int ceildiv(int a, int b) { return (a + b - 1) / b; }
 
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 800
@@ -1043,3 +1045,5 @@ void marlin_cuda(const void *A, const void *B, void *C, void *s, int prob_m,
     C_ptr += 16 * thread_m_blocks * (prob_n / 8) * par;
   }
 }
+
+} // namespace marlin
