@@ -157,7 +157,7 @@ class QuantizedDiffusersModel(ModelHubMixin):
         config = cls.base_class.load_config(pretrained_model_name_or_path, **kwargs)
         with init_empty_weights():
             model = cls.base_class.from_config(config)
-            dtype = kwargs.get("torch_dtype", torch.float16)
+            dtype = kwargs.get("torch_dtype", torch.float32)
             model = model.to(dtype=dtype)
         # Look for the index of a sharded checkpoint
         checkpoint_file = os.path.join(working_dir, SAFE_WEIGHTS_INDEX_NAME)
