@@ -17,6 +17,8 @@
 
 #include <torch/extension.h>
 
+#include <ATen/cuda/CUDAContext.h>
+#include <c10/cuda/CUDAGuard.h>
 #include <cuda.h>
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
@@ -1047,3 +1049,97 @@ void marlin_cuda(const void *A, const void *B, void *C, void *s, int prob_m,
 }
 
 } // namespace marlin
+
+torch::Tensor marlin_gemm(torch::Tensor &a, torch::Tensor &b_q_weight,
+                          torch::Tensor &b_scales, torch::Tensor &workspace,
+                          int64_t size_m, int64_t size_n, int64_t size_k) {
+
+  // Verify M
+  TORCH_CHECK(size_m == a.size(0),
+              "Shape mismatch: a.size(0) = " + str(a.size(0)) +
+                  ", size_m = " + str(size_m));
+
+  // Verify K
+  TORCH_CHECK(size_k == a.size(1),
+              "Shape mismatch: a.size(1) = " + str(a.size(1)) +
+                  ", size_k = " + str(size_k));
+  TORCH_CHECK(size_k % marlin::tile_size == 0,
+              "size_k = " + str(size_k) +
+                  " is not divisible by tile_size = " + str(marlin::tile_size));
+  TORCH_CHECK((size_k / marlin::tile_size) == b_q_weight.size(0),
+              "Shape mismatch: b_q_weight.size(0) = " +
+                  str(b_q_weight.size(0)) + ", size_k = " + str(size_k) +
+                  ", tile_size = " + str(marlin::tile_size));
+
+  // Verify N
+  TORCH_CHECK(b_scales.size(1) == size_n,
+              "b_scales.size(1) = " + str(b_scales.size(1)) +
+                  ", size_n = " + str(size_n));
+  TORCH_CHECK(b_q_weight.size(1) % marlin::tile_size == 0,
+              "b_q_weight.size(1) = " + str(b_q_weight.size(1)) +
+                  " is not divisible by tile_size = " + str(marlin::tile_size));
+
+  int actual_size_n =
+      (b_q_weight.size(1) / marlin::tile_size) * marlin::pack_factor_4bit;
+  TORCH_CHECK(size_n == actual_size_n,
+              "size_n = " + str(size_n) +
+                  ", actual_size_n = " + str(actual_size_n));
+
+  // Verify A device and strides
+  TORCH_CHECK(a.device().is_cuda(), "A is not on GPU");
+  TORCH_CHECK(a.is_contiguous(), "A is not contiguous");
+
+  // Verify B device and strides
+  TORCH_CHECK(b_q_weight.device().is_cuda(), "b_q_weight is not on GPU");
+  TORCH_CHECK(b_q_weight.is_contiguous(), "b_q_weight is not contiguous");
+
+  // Verify scales device and strides
+  TORCH_CHECK(b_scales.device().is_cuda(), "b_scales is not on GPU");
+  TORCH_CHECK(b_scales.is_contiguous(), "b_scales is not contiguous");
+
+  // Alloc C matrix
+  const at::cuda::OptionalCUDAGuard device_guard(device_of(a));
+  auto options = torch::TensorOptions().dtype(a.dtype()).device(a.device());
+  torch::Tensor c = torch::empty({size_m, size_n}, options);
+
+  // thread_k: `k` size of a thread_tile in `weights` (can usually be left as
+  // auto -1)
+  int thread_k = -1;
+  // thread_n: `n` size of a thread_tile in `weights` (can usually be left as
+  // auto -1)
+  int thread_n = -1;
+  // sms: number of SMs to use for the kernel (can usually be left as auto -1)
+  int sms = -1;
+
+  // Detect groupsize
+  if (b_scales.size(0) != 1) {
+    TORCH_CHECK(size_k % b_scales.size(0) == 0,
+                "size_k = " + str(size_k) +
+                    ", is not divisible by b_scales.size(0) = " +
+                    str(b_scales.size(0)));
+  }
+  int groupsize = b_scales.size(0) == 1 ? -1 : size_k / b_scales.size(0);
+
+  // Verify groupsize
+  TORCH_CHECK(groupsize == -1 || groupsize == 128,
+              "Unexpected groupsize = " + str(groupsize));
+
+  // Verify workspace size
+  TORCH_CHECK(
+      size_n % marlin::min_thread_n == 0,
+      "size_n = " + str(size_n) +
+          ", is not divisible by min_thread_n = " + str(marlin::min_thread_n));
+  int min_workspace_size = (size_n / marlin::min_thread_n) * marlin::max_par;
+  TORCH_CHECK(workspace.numel() >= min_workspace_size,
+              "workspace.numel = " + str(workspace.numel()) +
+                  " is below min_workspace_size = " + str(min_workspace_size));
+
+  int dev = a.get_device();
+  marlin::marlin_cuda(a.data_ptr(), b_q_weight.data_ptr(), c.data_ptr(),
+                      b_scales.data_ptr(), size_m, size_n, size_k,
+                      workspace.data_ptr(), groupsize, dev,
+                      at::cuda::getCurrentCUDAStream(dev), thread_k, thread_n,
+                      sms, marlin::max_par);
+
+  return c;
+}
