@@ -58,7 +58,7 @@ class QuantizedTransformersModel(ModelHubMixin):
         return self._wrapped.forward(*args, **kwargs)
       
     def forward(self, *args, **kwargs):
-        return self.model.forward(*args, **kwargs)
+        return self._wrapped.forward(*args, **kwargs)
 
     
     @staticmethod
