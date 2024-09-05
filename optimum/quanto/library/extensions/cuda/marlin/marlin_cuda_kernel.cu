@@ -16,9 +16,7 @@
  */
 
 
-#ifndef MARLIN_CUDA_KERNEL_CUH
-#define MARLIN_CUDA_KERNEL_CUH
-
+#include <cassert>
 
 #include <cuda.h>
 #include <cuda_fp16.h>
@@ -28,6 +26,8 @@
 
 
 constexpr int ceildiv(int a, int b) { return (a + b - 1) / b; }
+
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 800
 
 // Instances of `Vec` are used to organize groups of >>registers<<, as needed
 // for instance as inputs to tensor core operations. Consequently, all
@@ -788,6 +788,36 @@ Marlin(const int4 *__restrict__ A, // fp16 input matrix of shape mxk
   }
 }
 
+#else
+
+template <const int threads,         // number of threads in a threadblock
+          const int thread_m_blocks, // number of 16x16 blocks in the m
+                                     // dimension (batchsize) of the threadblock
+          const int thread_n_blocks, // same for n dimension (output)
+          const int thread_k_blocks, // same for k dimension (reduction)
+          const int stages, // number of stages for the async global->shared
+                            // fetch pipeline
+          const int group_blocks = -1 // number of consecutive 16x16 blocks with
+                                      // a separate quantization scale
+          >
+__global__ void
+Marlin(const int4 *__restrict__ A, // fp16 input matrix of shape mxk
+       const int4 *__restrict__ B, // 4bit quantized weight matrix of shape kxn
+       int4 *__restrict__ C,       // fp16 output buffer of shape mxn
+       const int4
+           *__restrict__ s, // fp16 quantization scales of shape (k/groupsize)xn
+       int prob_m,          // batch dimension m
+       int prob_n,          // output dimension n
+       int prob_k,          // reduction dimension k
+       int *locks           // extra global storage for barrier synchronization
+) {
+  // Marlin is not implemented yet for SM < 8.0
+  assert(false);
+  return;
+}
+
+#endif
+
 // 8 warps are a good choice since every SM has 4 schedulers and having more
 // than 1 warp per schedule allows some more latency hiding. At the same time,
 // we want relatively few warps to have many registers per warp and small tiles.
@@ -894,6 +924,3 @@ int marlin_cuda(const void *A, const void *B, void *C, void *s, int prob_m,
 
   return ret;
 }
-
-
-#endif
