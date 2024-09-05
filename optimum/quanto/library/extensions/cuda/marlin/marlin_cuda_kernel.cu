@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 
-
-#include <cassert>
+#include <torch/extension.h>
 
 #include <cuda.h>
 #include <cuda_fp16.h>
@@ -24,6 +23,7 @@
 
 #include <iostream>
 
+template <typename T> inline std::string str(T x) { return std::to_string(x); }
 
 constexpr int ceildiv(int a, int b) { return (a + b - 1) / b; }
 
@@ -821,59 +821,182 @@ Marlin(const int4 *__restrict__ A, // fp16 input matrix of shape mxk
 // 8 warps are a good choice since every SM has 4 schedulers and having more
 // than 1 warp per schedule allows some more latency hiding. At the same time,
 // we want relatively few warps to have many registers per warp and small tiles.
-const int THREADS = 256;
+const int USER_THREADS =
+    256;              // Note: This is only used with user-provided thread_k/n
 const int STAGES = 4; // 4 pipeline stages fit into shared memory
 const int SHARED_MEM =
     96 * 1024; // max shared memory on compute capability 8.6 (< 8.0)
 
-#define CALL_IF(THREAD_M_BLOCKS, THREAD_N_BLOCKS, THREAD_K_BLOCKS,             \
-                GROUP_BLOCKS)                                                  \
+static constexpr int min_thread_n = 64;
+static constexpr int min_thread_k = 64;
+
+static constexpr int tile_size = 16;
+static constexpr int max_par = 16;
+
+static constexpr int pack_factor_4bit =
+    8; // We have 8 4-bit vals inside a 32 bit
+
+#define __CALL_IF(THREAD_M_BLOCKS, THREAD_N_BLOCKS, THREAD_K_BLOCKS,           \
+                  GROUP_BLOCKS, NUM_THREADS)                                   \
   else if (thread_m_blocks == THREAD_M_BLOCKS &&                               \
            thread_n_blocks == THREAD_N_BLOCKS &&                               \
            thread_k_blocks == THREAD_K_BLOCKS &&                               \
-           group_blocks == GROUP_BLOCKS) {                                     \
-    cudaFuncSetAttribute(Marlin<THREADS, THREAD_M_BLOCKS, THREAD_N_BLOCKS,     \
+           group_blocks == GROUP_BLOCKS && num_threads == NUM_THREADS) {       \
+    cudaFuncSetAttribute(Marlin<NUM_THREADS, THREAD_M_BLOCKS, THREAD_N_BLOCKS, \
                                 THREAD_K_BLOCKS, STAGES, GROUP_BLOCKS>,        \
                          cudaFuncAttributeMaxDynamicSharedMemorySize,          \
                          SHARED_MEM);                                          \
-    Marlin<THREADS, THREAD_M_BLOCKS, THREAD_N_BLOCKS, THREAD_K_BLOCKS,         \
-           STAGES, GROUP_BLOCKS><<<blocks, THREADS, SHARED_MEM, stream>>>(     \
+    Marlin<NUM_THREADS, THREAD_M_BLOCKS, THREAD_N_BLOCKS, THREAD_K_BLOCKS,     \
+           STAGES, GROUP_BLOCKS><<<blocks, NUM_THREADS, SHARED_MEM, stream>>>( \
         A_ptr, B_ptr, C_ptr, s_ptr, prob_m, prob_n, prob_k, locks);            \
   }
 
-const int ERR_PROB_SHAPE = 1;
-const int ERR_KERN_SHAPE = 2;
+typedef struct {
+  int thread_k;
+  int thread_n;
+  int num_threads;
+} thread_config_t;
 
-int marlin_cuda(const void *A, const void *B, void *C, void *s, int prob_m,
-                int prob_n, int prob_k, void* workspace, int groupsize = -1,
-                int dev = 0, cudaStream_t stream = 0, int thread_k = -1,
-                int thread_n = -1, int sms = -1, int max_par = 16) {
+thread_config_t small_batch_thread_configs[] = {
+    // Ordered by priority
+
+    // thread_k, thread_n, num_threads
+    {128, 128, 256}, // Default
+    {128, 64, 128},  // Reduce N 2X, same K
+    {64, 256, 256},  // Reduce K 2X, increase N 2X
+    {64, 128, 128},  // Reduce K 2X, same N
+};
+
+thread_config_t large_batch_thread_configs[] = {
+    // Ordered by priority
+
+    // thread_k, thread_n, num_threads
+    {64, 256, 256},  // Default
+    {128, 128, 256}, // Reduce N 2X, increase K 2X
+    {64, 128, 128},  // Reduce N 2X, same K
+    {128, 64, 128},  // Reduce N 4X, increase K 2X
+};
+
+bool is_valid_config(thread_config_t const &th_config, int prob_m, int prob_n,
+                     int prob_k) {
+  // Sanity
+  if (th_config.thread_k == -1 || th_config.thread_n == -1 ||
+      th_config.num_threads == -1) {
+    return false;
+  }
+
+  // Verify K/N are divisible by thread K/N
+  if (prob_k % th_config.thread_k != 0 || prob_n % th_config.thread_n != 0) {
+    return false;
+  }
+
+  // thread_k can be only 128 or 64 (because it must be less than groupsize
+  // which is 128)
+  if (th_config.thread_k != 128 && th_config.thread_k != 64) {
+    return false;
+  }
+
+  // Verify min for thread K/N
+  if (th_config.thread_n < min_thread_n || th_config.thread_k < min_thread_k) {
+    return false;
+  }
+
+  // num_threads must be at least 128 (= 4 warps)
+  if (th_config.num_threads < 128) {
+    return false;
+  }
+
+  return true;
+}
+
+thread_config_t determine_thread_config(int prob_m, int prob_n, int prob_k) {
+
+  if (prob_m <= 16) {
+    for (auto th_config : small_batch_thread_configs) {
+      if (is_valid_config(th_config, prob_m, prob_n, prob_k)) {
+        return th_config;
+      }
+    }
+
+  } else {
+    for (auto th_config : large_batch_thread_configs) {
+      if (is_valid_config(th_config, prob_m, prob_n, prob_k)) {
+        return th_config;
+      }
+    }
+  }
+
+  return thread_config_t{-1, -1, -1};
+}
+
+#define CALL_IF(N_BLOCKS, K_BLOCKS, NUM_THREADS)                               \
+  __CALL_IF(1, N_BLOCKS, K_BLOCKS, -1, NUM_THREADS)                            \
+  __CALL_IF(1, N_BLOCKS, K_BLOCKS, 8, NUM_THREADS)                             \
+  __CALL_IF(1, N_BLOCKS, K_BLOCKS, -1, NUM_THREADS)                            \
+  __CALL_IF(1, N_BLOCKS, K_BLOCKS, 8, NUM_THREADS)                             \
+  __CALL_IF(2, N_BLOCKS, K_BLOCKS, -1, NUM_THREADS)                            \
+  __CALL_IF(2, N_BLOCKS, K_BLOCKS, 8, NUM_THREADS)                             \
+  __CALL_IF(3, N_BLOCKS, K_BLOCKS, -1, NUM_THREADS)                            \
+  __CALL_IF(3, N_BLOCKS, K_BLOCKS, 8, NUM_THREADS)                             \
+  __CALL_IF(4, N_BLOCKS, K_BLOCKS, -1, NUM_THREADS)                            \
+  __CALL_IF(4, N_BLOCKS, K_BLOCKS, 8, NUM_THREADS)
+
+void marlin_cuda(const void *A, const void *B, void *C, void *s, int prob_m,
+                 int prob_n, int prob_k, void *workspace, int groupsize = -1,
+                 int dev = 0, cudaStream_t stream = 0, int thread_k = -1,
+                 int thread_n = -1, int sms = -1, int max_par = 16) {
   int tot_m = prob_m;
   int tot_m_blocks = ceildiv(tot_m, 16);
   int pad = 16 * tot_m_blocks - tot_m;
 
   if (sms == -1)
     cudaDeviceGetAttribute(&sms, cudaDevAttrMultiProcessorCount, dev);
-  if (thread_k == -1 || thread_n == -1) {
-    if (prob_m <= 16) {
-      // For small batchizes, better partioning is slightly more important than better compute utilization
-      thread_k = 128;
-      thread_n = 128;
-    } else {
-      thread_k = 64;
-      thread_n = 256;
-    }
+
+  // Set thread config
+  thread_config_t th_config;
+  if (thread_k != -1 && thread_n != -1) {
+    // User-defined config
+    th_config = thread_config_t{thread_k, thread_n, USER_THREADS};
+  } else {
+    // Auto config
+    th_config = determine_thread_config(prob_m, prob_n, prob_k);
   }
+
+  if (!is_valid_config(th_config, prob_m, prob_n, prob_k)) {
+    throw std::runtime_error(
+        "Invalid thread config: thread_k = " + str(th_config.thread_k) +
+        ", thread_n = " + str(th_config.thread_n) +
+        ", num_threads = " + str(th_config.num_threads) + " for MKN = [" +
+        str(prob_m) + ", " + str(prob_k) + ", " + str(prob_n) + "]");
+  }
+
+  // Uncomment for debug
+  // std::cout << "Using thread_config: thread_k = " + str(th_config.thread_k) +
+  //                  ", thread_n = " + str(th_config.thread_n) +
+  //                  ", num_threads = " + str(th_config.num_threads) + " for
+  //                  MKN = [" + str(prob_m) +
+  //                  ", " + str(prob_k) + ", " + str(prob_n) + "]\n";
+
+  int num_threads = th_config.num_threads;
+  thread_k = th_config.thread_k;
+  thread_n = th_config.thread_n;
 
   int thread_k_blocks = thread_k / 16;
   int thread_n_blocks = thread_n / 16;
   int group_blocks = (groupsize == -1) ? -1 : groupsize / 16;
   int blocks = sms;
 
-  if (prob_n % thread_n != 0 || prob_k % thread_k != 0 || (group_blocks != -1 && prob_k % group_blocks != 0))
-    return ERR_PROB_SHAPE;
   if (prob_m == 0 || prob_n == 0 || prob_k == 0) {
-    return 0;
+    return;
+  }
+
+  TORCH_CHECK(prob_n % thread_n == 0, "prob_n = ", prob_n,
+              " is not divisible by thread_n = ", thread_n);
+  TORCH_CHECK(prob_k % thread_k == 0, "prob_k = ", prob_k,
+              " is not divisible by thread_k = ", thread_k);
+  if (group_blocks != -1) {
+    TORCH_CHECK(prob_k % group_blocks == 0, "prob_k = ", prob_k,
+                " is not divisible by group_blocks = ", group_blocks);
   }
 
   const int4 *A_ptr = (const int4 *)A;
@@ -881,10 +1004,8 @@ int marlin_cuda(const void *A, const void *B, void *C, void *s, int prob_m,
   int4 *C_ptr = (int4 *)C;
   const int4 *s_ptr = (const int4 *)s;
 
-  int cols = prob_n / thread_n;
   int *locks = (int *)workspace;
 
-  int ret = 0;
   for (int i = 0; i < tot_m_blocks; i += 4) {
     int thread_m_blocks = tot_m_blocks - i;
     prob_m = tot_m - 16 * i;
@@ -905,22 +1026,20 @@ int marlin_cuda(const void *A, const void *B, void *C, void *s, int prob_m,
     // are, in principle, possible.
     if (false) {
     }
-    CALL_IF(1,  8,  8, -1)
-    CALL_IF(1,  8,  8,  8)
-    CALL_IF(1, 16,  4, -1)
-    CALL_IF(1, 16,  4,  8)
-    CALL_IF(2, 16,  4, -1)
-    CALL_IF(2, 16,  4,  8)
-    CALL_IF(3, 16,  4, -1)
-    CALL_IF(3, 16,  4,  8)
-    CALL_IF(4, 16,  4, -1)
-    CALL_IF(4, 16,  4,  8)
-    else
-      ret = ERR_KERN_SHAPE;
+    CALL_IF(8, 8, 256)
+    CALL_IF(16, 4, 256)
+    CALL_IF(8, 4, 128)
+    CALL_IF(4, 8, 128)
+    else {
+      throw std::runtime_error("Unsupported shapes: MKN = [" + str(prob_m) +
+                               ", " + str(prob_k) + ", " + str(prob_n) + "]" +
+                               ", groupsize = " + str(groupsize) +
+                               ", thread_m_blocks = " + str(thread_m_blocks) +
+                               ", thread_n_blocks = " + str(thread_n_blocks) +
+                               ", thread_k_blocks = " + str(thread_k_blocks));
+    }
 
     A_ptr += 16 * thread_m_blocks * (prob_k / 8) * par;
     C_ptr += 16 * thread_m_blocks * (prob_n / 8) * par;
   }
-
-  return ret;
 }
