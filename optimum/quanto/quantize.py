@@ -164,7 +164,7 @@ def quantization_map(model: torch.nn.Module) -> Dict[str, Dict[str, str]]:
     for name, m in model.named_modules():
         if isinstance(m, QModuleMixin):
             config[name] = {
-                "weights": m.weight_qtype.name,
+                "weights": "none" if m.weight_qtype is None else m.weight_qtype.name,
                 "activations": "none" if m.activation_qtype is None else m.activation_qtype.name,
             }
     return config
