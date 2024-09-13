@@ -45,7 +45,9 @@ def test_symmetric_quantize_int(input_shape, dtype, qtype, device):
 @pytest.mark.parametrize("input_shape", [(32, 32), (32, 10, 32)])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize(
-    "qtype", [qfloat8, qfloat8_e4m3fn, qfloat8_e4m3fnuz, qfloat8_e5m2], ids=["qfloat8", "qfloat8_e4m3fn", "qfloat8_e4m3fnuz", "qfloat8_e5m2"]
+    "qtype",
+    [qfloat8, qfloat8_e4m3fn, qfloat8_e4m3fnuz, qfloat8_e5m2],
+    ids=["qfloat8", "qfloat8_e4m3fn", "qfloat8_e4m3fnuz", "qfloat8_e5m2"],
 )
 def test_symmetric_quantize_float8(input_shape, dtype, qtype, device):
     if device.type == "cuda" and qtype == qfloat8_e4m3fnuz:

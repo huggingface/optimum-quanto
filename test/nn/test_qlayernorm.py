@@ -37,7 +37,7 @@ def _test_quantize_layernorm(batch_size, tokens, embeddings, dtype, activations,
     # We need to increase atol for float16 dtype
     dtype_atol = {torch.float32: 1e-4, torch.float16: 1e-3}[dtype]
     # We also need to increase atol for float8 qtypes
-    atol = {qint8: dtype_atol, qfloat8_e5m2: 5e-3, qfloat8_e4m3fn: 5e-3, qfloat8_e4m3fnuz:5e-3}[activations]
+    atol = {qint8: dtype_atol, qfloat8_e5m2: 5e-3, qfloat8_e4m3fn: 5e-3, qfloat8_e4m3fnuz: 5e-3}[activations]
     assert_similar(out, qout, atol=atol)
 
 

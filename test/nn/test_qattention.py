@@ -186,7 +186,8 @@ def _test_quantize_attention(device, dtype=torch.float32, weights=qint8, activat
     else:
         with torch.no_grad(), Calibration():
             qoutputs = att(inputs)
-assert_similar(outputs, qoutputs, atol=atol)
+
+    assert_similar(outputs, qoutputs, atol=atol)
 
 
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])

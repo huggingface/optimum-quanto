@@ -25,7 +25,9 @@ from optimum.quanto.tensor.weights.marlin.packed import get_scale_perms, pack_fp
 @pytest.mark.parametrize("input_features", [32, 50])
 @pytest.mark.parametrize("output_features", [48, 50, 64])
 @pytest.mark.parametrize("input_dtype", [None, torch.int8], ids=["i-as-out", "i-int8"])
-@pytest.mark.parametrize("weight_dtype", [torch.float8_e4m3fn, torch.float8_e4m3fnuz, torch.int8], ids=["w-float8", "w-float8-uz", "w-int8"])
+@pytest.mark.parametrize(
+    "weight_dtype", [torch.float8_e4m3fn, torch.float8_e4m3fnuz, torch.int8], ids=["w-float8", "w-float8-uz", "w-int8"]
+)
 @pytest.mark.parametrize("output_dtype", [torch.float16, torch.bfloat16], ids=["o-fp16", "o-bf16"])
 def test_qbytes_mm(batch_size, input_features, input_dtype, weight_dtype, output_features, output_dtype, device):
     if device.type == "mps" and weight_dtype.is_floating_point:
