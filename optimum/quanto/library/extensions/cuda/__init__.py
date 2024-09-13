@@ -144,3 +144,38 @@ def gptq_marlin_repack(
     assert b_q_weight.dim() == 2
     assert b_q_weight.dtype == torch.int32
     return ext.lib.gptq_marlin_repack(b_q_weight, perm, size_k, size_n, num_bits)
+
+
+torch.library.define(
+    "quanto::gemm_f16i4_marlin",
+    "(Tensor input, Tensor other, Tensor other_scale, Tensor other_shift, Tensor workspace) -> Tensor",
+)
+
+
+@torch.library.impl("quanto::gemm_f16i4_marlin", ["CUDA"])
+def gemm_f16i4_marlin(
+    input: torch.Tensor, other: torch.Tensor, scales: torch.Tensor, zeropoint: torch.Tensor, workspace: torch.Tensor
+) -> torch.Tensor:
+    assert input.dtype == torch.float16
+    assert other.dtype == torch.int32
+    assert scales.dtype == torch.float16
+    assert zeropoint.dtype == torch.float16
+    assert workspace.dtype == torch.int32
+    output = torch.empty(
+        input.shape[:-1] + (scales.shape[1],),
+        dtype=input.dtype,
+        device=input.device,
+    )
+    ext.lib.marlin_gemm_f16i4(
+        input.view((-1, input.shape[-1])),
+        other,
+        output.view((-1, output.shape[-1])),
+        scales,
+        zeropoint,
+        workspace,
+        -1,
+        -1,
+        -1,
+        16,
+    )
+    return output
