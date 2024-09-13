@@ -1,10 +1,14 @@
 import argparse
 import time
+from tempfile import NamedTemporaryFile
 
 import torch
 import torch.nn.functional as F
+from accelerate import init_empty_weights
 from datasets import load_dataset
+from safetensors.torch import load_file, save_file
 from transformers import (
+    ViTConfig,
     ViTForImageClassification,
     ViTImageProcessor,
 )
@@ -16,12 +20,13 @@ from optimum.quanto import (
     qfloat8,
     qint4,
     qint8,
+    quantization_map,
     quantize,
+    requantize,
 )
 
 
 def test(model, device, test_loader):
-    
     model.to(device)
     model.eval()
     test_loss = 0
@@ -107,6 +112,19 @@ def main():
     print("Quantized frozen model")
     freeze(model)
     test(model, device, test_loader)
+    # Serialize model to a state_dict, save it to disk and reload it
+    with NamedTemporaryFile() as tmp_file:
+        save_file(model.state_dict(), tmp_file.name)
+        state_dict = load_file(tmp_file.name)
+    model_reloaded = ViTForImageClassification.from_pretrained(model_name)
+    # Create an empty model
+    config = ViTConfig.from_pretrained(model_name)
+    with init_empty_weights():
+        model_reloaded = ViTForImageClassification.from_pretrained(model_name, config=config)
+    # Requantize it using the serialized state_dict
+    requantize(model_reloaded, state_dict, quantization_map(model), device)
+    print("Serialized quantized model")
+    test(model_reloaded, device, test_loader)
 
 
 if __name__ == "__main__":
