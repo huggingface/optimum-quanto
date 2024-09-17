@@ -151,24 +151,16 @@ You'll need **Python 3.8** or above to contribute. Follow the steps below to sta
    git commit
    ```
 
-   We kindly request you to use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/#summary)
-    to clearly communicate the changes you made (here the full [specification](https://www.conventionalcommits.org/en/v1.0.0/))!
+   This repository uses a `rebase` strategy when merging pull-requests, meaning that your commits will **not** be squashed automatically.
+
+   We therefore request you to keep a tidy queue of commits in your pull-request, clearly communicating the changes you made in each commit.
+
+   **This is enforced by the continuous integration, so your pull-request will not be reviewed if your commit queue is not clean.**
+
+   Although this is not mandatory, we kindly ask you to consider using [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/#summary)
+   (here the full [specification](https://www.conventionalcommits.org/en/v1.0.0/))!
 
    This article gives a brief [rationale](https://julien.ponge.org/blog/the-power-of-conventional-commits/) of why this will make our life and yours easier.
-
-   The following commit types are allowed:
-   - feat,
-   - fix,
-   - docs,
-   - style,
-   - refactor,
-   - test,
-   - build,
-   - perf,
-   - ci,
-   - chore,
-   - revert,
-   - review.
 
    To keep your copy of the code up to date with the original
    repository, rebase your branch on `upstream/branch` *before* you open a pull request or if requested by a maintainer:
@@ -178,7 +170,7 @@ You'll need **Python 3.8** or above to contribute. Follow the steps below to sta
    git rebase upstream/main
    ```
 
-   Also, consider editing your commit history to make it more readable for the reviewer (like squashing temporary commits).
+   Before submitting, cleanup your commit history to make it more readable for the reviewer (like squashing temporary commits and editing commit messages to clearly explain what you changed).
 
    Push your changes to your branch:
 

@@ -16,12 +16,12 @@ on:
       - "pyproject.toml"
 
 jobs:
-  conventional-commits:
-    uses: ./.github/workflows/conventional-commits.yml
+  check-commits:
+    uses: ./.github/workflows/check-commits.yml
   python-quality:
     uses: ./.github/workflows/python-quality.yml
   test-ubuntu-cpu:
-    needs: [conventional-commits, python-quality]
+    needs: [check-commits, python-quality]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -56,7 +56,7 @@ jobs:
           python -m pytest test/cli
 
   run_staging_tests:
-    needs: [conventional-commits, python-quality]
+    needs: [check-commits, python-quality]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -69,7 +69,7 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
-      
+
       - name: Build and install quanto
         run: |
           pip install --upgrade pip

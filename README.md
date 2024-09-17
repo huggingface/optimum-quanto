@@ -197,8 +197,8 @@ import json
 
 from optimum.quanto import quantization_map
 
-with open('quantization_map.json', w) as f:
-  json.dump(quantization_map(model))
+with open('quantization_map.json', 'w') as f:
+  json.dump(quantization_map(model), f)
 ```
 
 **5. Reload a quantized model**
@@ -210,9 +210,10 @@ Note that you need first to instantiate an empty model.
 import json
 
 from safetensors.torch import load_file
+from optimum.quanto import requantize
 
 state_dict = load_file('model.safetensors')
-with open('quantization_map.json', r) as f:
+with open('quantization_map.json', 'r') as f:
   quantization_map = json.load(f)
 
 # Create an empty model from your modeling code and requantize it
