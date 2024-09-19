@@ -26,8 +26,8 @@ from optimum.quanto import (
     qint2,
     qint4,
     qint8,
-    ungroup,
 )
+from optimum.quanto.tensor.grouped import ungroup
 
 
 @pytest.mark.parametrize("input_shape", [(32, 32), (32, 10, 32)])

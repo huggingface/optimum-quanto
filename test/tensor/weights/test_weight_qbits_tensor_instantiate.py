@@ -16,7 +16,8 @@
 import pytest
 import torch
 
-from optimum.quanto import QBitsTensor, qint2, qint4
+from optimum.quanto import qint2, qint4
+from optimum.quanto.tensor.weights import WeightQBitsTensor
 
 
 def random_data_scale_shift(input_shape, dtype, qtype, axis, group_size):
@@ -36,10 +37,12 @@ def random_data_scale_shift(input_shape, dtype, qtype, axis, group_size):
 @pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16, torch.float32], ids=["bf16", "fp16", "fp32"])
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["qint2", "qint4"])
-def test_qbitstensor_instantiate(input_shape, dtype, qtype, axis, group_size, device):
+def test_weight_qbits_tensor_instantiate(input_shape, dtype, qtype, axis, group_size, device):
     data, scale, shift = random_data_scale_shift(input_shape, dtype, qtype, axis, group_size)
     input_stride = torch.ones(input_shape).stride()
-    qa = QBitsTensor(qtype, axis, group_size, input_shape, input_stride, data, scale=scale, shift=shift).to(device)
+    qa = WeightQBitsTensor(qtype, axis, group_size, input_shape, input_stride, data, scale=scale, shift=shift).to(
+        device
+    )
     assert torch.max(torch.abs(qa.dequantize())) <= 1
     assert qa.dtype == dtype
     assert qa.qtype == qtype
@@ -50,10 +53,12 @@ def test_qbitstensor_instantiate(input_shape, dtype, qtype, axis, group_size, de
 @pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16, torch.float32], ids=["bf16", "fp16", "fp32"])
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["qint2", "qint4"])
-def test_qbitstensor_equal(input_shape, dtype, qtype, axis, group_size, device):
+def test_weight_qbits_tensor_equal(input_shape, dtype, qtype, axis, group_size, device):
     data, scale, shift = random_data_scale_shift(input_shape, dtype, qtype, axis, group_size)
-    qa = QBitsTensor(qtype, axis, group_size, data.size(), data.stride(), data, scale=scale, shift=shift).to(device)
-    qb = QBitsTensor(
+    qa = WeightQBitsTensor(qtype, axis, group_size, data.size(), data.stride(), data, scale=scale, shift=shift).to(
+        device
+    )
+    qb = WeightQBitsTensor(
         qtype, axis, group_size, data.size(), data.stride(), data.clone(), scale=scale.clone(), shift=shift.clone()
     ).to(device)
     assert qa.equal(qb)

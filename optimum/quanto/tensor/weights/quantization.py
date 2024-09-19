@@ -16,8 +16,8 @@ from typing import Optional
 
 import torch
 
-from ..qbits import QBitsTensor
 from ..qtype import qtype
+from .qbits import WeightQBitsTensor
 from .qbytes import WeightQBytesTensor
 
 
@@ -65,4 +65,4 @@ def quantize_weight(
         return WeightQBytesTensor.quantize(t, qtype, axis, scale, activation_qtype)
     if shift is None:
         raise ValueError("shift must be specified for qtypes lower than 8-bit")
-    return QBitsTensor.quantize(t, qtype, axis, group_size, scale, shift)
+    return WeightQBitsTensor.quantize(t, qtype, axis, group_size, scale, shift)
