@@ -16,7 +16,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_qweight, random_tensor
 
-from optimum.quanto import QBitsTensor, qint2, qint4, quantize_weight
+from optimum.quanto import MaxOptimizer, QBitsTensor, qint2, qint4, quantize_weight
 
 
 @pytest.mark.parametrize("group_size", [None, 128], ids=["channel-wise", "group-wise"])
@@ -52,6 +52,7 @@ def test_qbitstensor_detach():
 @pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
 def test_qbitstensor_equal(dtype, qtype, axis, device):
     a = random_tensor((1024, 1024), dtype=dtype, device=device)
-    qa1 = quantize_weight(a, qtype=qtype, axis=axis, group_size=128)
-    qa2 = quantize_weight(a, qtype=qtype, axis=axis, group_size=128)
+    scale, shift = MaxOptimizer()(a, qtype=qtype, axis=axis, group_size=128)
+    qa1 = quantize_weight(a, qtype=qtype, axis=axis, scale=scale, shift=shift, group_size=128)
+    qa2 = quantize_weight(a, qtype=qtype, axis=axis, scale=scale, shift=shift, group_size=128)
     assert torch.equal(qa1, qa2)

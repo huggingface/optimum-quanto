@@ -14,7 +14,7 @@
 
 import pytest
 import torch
-from helpers import assert_similar, device_eq, quantize_weight, random_tensor
+from helpers import assert_similar, device_eq, random_qweight, random_tensor
 
 from optimum.quanto import (
     WeightQBytesTensor,
@@ -73,7 +73,6 @@ def test_symmetric_quantize_float8(input_shape, dtype, qtype, axis, device):
 @pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
 def test_quantize_weight_axis_dim_1(axis, device):
     input_shape = (1, 32) if axis == 0 else (32, 1)
-    a = random_tensor(input_shape, dtype=torch.float32).to(device)
-    qa = quantize_weight(a, qtype=qint8, axis=axis)
+    qa = random_qweight(input_shape, dtype=torch.float32, qtype=qint8, axis=axis, device=device)
     # Quantizing along an axis of dimension 1 actually means per-tensor
     assert qa.axis is None
