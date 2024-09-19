@@ -18,18 +18,18 @@ import pytest
 import torch
 from helpers import random_qweight, random_tensor
 
-from optimum.quanto import MaxOptimizer, QBitsTensor, qint2, qint4, quantize_weight
+from optimum.quanto import MaxOptimizer, WeightQBitsTensor, qint2, qint4, quantize_weight
 
 
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["int2", "int4"])
 @pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
-def test_qbitstensor_serialization(qtype, axis):
+def test_weight_qbits_tensor_serialization(qtype, axis):
     qa = random_qweight((5, 5), qtype=qtype, axis=axis)
     b = io.BytesIO()
     torch.save(qa, b)
     b.seek(0)
     qa_reloaded = torch.load(b)
-    assert isinstance(qa_reloaded, QBitsTensor)
+    assert isinstance(qa_reloaded, WeightQBitsTensor)
     assert qa_reloaded.qtype == qa.qtype
     assert qa_reloaded.dtype == qa.dtype
     assert torch.equal(qa_reloaded._data, qa._data)
@@ -40,7 +40,7 @@ def test_qbitstensor_serialization(qtype, axis):
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["int2", "int4"])
 @pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
 @pytest.mark.parametrize("group_size", [None, 16], ids=["channel-wise", "group-wise"])
-def test_qbitstensor_requires_grad(qtype, axis, group_size, device):
+def test_weight_qbits_tensor_requires_grad(qtype, axis, group_size, device):
     weight = random_tensor((32, 32), dtype=torch.float32).to(device)
     weight.requires_grad = True
     scale, shift = MaxOptimizer()(weight, qtype=qtype, axis=axis, group_size=group_size)
@@ -51,7 +51,7 @@ def test_qbitstensor_requires_grad(qtype, axis, group_size, device):
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["int2", "int4"])
 @pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
 @pytest.mark.parametrize("group_size", [None, 16], ids=["channel-wise", "group-wise"])
-def test_qbitstensor_backward(qtype, axis, group_size, device):
+def test_weight_qbits_tensor_backward(qtype, axis, group_size, device):
     weight = random_tensor((32, 32), dtype=torch.float32).to(device)
     weight.requires_grad = True
     scale, shift = MaxOptimizer()(weight, qtype=qtype, axis=axis, group_size=group_size)

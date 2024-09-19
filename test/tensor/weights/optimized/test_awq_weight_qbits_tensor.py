@@ -14,9 +14,10 @@
 
 import pytest
 import torch
-from helpers import device_eq, random_qbits_tensor
+from helpers import device_eq, random_weight_qbits_tensor
 
-from optimum.quanto import AWQBitsTensor, QBitsTensor, qint4
+from optimum.quanto import qint4
+from optimum.quanto.tensor.weights import AWQWeightQBitsTensor, WeightQBitsTensor
 
 
 @pytest.mark.skipif(
@@ -24,15 +25,15 @@ from optimum.quanto import AWQBitsTensor, QBitsTensor, qint4
 )
 @pytest.mark.parametrize("in_features", [128, 256, 512, 1024])
 @pytest.mark.parametrize("out_features", [128, 256, 512, 1024])
-def test_awq_qbits_tensor_from_qbits_tensor(in_features, out_features):
+def test_awq_weight_qbits_tensor_from_qbits_tensor(in_features, out_features):
     qtype = qint4
     group_size = 128
     dtype = torch.float16
     shape = (out_features, in_features)
     device = torch.device("cuda")
-    qbt = random_qbits_tensor(shape, qtype, dtype, group_size, device)
-    # Create a AWQBitsTensor from QBitsTensor
-    awqbt = AWQBitsTensor(
+    qbt = random_weight_qbits_tensor(shape, qtype, dtype, group_size, device)
+    # Create a AWQWeightQBitsTensor from the WeightQBitsTensor members
+    awqbt = AWQWeightQBitsTensor(
         qtype=qbt.qtype,
         axis=qbt.axis,
         group_size=qbt._group_size,
@@ -48,8 +49,9 @@ def test_awq_qbits_tensor_from_qbits_tensor(in_features, out_features):
     assert device_eq(awqbt.device, device)
     # Verify the dequantized tensors are identical
     assert torch.equal(awqbt.dequantize(), qbt.dequantize())
-    # Now verify that we can reconstruct the QBitsTensor
-    new_qbt = awqbt.qbits_tensor()
+    # Now verify that we can reconstruct the WeightQBitsTensor
+    new_qbt = awqbt.weight_qbits_tensor()
+    assert type(new_qbt) is WeightQBitsTensor
     assert new_qbt.dtype == dtype
     assert new_qbt.qtype == qtype
     assert new_qbt.shape == shape
@@ -59,15 +61,15 @@ def test_awq_qbits_tensor_from_qbits_tensor(in_features, out_features):
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-def test_awq_qbits_tensor_move(device):
+def test_awq_weight_qbits_tensor_move(device):
     qtype = qint4
     group_size = 128
     dtype = torch.float16
     shape = (1024, 1024)
     device = torch.device("cuda")
-    # Create an AWQBitsTensor from a QBitsTensor on CUDA
-    qbt = random_qbits_tensor(shape, qtype, dtype, group_size, device=torch.device("cuda"))
-    awqbt = AWQBitsTensor(
+    # Create an AWQWeightQBitsTensor from a QBitsTensor on CUDA
+    qbt = random_weight_qbits_tensor(shape, qtype, dtype, group_size, device=torch.device("cuda"))
+    awqbt = AWQWeightQBitsTensor(
         qtype=qbt.qtype,
         axis=qbt.axis,
         group_size=qbt._group_size,
@@ -79,9 +81,9 @@ def test_awq_qbits_tensor_move(device):
     )
     # Move to device, dequantize and compare
     moved_qbt = awqbt.to(device)
-    assert isinstance(moved_qbt, QBitsTensor)
+    assert isinstance(moved_qbt, WeightQBitsTensor)
     if device.type != "cuda":
-        assert type(moved_qbt) is not AWQBitsTensor
+        assert type(moved_qbt) is not AWQWeightQBitsTensor
     assert awqbt.dtype == moved_qbt.dtype
     assert awqbt.qtype == moved_qbt.qtype
     assert awqbt.shape == moved_qbt.shape

@@ -22,9 +22,9 @@ from ..tensor import (
     ActivationQBytesTensor,
     MaxOptimizer,
     Optimizer,
-    QBitsTensor,
     QTensor,
     SymmetricOptimizer,
+    WeightQBitsTensor,
     WeightQBytesTensor,
     qint2,
     qint4,
@@ -175,7 +175,7 @@ class QModuleMixin(ABC):
                     missing_keys=missing_keys,
                 )
             else:
-                deserialized_weight = QBitsTensor.load_from_state_dict(
+                deserialized_weight = WeightQBitsTensor.load_from_state_dict(
                     state_dict,
                     weight_prefix,
                     qtype=self.weight_qtype,

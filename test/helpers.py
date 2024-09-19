@@ -23,12 +23,12 @@ from packaging import version
 from optimum.quanto import (
     AbsmaxOptimizer,
     MaxOptimizer,
-    QBitsTensor,
     absmax_scale,
     qint8,
     quantize_activation,
     quantize_weight,
 )
+from optimum.quanto.tensor.weights import WeightQBitsTensor
 
 
 def torch_min_version(v):
@@ -79,7 +79,7 @@ def random_qweight(shape, qtype, dtype=torch.float32, axis=0, group_size=None, d
     return quantize_weight(t, qtype=qtype, axis=axis, scale=scale, shift=shift, group_size=group_size)
 
 
-def random_qbits_tensor(shape, qtype, dtype, group_size, device):
+def random_weight_qbits_tensor(shape, qtype, dtype, group_size, device):
     bits = qtype.bits
     qmax = 2**bits
     out_features, in_features = shape
@@ -90,7 +90,7 @@ def random_qbits_tensor(shape, qtype, dtype, group_size, device):
     scale = torch.rand(scale_shape, dtype=dtype, device=device) / qmax
     shift_shape = (n_scales, 1)
     shift = torch.rand(shift_shape, dtype=dtype, device=device)
-    return QBitsTensor(
+    return WeightQBitsTensor(
         qtype, axis=0, group_size=group_size, size=shape, stride=(in_features, 1), data=data, scale=scale, shift=shift
     )
 

@@ -17,7 +17,7 @@ from typing import Callable, List
 
 import torch
 
-from .qbits import QBitsTensor
+from .qbits import WeightQBitsTensor
 
 
 __all__ = ["get_qbitstensor_op_dispatch", "register_qbitstensor_op"]
@@ -51,14 +51,14 @@ def get_qbitstensor_op_dispatch(aten_op):
 @register_qbitstensor_op([torch.ops.aten._to_copy])
 def _to_copy(op, t, dtype=None, device=None, **kwargs):
     if dtype is not None and dtype != t.dtype:
-        raise ValueError("The dtype of a QBitsTensor cannot be changed")
-    if type(t) is not QBitsTensor and t.device.type != device.type:
-        # Before moving to another device type, convert back to a QBitsTensor
-        t = t.qbits_tensor()
+        raise ValueError("The dtype of a WeightQBitsTensor cannot be changed")
+    if type(t) is not WeightQBitsTensor and t.device.type != device.type:
+        # Before moving to another device type, convert back to a WeightQBitsTensor
+        t = t.weight_qbits_tensor()
     scale = op(t._scale, dtype=dtype, device=device, **kwargs)
     data = op(t._data, device=device, **kwargs)
     shift = op(t._shift, device=device, **kwargs)
-    return QBitsTensor.create(t._qtype, t._axis, t._group_size, t.size(), t.stride(), data, scale, shift)
+    return WeightQBitsTensor.create(t._qtype, t._axis, t._group_size, t.size(), t.stride(), data, scale, shift)
 
 
 @register_qbitstensor_op([torch.ops.aten.detach])

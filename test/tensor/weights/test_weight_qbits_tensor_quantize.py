@@ -18,10 +18,10 @@ from helpers import assert_similar, device_eq, random_tensor
 
 from optimum.quanto import (
     MaxOptimizer,
-    QBitsTensor,
     qint2,
     qint4,
 )
+from optimum.quanto.tensor.weights import WeightQBitsTensor
 
 
 @pytest.mark.parametrize("input_shape", [(32, 32), (32, 10, 32)])
@@ -30,13 +30,13 @@ from optimum.quanto import (
 @pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
 @pytest.mark.parametrize("group_size", [None, 8], ids=["channel-wise", "group-wise"])
 @pytest.mark.parametrize("shift_mode", ["zeropoint", "float"])
-def test_qbits_tensor_quantize(input_shape, dtype, qtype, axis, group_size, shift_mode, device):
+def test_weight_qbits_tensor_quantize(input_shape, dtype, qtype, axis, group_size, shift_mode, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
     scale, shift = MaxOptimizer()(a, qtype=qtype, axis=axis, group_size=group_size)
     if shift_mode == "zeropoint":
         shift = torch.round(shift / scale).to(torch.int8)
-    qa = QBitsTensor.quantize(a, qtype, axis, group_size, scale, shift)
-    assert isinstance(qa, QBitsTensor)
+    qa = WeightQBitsTensor.quantize(a, qtype, axis, group_size, scale, shift)
+    assert isinstance(qa, WeightQBitsTensor)
     assert qa.dtype == dtype
     assert qa.qtype == qtype
     assert device_eq(qa.device, device)
@@ -57,7 +57,7 @@ def test_qbits_tensor_quantize(input_shape, dtype, qtype, axis, group_size, shif
 
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["qint2", "qint4"])
-def test_qbits_tensor_quantize_integer_tensor(dtype, qtype, device):
+def test_weight_qbits_tensor_quantize_integer_tensor(dtype, qtype, device):
     """This test verifies that an integer tensor in the correct range is preserved."""
     bits = qtype.bits
     qmin = -(2 ** (bits - 1))
@@ -65,10 +65,10 @@ def test_qbits_tensor_quantize_integer_tensor(dtype, qtype, device):
     a = torch.tensor(range(qmin, qmax + 1), dtype=dtype).to(device)
     scale, shift = MaxOptimizer()(a, qtype=qtype, axis=0, group_size=None)
     zeropoint = torch.round(shift / scale)
-    qa = QBitsTensor.quantize(a, qtype, 0, None, scale, zeropoint)
+    qa = WeightQBitsTensor.quantize(a, qtype, 0, None, scale, zeropoint)
 
     assert qa._data.dtype == torch.uint8
-    assert isinstance(qa, QBitsTensor)
+    assert isinstance(qa, WeightQBitsTensor)
     assert qa.dtype == dtype
     assert qa.qtype == qtype
     assert device_eq(qa.device, device)

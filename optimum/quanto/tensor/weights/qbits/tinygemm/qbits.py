@@ -17,21 +17,21 @@ import ast
 import torch
 from torch.autograd import Function
 
-from ...function import QuantizedLinearFunction
-from ...qtype import qtypes
-from ..group import group, ungroup
-from ..qbits import QBitsTensor
+from ....function import QuantizedLinearFunction
+from ....grouped import group, ungroup
+from ....qtype import qtypes
+from ...qbits import WeightQBitsTensor
 from .packed import TinyGemmPackedTensor
 
 
-__all__ = ["TinyGemmQBitsTensor"]
+__all__ = ["TinyGemmWeightQBitsTensor"]
 
 
 class TinyGemmQBitsDequantizer(Function):
     @staticmethod
     def forward(ctx, t):
         # There is no custom dequantize kernel available, so we need to convert back to a QBitsTensor
-        qbt = t.qbits_tensor()
+        qbt = t.weight_qbits_tensor()
         return qbt.dequantize()
 
     @staticmethod
@@ -57,7 +57,7 @@ class TinyGemmQBitsLinearFunction(QuantizedLinearFunction):
         return output
 
 
-class TinyGemmQBitsTensor(QBitsTensor):
+class TinyGemmWeightQBitsTensor(WeightQBitsTensor):
     @staticmethod
     def __new__(cls, qtype, axis, group_size, size, stride, data, scale_shift, requires_grad=False):
         if isinstance(scale_shift, torch.Tensor):
@@ -106,8 +106,8 @@ class TinyGemmQBitsTensor(QBitsTensor):
     def dequantize(self):
         return TinyGemmQBitsDequantizer.apply(self)
 
-    def qbits_tensor(self):
-        """Convert back to a QBitsTensor
+    def weight_qbits_tensor(self):
+        """Convert back to a WeightQBitsTensor
 
         This is required to make sure only standard packing is used when serializing.
         """
@@ -118,7 +118,9 @@ class TinyGemmQBitsTensor(QBitsTensor):
         half_qrange = 2 ** (self.qtype.bits - 1) * scale
         # This operation is lossy for bfloat16, and the actual value of shift will not be recovered
         shift = half_qrange - shift
-        return QBitsTensor(self._qtype, self._axis, self._group_size, self.size(), self.stride(), data, scale, shift)
+        return WeightQBitsTensor(
+            self._qtype, self._axis, self._group_size, self.size(), self.stride(), data, scale, shift
+        )
 
     def __tensor_flatten__(self):
         inner_tensors = ["_data", "_scale_shift"]
@@ -143,7 +145,7 @@ class TinyGemmQBitsTensor(QBitsTensor):
         group_size = ast.literal_eval(meta["group_size"])
         size = ast.literal_eval(meta["size"])
         stride = ast.literal_eval(meta["stride"])
-        return TinyGemmQBitsTensor(qtype, axis, group_size, size, stride, data, scale_shift)
+        return TinyGemmWeightQBitsTensor(qtype, axis, group_size, size, stride, data, scale_shift)
 
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):

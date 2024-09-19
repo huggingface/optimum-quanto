@@ -17,17 +17,17 @@ import ast
 import torch
 from torch.autograd import Function
 
-from ...function import QuantizedLinearFunction
-from ...qtype import qtypes
-from ..group import group, ungroup
-from ..qbits import QBitsTensor
+from ....function import QuantizedLinearFunction
+from ....grouped import group, ungroup
+from ....qtype import qtypes
+from ..qbits import WeightQBitsTensor
 from .packed import AWQPackedTensor, AWQPacking
 
 
-__all__ = ["AWQBitsTensor"]
+__all__ = ["AWQWeightQBitsTensor"]
 
 
-class AWQBitsDequantizer(Function):
+class AWQWeightQBitsDequantizer(Function):
     @staticmethod
     def forward(ctx, t):
         unpacked = t._data.unpack()
@@ -46,7 +46,7 @@ class AWQBitsDequantizer(Function):
         return gO
 
 
-class AWQBitsLinearFunction(QuantizedLinearFunction):
+class AWQWeightQBitsLinearFunction(QuantizedLinearFunction):
     @staticmethod
     def forward(ctx, input, other, bias):
         ctx.save_for_backward(input, other)
@@ -70,7 +70,7 @@ class AWQBitsLinearFunction(QuantizedLinearFunction):
         return output
 
 
-class AWQBitsTensor(QBitsTensor):
+class AWQWeightQBitsTensor(WeightQBitsTensor):
     @staticmethod
     def __new__(cls, qtype, axis, group_size, size, stride, data, scale, shift, requires_grad=False):
         assert data.device.type == "cuda"
@@ -98,10 +98,10 @@ class AWQBitsTensor(QBitsTensor):
         super().__init__(qtype, axis, group_size, size, stride, data, scale, shift)
 
     def dequantize(self):
-        return AWQBitsDequantizer.apply(self)
+        return AWQWeightQBitsDequantizer.apply(self)
 
-    def qbits_tensor(self):
-        """Convert back to a QBitsTensor
+    def weight_qbits_tensor(self):
+        """Convert back to a WeightQBitsTensor
 
         This is required to make sure only standard packing is used when serializing.
         """
@@ -109,7 +109,9 @@ class AWQBitsTensor(QBitsTensor):
         n_scales = self._scale.numel()
         scale = self._scale.t().reshape((n_scales, 1))
         shift = -self._shift.t().reshape((n_scales, 1))
-        return QBitsTensor(self._qtype, self._axis, self._group_size, self.size(), self.stride(), data, scale, shift)
+        return WeightQBitsTensor(
+            self._qtype, self._axis, self._group_size, self.size(), self.stride(), data, scale, shift
+        )
 
     def __tensor_flatten__(self):
         inner_tensors = ["_data", "_scale", "_shift"]
@@ -134,7 +136,7 @@ class AWQBitsTensor(QBitsTensor):
         group_size = ast.literal_eval(meta["group_size"])
         size = ast.literal_eval(meta["size"])
         stride = ast.literal_eval(meta["stride"])
-        return AWQBitsTensor(qtype, axis, group_size, size, stride, data, scale, shift)
+        return AWQWeightQBitsTensor(qtype, axis, group_size, size, stride, data, scale, shift)
 
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
@@ -153,7 +155,7 @@ class AWQBitsTensor(QBitsTensor):
         if func is torch.nn.functional.linear:
 
             def qlinear(input, other, bias=None):
-                return AWQBitsLinearFunction.apply(input, other, bias)
+                return AWQWeightQBitsLinearFunction.apply(input, other, bias)
 
             return qlinear(*args, **kwargs)
         # Defer to operations dispatcher

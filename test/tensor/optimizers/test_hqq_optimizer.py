@@ -19,14 +19,14 @@ from helpers import random_tensor
 from optimum.quanto import (
     HqqOptimizer,
     MaxOptimizer,
-    QBitsTensor,
+    WeightQBitsTensor,
     qint2,
     qint4,
 )
 
 
 def compare_quantized_tensor(a, qtype, axis, group_size, scale, shift):
-    qa = QBitsTensor.quantize(a, qtype, axis, group_size, scale, shift)
+    qa = WeightQBitsTensor.quantize(a, qtype, axis, group_size, scale, shift)
     # Evaluate mean absolute error
     mean_error = torch.mean(torch.abs(a - qa))
     # Also evaluate cosine similarity

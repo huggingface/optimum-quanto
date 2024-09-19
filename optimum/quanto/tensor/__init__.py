@@ -14,6 +14,7 @@
 
 from .activations import *
 from .core import *
+from .grouped import *
 from .optimizers import *
 from .qbits import *
 from .qbytes import *

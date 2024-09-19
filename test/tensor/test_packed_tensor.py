@@ -18,7 +18,7 @@ import pytest
 import torch
 from helpers import device_eq
 
-from optimum.quanto import PackedTensor
+from optimum.quanto.tensor.packed import PackedTensor
 
 
 @pytest.mark.parametrize("shape", [(10,), (12,), (10, 10), (12, 10), (32, 32)])

@@ -14,16 +14,17 @@
 
 import pytest
 import torch
-from helpers import assert_similar, device_eq, random_qbits_tensor
+from helpers import assert_similar, device_eq, random_weight_qbits_tensor
 from packaging import version
 
-from optimum.quanto import TinyGemmQBitsTensor, qint4
+from optimum.quanto import qint4
+from optimum.quanto.tensor.weights import TinyGemmWeightQBitsTensor, WeightQBitsTensor
 
 
 @pytest.mark.skip_device("mps")  # Only available with pytorch 2.4
 @pytest.mark.parametrize("in_features", [128, 256, 512, 1024])
 @pytest.mark.parametrize("out_features", [128, 256, 512, 1024])
-def test_tinygemm_qbits_tensor_from_qbits_tensor(in_features, out_features, device):
+def test_tinygemm_weight_qbits_tensor_from_qbits_tensor(in_features, out_features, device):
     if device.type == "cuda":
         if version.parse(torch.version.cuda).release < (12, 1):
             pytest.skip(reason="CUDA runtime must be at least 12.1")
@@ -33,9 +34,9 @@ def test_tinygemm_qbits_tensor_from_qbits_tensor(in_features, out_features, devi
     group_size = 128
     dtype = torch.bfloat16
     shape = (out_features, in_features)
-    qbt = random_qbits_tensor(shape, qtype, dtype, group_size, device)
-    # Create a TinyGemmQBitsTensor from QBitsTensor
-    tgqbt = TinyGemmQBitsTensor(
+    qbt = random_weight_qbits_tensor(shape, qtype, dtype, group_size, device)
+    # Create a TinyGemmWeightQBitsTensor from the WeightQBitsTensor members
+    tgqbt = TinyGemmWeightQBitsTensor(
         qtype=qbt.qtype,
         axis=qbt.axis,
         group_size=qbt._group_size,
@@ -48,8 +49,9 @@ def test_tinygemm_qbits_tensor_from_qbits_tensor(in_features, out_features, devi
     assert tgqbt.qtype == qtype
     assert tgqbt.shape == shape
     assert device_eq(tgqbt.device, device)
-    # Verify that we can reconstruct the QBitsTensor
-    new_qbt = tgqbt.qbits_tensor()
+    # Verify that we can reconstruct the WeightQBitsTensor
+    new_qbt = tgqbt.weight_qbits_tensor()
+    assert type(new_qbt) is WeightQBitsTensor
     assert new_qbt.dtype == dtype
     assert new_qbt.qtype == qtype
     assert new_qbt.shape == shape
@@ -63,14 +65,14 @@ def test_tinygemm_qbits_tensor_from_qbits_tensor(in_features, out_features, devi
 
 
 @pytest.mark.skip_device("mps")  # Only available with pytorch 2.4
-def test_tinygemm_qbits_tensor_move(device):
+def test_tinygemm_weight_qbits_tensor_move(device):
     qtype = qint4
     group_size = 128
     dtype = torch.bfloat16
     shape = (1024, 1024)
-    # Create a TinyGemmQBitsTensor from a QBitsTensor on CPU
-    qbt = random_qbits_tensor(shape, qtype, dtype, group_size, device=torch.device("cpu"))
-    tgqbt_cpu = TinyGemmQBitsTensor(
+    # Create a TinyGemmWeightQBitsTensor from a QBitsTensor on CPU
+    qbt = random_weight_qbits_tensor(shape, qtype, dtype, group_size, device=torch.device("cpu"))
+    tgqbt_cpu = TinyGemmWeightQBitsTensor(
         qtype=qbt.qtype,
         axis=qbt.axis,
         group_size=qbt._group_size,
@@ -81,6 +83,7 @@ def test_tinygemm_qbits_tensor_move(device):
     )
     # Move to device, dequantize and compare
     tgqbt = tgqbt_cpu.to(device)
+    assert isinstance(tgqbt, WeightQBitsTensor)
     assert tgqbt.dtype == tgqbt_cpu.dtype
     assert tgqbt.qtype == tgqbt_cpu.qtype
     assert tgqbt.shape == tgqbt_cpu.shape

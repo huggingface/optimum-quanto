@@ -18,33 +18,34 @@ import torch
 from packaging import version
 from torch.autograd import Function
 
-from ..function import QuantizedLinearFunction
-from ..qtensor import QTensor, qfallback
-from ..qtype import qint2, qint4, qtype, qtypes
-from .group import grouped_shape, ungroup
-from .packed import PackedTensor
+from ...function import QuantizedLinearFunction
+from ...grouped import grouped_shape
+from ...packed import PackedTensor
+from ...qbits import QBitsTensor
+from ...qtensor import qfallback
+from ...qtype import qint2, qint4, qtype, qtypes
 
 
-__all__ = ["QBitsTensor"]
+__all__ = ["WeightQBitsTensor"]
 
 
-class QBitsQuantizer(Function):
+class WeightsQBitsQuantizer(Function):
 
     @staticmethod
     def forward(
         ctx, base: torch.Tensor, qtype: qtype, axis: int, group_size: int, scale: torch.Tensor, shift: torch.Tensor
     ):
         if qtype not in (qint2, qint4):
-            raise ValueError("QBitsTensor can only be of qint2 or qint4 qtype")
+            raise ValueError("WeightQBitsTensor can only be of qint2 or qint4 qtype")
         if axis not in (0, -1):
-            raise ValueError("QBitsTensor axis parameter must be 0 (first axis) or -1 (last axis)")
+            raise ValueError("WeightQBitsTensor axis parameter must be 0 (first axis) or -1 (last axis)")
         size = base.size()
         stride = base.stride()
         data = torch.ops.quanto.quantize_affine(
             base, bits=qtype.bits, axis=axis, group_size=group_size, scale=scale, shift=shift
         )
 
-        return QBitsTensor.create(qtype, axis, group_size, size, stride, data, scale, shift)
+        return WeightQBitsTensor.create(qtype, axis, group_size, size, stride, data, scale, shift)
 
     @staticmethod
     def backward(ctx, gO):
@@ -52,38 +53,12 @@ class QBitsQuantizer(Function):
         return gO, None, None, None, None, None
 
 
-class QBitsDequantizer(Function):
-    @staticmethod
-    def forward(ctx, t):
-        data = t._data.unpack()
-        shift = t._shift
-        if not shift.dtype.is_floating_point:
-            # Remove shift before multiplying by the scale
-            data = data.to(torch.int8) - shift.to(torch.int8)
-        if t.qtype.is_floating_point:
-            # Upcast explicitly to the scale dtype
-            dqt = t._scale * data.to(t._scale.dtype)
-        else:
-            dqt = t._scale * data
-        if shift.dtype.is_floating_point:
-            # Remove scaled shift
-            dqt -= shift
-        if t.axis is None:
-            return dqt
-        # Restore the original shape (if needed)
-        return ungroup(dqt, axis=t.axis, orig_shape=t.shape)
-
-    @staticmethod
-    def backward(ctx, gO):
-        return gO
-
-
-class QBitsTensor(QTensor):
+class WeightQBitsTensor(QBitsTensor):
     @staticmethod
     def create(qtype, axis, group_size, size, stride, data, scale, shift, requires_grad=False):
-        """Factory method to create a QBitsTensor
+        """Factory method to create a WeightQBitsTensor
 
-        This selects the most appropriate QBitsTensor based on the configuration.
+        This selects the most appropriate WeightQBitsTensor based on the configuration.
 
         Args:
             axis (`int`):
@@ -105,10 +80,10 @@ class QBitsTensor(QTensor):
                 If the Tensor must be receive a gradient or not.
 
         Returns:
-            a `QBitsTensor` (can be a subclass).
+            a `WeightQBitsTensor` (can be a subclass).
         """
-        from .awq import AWQBitsTensor
-        from .tinygemm import TinyGemmQBitsTensor
+        from .awq import AWQWeightQBitsTensor
+        from .tinygemm import TinyGemmWeightQBitsTensor
 
         if (
             qtype == qint4
@@ -122,7 +97,7 @@ class QBitsTensor(QTensor):
         ):
             if type(data) is PackedTensor:
                 data = data.unpack()
-            return AWQBitsTensor(qtype, axis, group_size, size, stride, data, scale, shift, requires_grad)
+            return AWQWeightQBitsTensor(qtype, axis, group_size, size, stride, data, scale, shift, requires_grad)
         if qtype == qint4 and scale.dtype == torch.bfloat16 and axis == 0 and group_size == 128 and len(size) == 2:
             if data.device.type == "cpu" or (
                 data.device.type == "cuda"
@@ -131,9 +106,11 @@ class QBitsTensor(QTensor):
             ):
                 if type(data) is PackedTensor:
                     data = data.unpack()
-                return TinyGemmQBitsTensor(qtype, axis, group_size, size, stride, data, (scale, shift), requires_grad)
+                return TinyGemmWeightQBitsTensor(
+                    qtype, axis, group_size, size, stride, data, (scale, shift), requires_grad
+                )
 
-        return QBitsTensor(qtype, axis, group_size, size, stride, data, scale, shift, requires_grad)
+        return WeightQBitsTensor(qtype, axis, group_size, size, stride, data, scale, shift, requires_grad)
 
     @staticmethod
     def __new__(cls, qtype, axis, group_size, size, stride, data, scale, shift, requires_grad=False):
@@ -144,25 +121,15 @@ class QBitsTensor(QTensor):
         )
 
     def __init__(self, qtype, axis, group_size, size, stride, data, scale, shift, requires_grad=False):
-        super().__init__(qtype, axis)
         if type(data) is torch.Tensor:
             data = PackedTensor.pack(data, qtype.bits)
-        self._data = data
-        self._scale = scale
-        self._shift = shift
-        self._group_size = group_size
-
-    def __repr__(self):
-        return f"{type(self).__name__}({self._data}, scale={self._scale}, shift={self._shift}, dtype={self.dtype})"
+        super().__init__(qtype, axis, group_size, size, stride, data, scale, shift)
 
     @classmethod
     def quantize(
         cls, base: torch.Tensor, qtype: qtype, axis: int, group_size: int, scale: torch.Tensor, shift: torch.Tensor
     ):
-        return QBitsQuantizer.apply(base, qtype, axis, group_size, scale, shift)
-
-    def dequantize(self):
-        return QBitsDequantizer.apply(self)
+        return WeightsQBitsQuantizer.apply(base, qtype, axis, group_size, scale, shift)
 
     @staticmethod
     def load_from_state_dict(state_dict, prefix, qtype, axis, group_size, size, stride, missing_keys):
@@ -197,19 +164,19 @@ class QBitsTensor(QTensor):
             "size": str(list(size)),
             "stride": str(list(stride)),
         }
-        return QBitsTensor.__tensor_unflatten__(inner_tensors_dict, meta, None, None)
+        return WeightQBitsTensor.__tensor_unflatten__(inner_tensors_dict, meta, None, None)
 
     def optimize(self):
-        """Allows to convert an existing QBitsTensor to an optimized subclass
+        """Allows to convert an existing WeightQBitsTensor to an optimized subclass
 
-        This is used in particular after reloading a serialized QBitsTensor (which is
+        This is used in particular after reloading a serialized WeightQBitsTensor (which is
         always saved using the kernel-agnostic packing).
         """
-        if type(self) is not QBitsTensor:
+        if type(self) is not WeightQBitsTensor:
             return self
         data = self._data.unpack()
         # Call dedicated helper to select the best subclass for this device
-        return QBitsTensor.create(
+        return WeightQBitsTensor.create(
             self.qtype,
             self.axis,
             self._group_size,
@@ -222,14 +189,14 @@ class QBitsTensor(QTensor):
         )
 
     def save_to_state_dict(self, destination, prefix, keep_vars):
-        if type(self) is QBitsTensor:
+        if type(self) is WeightQBitsTensor:
             super().save_to_state_dict(destination, prefix, keep_vars)
         else:
             # Convert back subclass before serializing
-            self.qbits_tensor().save_to_state_dict(destination, prefix, keep_vars)
+            self.weight_qbits_tensor().save_to_state_dict(destination, prefix, keep_vars)
 
-    def qbits_tensor(self):
-        """Convert back a subclass to a QBitsTensor
+    def weight_qbits_tensor(self):
+        """Convert back a subclass to a WeightQBitsTensor
 
         This is required to make sure only standard packing is used when serializing.
         """
@@ -258,7 +225,7 @@ class QBitsTensor(QTensor):
         group_size = ast.literal_eval(meta["group_size"])
         size = ast.literal_eval(meta["size"])
         stride = ast.literal_eval(meta["stride"])
-        return QBitsTensor(qtype, axis, group_size, size, stride, data, scale, shift)
+        return WeightQBitsTensor(qtype, axis, group_size, size, stride, data, scale, shift)
 
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
@@ -293,7 +260,7 @@ class QBitsTensor(QTensor):
 
         # Do not use directly op, but rather its overload
         op = op.overloadpacket
-        # Look for a dispatched op accepting QBitsTensor inputs
+        # Look for a dispatched op accepting WeightQBitsTensor inputs
         qdispatch = get_qbitstensor_op_dispatch(op)
         if qdispatch is not None:
             return qdispatch(*args, **kwargs)
