@@ -17,88 +17,94 @@ import ast
 import torch
 from torch.autograd import Function
 
-from ....function import QuantizedLinearFunction
-from ....grouped import group, ungroup
-from ....qtype import qtypes
+from ...function import QuantizedLinearFunction
+from ...grouped import group, ungroup
+from ...qtype import qtypes
 from ..qbits import WeightQBitsTensor
-from .packed import AWQPackedTensor, AWQPacking
+from .packed import TinyGemmPackedTensor
 
 
-__all__ = ["AWQWeightQBitsTensor"]
+__all__ = ["TinyGemmWeightQBitsTensor"]
 
 
-class AWQWeightQBitsDequantizer(Function):
+class TinyGemmQBitsDequantizer(Function):
     @staticmethod
     def forward(ctx, t):
-        unpacked = t._data.unpack()
-        scale = t._scale
-        shift = t._shift
-        unpacked = group(unpacked, axis=0, group_size=t._group_size)
-        n_scales = scale.numel()
-        scale = scale.t().reshape((n_scales, 1))
-        shift = shift.t().reshape((n_scales, 1))
-        # Shift is already scaled and negated
-        dqt = scale * unpacked + shift
-        return ungroup(dqt, axis=t.axis, orig_shape=t.shape)
+        # There is no custom dequantize kernel available, so we need to convert back to a QBitsTensor
+        qbt = t.weight_qbits_tensor()
+        return qbt.dequantize()
 
     @staticmethod
     def backward(ctx, gO):
         return gO
 
 
-class AWQWeightQBitsLinearFunction(QuantizedLinearFunction):
+class TinyGemmQBitsLinearFunction(QuantizedLinearFunction):
     @staticmethod
     def forward(ctx, input, other, bias):
         ctx.save_for_backward(input, other)
         if type(input) is not torch.Tensor:
             input = input.dequantize()
-        out_features, in_features = other.shape
-        rows = input.numel() // in_features
-        output = torch.ops.quanto.gemm(
-            input,
-            other._data._data,
-            other._scale,
-            other._shift,
-            rows=rows,
-            out_cols=out_features,
-            in_cols=in_features,
-            bits=4,
-            group_size=other._group_size,
+        in_features = input.shape[-1]
+        out_features = other.shape[0]
+        output_shape = input.shape[:-1] + (out_features,)
+        output = torch._weight_int4pack_mm(
+            input.view(-1, in_features), other._data._data, other._group_size, other._scale_shift
         )
+        output = output.view(output_shape)
         if bias is not None:
             output = output + bias
         return output
 
 
-class AWQWeightQBitsTensor(WeightQBitsTensor):
+class TinyGemmWeightQBitsTensor(WeightQBitsTensor):
     @staticmethod
-    def __new__(cls, qtype, axis, group_size, size, stride, data, scale, shift, requires_grad=False):
-        assert data.device.type == "cuda"
-        assert data.device == scale.device
-        assert data.device == shift.device
+    def __new__(cls, qtype, axis, group_size, size, stride, data, scale_shift, requires_grad=False):
+        if isinstance(scale_shift, torch.Tensor):
+            dtype = scale_shift.dtype
+            assert data.device == scale_shift.device
+        else:
+            assert isinstance(scale_shift, (tuple, list))
+            scale, shift = scale_shift
+            dtype = scale.dtype
+            assert shift.dtype == dtype
+            assert data.device == scale.device
+            assert data.device == shift.device
         return torch.Tensor._make_wrapper_subclass(
-            cls, size, strides=stride, dtype=scale.dtype, device=data.device, requires_grad=requires_grad
+            cls, size, strides=stride, dtype=dtype, device=data.device, requires_grad=requires_grad
         )
 
-    def __init__(self, qtype, axis, group_size, size, stride, data, scale, shift, requires_grad=False):
+    def __init__(self, qtype, axis, group_size, size, stride, data, scale_shift, requires_grad=False):
         assert axis == 0
-        if not isinstance(data, AWQPackedTensor):
+        if not isinstance(data, TinyGemmPackedTensor):
             assert type(data) is torch.Tensor
-            # Format data, scale and shift for optimized CUDA gemm
+            assert isinstance(scale_shift, (tuple, list))
+            # Format data, scale and shift for tinygemm
             ungrouped = ungroup(data, axis=0, orig_shape=size)
-            data = AWQPackedTensor.pack(ungrouped, packing=AWQPacking.V2)
+            self._data = TinyGemmPackedTensor.pack(ungrouped)
             out_features, in_features = size
-            scale = scale.reshape(out_features, in_features // group_size).t().contiguous()
-            shift = shift.reshape(out_features, in_features // group_size).t()
+            scale, shift = scale_shift
+            scale = scale.reshape(out_features, in_features // group_size, 1)
+            shift = shift.reshape(out_features, in_features // group_size, 1)
             if not shift.dtype.is_floating_point:
                 # Integer shift must be scaled
                 shift = scale * shift
-            # Shift must be negated
-            shift = -shift.contiguous()
-        super().__init__(qtype, axis, group_size, size, stride, data, scale, shift)
+            # The tinygemm kernel actually uses the mid-point of the quantization range as shift
+            min_range = -shift
+            half_qrange = 2 ** (qtype.bits - 1) * scale
+            # This operation is lossy for bfloat16, and the actual value of shift will be lost
+            shift = min_range + half_qrange
+            # Scale and shift are actually stored in the same tensor
+            self._scale_shift = torch.cat([scale, shift], 2).transpose(0, 1).contiguous()
+        else:
+            self._data = data
+            self._scale_shift = scale_shift
+        self._qtype = qtype
+        self._axis = axis
+        self._group_size = group_size
 
     def dequantize(self):
-        return AWQWeightQBitsDequantizer.apply(self)
+        return TinyGemmQBitsDequantizer.apply(self)
 
     def weight_qbits_tensor(self):
         """Convert back to a WeightQBitsTensor
@@ -106,15 +112,18 @@ class AWQWeightQBitsTensor(WeightQBitsTensor):
         This is required to make sure only standard packing is used when serializing.
         """
         data = group(self._data.unpack(), axis=self.axis, group_size=self._group_size)
-        n_scales = self._scale.numel()
-        scale = self._scale.t().reshape((n_scales, 1))
-        shift = -self._shift.t().reshape((n_scales, 1))
+        n_scales = self._scale_shift.numel() // 2
+        scale = self._scale_shift[:, :, 0].t().reshape((n_scales, 1))
+        shift = self._scale_shift[:, :, 1].t().reshape((n_scales, 1))
+        half_qrange = 2 ** (self.qtype.bits - 1) * scale
+        # This operation is lossy for bfloat16, and the actual value of shift will not be recovered
+        shift = half_qrange - shift
         return WeightQBitsTensor(
             self._qtype, self._axis, self._group_size, self.size(), self.stride(), data, scale, shift
         )
 
     def __tensor_flatten__(self):
-        inner_tensors = ["_data", "_scale", "_shift"]
+        inner_tensors = ["_data", "_scale_shift"]
         # Since meta can be used for serialization, use only strings
         meta = {
             "qtype": self._qtype.name,
@@ -127,16 +136,16 @@ class AWQWeightQBitsTensor(WeightQBitsTensor):
 
     @staticmethod
     def __tensor_unflatten__(inner_tensors, meta, outer_size, outer_stride):
-        assert len(inner_tensors) == 3
+        assert len(inner_tensors) == 2
         assert len(meta) == 5
-        data, scale, shift = inner_tensors["_data"], inner_tensors["_scale"], inner_tensors["_shift"]
+        data, scale_shift = inner_tensors["_data"], inner_tensors["_scale_shift"]
         # Meta should only contain strings, AST compatible except qtype
         qtype = qtypes[meta["qtype"]]
         axis = ast.literal_eval(meta["axis"])
         group_size = ast.literal_eval(meta["group_size"])
         size = ast.literal_eval(meta["size"])
         stride = ast.literal_eval(meta["stride"])
-        return AWQWeightQBitsTensor(qtype, axis, group_size, size, stride, data, scale, shift)
+        return TinyGemmWeightQBitsTensor(qtype, axis, group_size, size, stride, data, scale_shift)
 
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
@@ -155,7 +164,7 @@ class AWQWeightQBitsTensor(WeightQBitsTensor):
         if func is torch.nn.functional.linear:
 
             def qlinear(input, other, bias=None):
-                return AWQWeightQBitsLinearFunction.apply(input, other, bias)
+                return TinyGemmQBitsLinearFunction.apply(input, other, bias)
 
             return qlinear(*args, **kwargs)
         # Defer to operations dispatcher

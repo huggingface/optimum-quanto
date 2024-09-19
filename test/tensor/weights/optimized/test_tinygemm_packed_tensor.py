@@ -19,7 +19,7 @@ import torch
 from helpers import device_eq
 from packaging import version
 
-from optimum.quanto import TinyGemmPackedTensor
+from optimum.quanto.tensor.weights.tinygemm import TinyGemmPackedTensor
 
 
 @pytest.mark.skip_device("mps")  # Only available with pytorch 2.4

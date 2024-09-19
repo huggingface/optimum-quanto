@@ -18,7 +18,8 @@ from helpers import assert_similar, device_eq, random_weight_qbits_tensor
 from packaging import version
 
 from optimum.quanto import qint4
-from optimum.quanto.tensor.weights import TinyGemmWeightQBitsTensor, WeightQBitsTensor
+from optimum.quanto.tensor.weights import WeightQBitsTensor
+from optimum.quanto.tensor.weights.tinygemm import TinyGemmWeightQBitsTensor
 
 
 @pytest.mark.skip_device("mps")  # Only available with pytorch 2.4
