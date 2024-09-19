@@ -18,7 +18,7 @@ import pytest
 import torch
 from helpers import random_qweight, random_tensor
 
-from optimum.quanto import QBitsTensor, qint2, qint4, quantize_weight
+from optimum.quanto import MaxOptimizer, QBitsTensor, qint2, qint4, quantize_weight
 
 
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["int2", "int4"])
@@ -43,7 +43,8 @@ def test_qbitstensor_serialization(qtype, axis):
 def test_qbitstensor_requires_grad(qtype, axis, group_size, device):
     weight = random_tensor((32, 32), dtype=torch.float32).to(device)
     weight.requires_grad = True
-    qweight = quantize_weight(weight, qtype=qtype, axis=axis, group_size=group_size)
+    scale, shift = MaxOptimizer()(weight, qtype=qtype, axis=axis, group_size=group_size)
+    qweight = quantize_weight(weight, qtype=qtype, axis=axis, scale=scale, shift=shift, group_size=group_size)
     assert qweight.requires_grad is True
 
 
@@ -53,7 +54,8 @@ def test_qbitstensor_requires_grad(qtype, axis, group_size, device):
 def test_qbitstensor_backward(qtype, axis, group_size, device):
     weight = random_tensor((32, 32), dtype=torch.float32).to(device)
     weight.requires_grad = True
-    qweight = quantize_weight(weight, qtype=qtype, axis=axis, group_size=group_size)
+    scale, shift = MaxOptimizer()(weight, qtype=qtype, axis=axis, group_size=group_size)
+    qweight = quantize_weight(weight, qtype=qtype, axis=axis, scale=scale, shift=shift, group_size=group_size)
     gradient = torch.randn((32, 32)).to(device)
     # Backpropagate gradient to the inner float weights
     qweight.dequantize().backward(gradient)

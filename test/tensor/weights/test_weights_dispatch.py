@@ -2,7 +2,7 @@ import pytest
 import torch
 from helpers import random_qweight, random_tensor
 
-from optimum.quanto import WeightQBytesTensor, qint8, quantize_weight
+from optimum.quanto import AbsmaxOptimizer, WeightQBytesTensor, qint8, quantize_weight
 
 
 def test_weight_qytes_tensor_to_device(device):
@@ -19,8 +19,9 @@ def test_weight_qytes_tensor_to_device(device):
 @pytest.mark.parametrize("axis", [0, -1], ids=["first-axis", "last-axis"])
 def test_weight_qbytes_tensor_equal(dtype, qtype, axis, device):
     a = random_tensor((32, 32), dtype=dtype, device=device)
-    qa1 = quantize_weight(a, qtype=qtype, axis=axis)
-    qa2 = quantize_weight(a, qtype=qtype, axis=axis)
+    scale = AbsmaxOptimizer()(a, qtype=qtype, axis=axis)
+    qa1 = quantize_weight(a, qtype=qtype, axis=axis, scale=scale)
+    qa2 = quantize_weight(a, qtype=qtype, axis=axis, scale=scale)
     assert torch.equal(qa1, qa2)
 
 
@@ -42,7 +43,8 @@ def test_weight_qbytes_tensor_transpose_contiguous(axis, qtype, device):
 def test_weight_qbytes_tensor_transposed_stride(axis, qtype, device):
     input_shape = (16, 32)
     a = random_tensor(input_shape, dtype=torch.float32).to(device)
-    qa = quantize_weight(a, qtype=qtype, axis=axis)
+    scale = AbsmaxOptimizer()(a, qtype=qtype, axis=axis)
+    qa = quantize_weight(a, qtype=qtype, axis=axis, scale=scale)
     assert qa.stride() == a.stride()
     ta = a.t()
     tqa = qa.t()

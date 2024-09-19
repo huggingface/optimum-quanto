@@ -32,7 +32,7 @@ from optimum.quanto import (
 @pytest.mark.parametrize("shift_mode", ["zeropoint", "float"])
 def test_qbits_tensor_quantize(input_shape, dtype, qtype, axis, group_size, shift_mode, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
-    scale, shift = MaxOptimizer()(a, bits=qtype.bits, axis=axis, group_size=group_size)
+    scale, shift = MaxOptimizer()(a, qtype=qtype, axis=axis, group_size=group_size)
     if shift_mode == "zeropoint":
         shift = torch.round(shift / scale).to(torch.int8)
     qa = QBitsTensor.quantize(a, qtype, axis, group_size, scale, shift)
@@ -63,7 +63,7 @@ def test_qbits_tensor_quantize_integer_tensor(dtype, qtype, device):
     qmin = -(2 ** (bits - 1))
     qmax = 2 ** (bits - 1) - 1
     a = torch.tensor(range(qmin, qmax + 1), dtype=dtype).to(device)
-    scale, shift = MaxOptimizer()(a, bits=qtype.bits, axis=0, group_size=None)
+    scale, shift = MaxOptimizer()(a, qtype=qtype, axis=0, group_size=None)
     zeropoint = torch.round(shift / scale)
     qa = QBitsTensor.quantize(a, qtype, 0, None, scale, zeropoint)
 

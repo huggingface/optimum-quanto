@@ -16,20 +16,22 @@
 import torch
 from helpers import random_tensor
 
-from optimum.quanto import qint8, quantize_weight
+from optimum.quanto import AbsmaxOptimizer, qint8, quantize_weight
 
 
 def test_weight_qbytes_tensor_requires_grad(device):
     w = random_tensor((10, 10), dtype=torch.float32).to(device)
     w.requires_grad = True
-    qw = quantize_weight(w, qtype=qint8, axis=0)
+    scale = AbsmaxOptimizer()(w, qtype=qint8, axis=0)
+    qw = quantize_weight(w, qtype=qint8, axis=0, scale=scale)
     assert qw.requires_grad is True
 
 
 def test_weight_qbytes_tensor_backward(device):
     w = random_tensor((10, 10), dtype=torch.float32).to(device)
     w.requires_grad = True
-    qw = quantize_weight(w, qtype=qint8, axis=0)
+    scale = AbsmaxOptimizer()(w, qtype=qint8, axis=0)
+    qw = quantize_weight(w, qtype=qint8, axis=0, scale=scale)
     gradient = torch.randn((10, 10)).to(device)
     # Backpropagate gradient to the inner float weights
     qw.dequantize().backward(gradient)
@@ -39,10 +41,12 @@ def test_weight_qbytes_tensor_backward(device):
 def test_weight_qbytes_tensor_chained_backward(device):
     a = random_tensor((10, 10), dtype=torch.float32).to(device)
     a.requires_grad = True
-    qa = quantize_weight(a, qtype=qint8, axis=0)
+    scale = AbsmaxOptimizer()(a, qtype=qint8, axis=0)
+    qa = quantize_weight(a, qtype=qint8, axis=0, scale=scale)
     b = random_tensor((10, 10), dtype=torch.float32).to(device)
     b.requires_grad = True
-    qb = quantize_weight(b, qtype=qint8, axis=0)
+    scale = AbsmaxOptimizer()(b, qtype=qint8, axis=0)
+    qb = quantize_weight(b, qtype=qint8, axis=0, scale=scale)
     # Evaluate the product
     prod = qa * qb
     # Backpropagate

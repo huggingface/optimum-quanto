@@ -16,6 +16,7 @@ from typing import Optional
 
 import torch
 
+from ..qtype import qtype
 from .optimizer import Optimizer
 
 
@@ -24,15 +25,14 @@ __all__ = ["SymmetricOptimizer"]
 
 class SymmetricOptimizer(Optimizer):
 
-    def __call__(self, base: torch.Tensor, qmax: float, axis: Optional[int] = None) -> torch.Tensor:
+    def __call__(self, base: torch.Tensor, qtype: qtype, axis: Optional[int] = None) -> torch.Tensor:
         if axis not in [None, 0, -1]:
             raise ValueError("axis parameter must be None, 0 (first axis) or -1 (last axis)")
-        if qmax <= 0.0:
-            raise ValueError(
-                "qmax must be set to the maximum positive value that can be represented by the quantized type."
-            )
-        scale = self.optimize(base, qmax, axis)
+        if axis is not None and base.shape[axis] == 1:
+            axis = None
+        scale = self.optimize(base, qtype, axis)
         assert scale.dtype == base.dtype
+
         return scale
 
     def optimize(self, base: torch.Tensor, qmax: float, axis: Optional[int] = None) -> torch.Tensor:

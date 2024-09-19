@@ -18,10 +18,13 @@ from typing import Optional, Union
 import torch
 
 from ..tensor import (
+    AbsmaxOptimizer,
     ActivationQBytesTensor,
+    MaxOptimizer,
     Optimizer,
     QBitsTensor,
     QTensor,
+    SymmetricOptimizer,
     WeightQBytesTensor,
     qint2,
     qint4,
@@ -130,6 +133,8 @@ class QModuleMixin(ABC):
             if quantize_input:
                 self._quantize_hooks["input"] = self.register_forward_pre_hook(self.quantize_input)
             self._quantize_hooks["output"] = self.register_forward_hook(self.quantize_output)
+        if optimizer is None and self.weight_qtype is not None:
+            optimizer = AbsmaxOptimizer() if self.weight_qtype.bits == 8 else MaxOptimizer()
         self.optimizer = optimizer
         self.register_buffer("input_scale", torch.ones((), dtype=self.weight.dtype, device=device))
         self.register_buffer("output_scale", torch.ones((), dtype=self.weight.dtype, device=device))
@@ -250,12 +255,20 @@ class QModuleMixin(ABC):
             # Frozen QModule
             return self.weight
         # Quantize dynamically the weights per-axis
+        if isinstance(self.optimizer, SymmetricOptimizer):
+            scale = self.optimizer(self.weight, qtype=self.weight_qtype, axis=0)
+            shift = None
+        else:
+            scale, shift = self.optimizer(
+                self.weight, qtype=self.weight_qtype, axis=0, group_size=self.weight_group_size
+            )
         return quantize_weight(
             self.weight,
             qtype=self.weight_qtype,
             axis=0,
+            scale=scale,
+            shift=shift,
             group_size=self.weight_group_size,
-            optimizer=self.optimizer,
             activation_qtype=self.activation_qtype,
         )
 

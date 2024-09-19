@@ -41,9 +41,9 @@ def compare_quantized_tensor(a, qtype, axis, group_size, scale, shift):
 @pytest.mark.parametrize("group_size", [32, 64, 128])
 def test_hqq_optimizer(input_shape, dtype, qtype, axis, group_size, device):
     a = random_tensor(input_shape, dtype=dtype).to(device)
-    max_scale, max_shift = MaxOptimizer()(a, bits=qtype.bits, axis=axis, group_size=group_size)
+    max_scale, max_shift = MaxOptimizer()(a, qtype=qtype, axis=axis, group_size=group_size)
     max_mean_error, max_sim = compare_quantized_tensor(a, qtype, axis, group_size, max_scale, max_shift)
-    hqq_scale, hqq_shift = HqqOptimizer()(a, bits=qtype.bits, axis=axis, group_size=group_size)
+    hqq_scale, hqq_shift = HqqOptimizer()(a, qtype=qtype, axis=axis, group_size=group_size)
     hqq_mean_error, hqq_sim = compare_quantized_tensor(a, qtype, axis, group_size, hqq_scale, hqq_shift)
     # HQQ optimizes the mean error, so it should be lower
     assert hqq_mean_error <= max_mean_error

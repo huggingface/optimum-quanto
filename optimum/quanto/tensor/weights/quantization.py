@@ -16,7 +16,6 @@ from typing import Optional
 
 import torch
 
-from ..optimizers import AbsmaxOptimizer, AffineOptimizer, MaxOptimizer, Optimizer, SymmetricOptimizer
 from ..qbits import QBitsTensor
 from ..qtype import qtype
 from .qbytes import WeightQBytesTensor
@@ -25,17 +24,13 @@ from .qbytes import WeightQBytesTensor
 __all__ = ["quantize_weight"]
 
 
-default_affine_optimizer = MaxOptimizer()
-default_symmetric_optimizer = AbsmaxOptimizer()
-
-
 def quantize_weight(
     t: torch.Tensor,
     qtype: qtype,
     axis: int,
+    scale: torch.Tensor,
+    shift: Optional[torch.Tensor] = None,
     group_size: Optional[int] = None,
-    optimizer: Optional[Optimizer] = None,
-    zeropoint: bool = False,
     activation_qtype: Optional[qtype] = None,
 ):
     """Quantize a weight Tensor.
@@ -46,12 +41,9 @@ def quantize_weight(
         t (`torch.Tensor`): the weight Tensor to quantize
         qtype (`quanto.qtype`): The target quantization type
         axis ('int`): The quantization axis (0 or -1)
+        scale (`torch.Tensor`): the quantization scale
+        shift (`Optional[torch.Tensor]`): optional shift to apply
         group_size (`Optional[int]`): The quantization group size
-        optimizer (`Optional[quanto.Optimizer]`): An optimizer to evaluate the scale if not provided.
-            Defaults to a max Optimizer.
-        zeropoint (`bool`): Allow an exact representation of zero. If True, the shifts are stored as
-            integer instead of float, which results in a slightly smaller model, but might also reduce
-            the model performance. Defaults to False.
         activation_qtype (`Optional[qtype]`, defaults to `None`):
             Which quantization type is being used for the activations. The function `quantize_weight`
             initializes `torch.Tensor` subclasses that may depend on the activation dtype.
@@ -63,25 +55,14 @@ def quantize_weight(
     if axis not in (0, -1):
         raise ValueError("axis parameter must be 0 (first axis) or -1 (last axis)")
     if qtype.bits == 8:
-        if optimizer is None:
-            optimizer = default_symmetric_optimizer
-        else:
-            if not isinstance(optimizer, SymmetricOptimizer):
-                raise ValueError("A SymmetricOptimizer is expected")
+        if shift is not None:
+            raise ValueError("shift cannot be specified for 8-bit qtypes")
         if group_size is not None:
             raise ValueError("group_size cannot be specified for 8-bit qtypes.")
         if axis is not None and t.shape[axis] == 1:
             # Quantizing along an axis of dimension 1 means quantizing per-tensor
             axis = None
-        scale = optimizer(t, qtype.qmax, axis)
         return WeightQBytesTensor.quantize(t, qtype, axis, scale, activation_qtype)
-    if optimizer is None:
-        optimizer = default_affine_optimizer
-    else:
-        if not isinstance(optimizer, AffineOptimizer):
-            raise ValueError("An AffineOptimizer is expected")
-    scale, shift = optimizer(t, qtype.bits, axis, group_size)
-    if zeropoint:
-        # Round shift to make sure zero can be represented exactly using 'shift' as quantized value
-        shift = torch.clamp(torch.round(shift / scale), 0, 2**qtype.bits - 1).to(torch.uint8)
+    if shift is None:
+        raise ValueError("shift must be specified for qtypes lower than 8-bit")
     return QBitsTensor.quantize(t, qtype, axis, group_size, scale, shift)

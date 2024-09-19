@@ -20,7 +20,15 @@ import pytest
 import torch
 from packaging import version
 
-from optimum.quanto import QBitsTensor, absmax_scale, qint8, quantize_activation, quantize_weight
+from optimum.quanto import (
+    AbsmaxOptimizer,
+    MaxOptimizer,
+    QBitsTensor,
+    absmax_scale,
+    qint8,
+    quantize_activation,
+    quantize_weight,
+)
 
 
 def torch_min_version(v):
@@ -63,7 +71,12 @@ def random_qactivation(shape, qtype=qint8, dtype=torch.float32, device="cpu"):
 
 def random_qweight(shape, qtype, dtype=torch.float32, axis=0, group_size=None, device="cpu"):
     t = random_tensor(shape, dtype, device=device)
-    return quantize_weight(t, qtype=qtype, axis=axis, group_size=group_size)
+    if qtype.bits == 8:
+        scale = AbsmaxOptimizer()(t, qtype=qtype, axis=axis)
+        shift = None
+    else:
+        scale, shift = MaxOptimizer()(t, qtype=qtype, axis=axis, group_size=group_size)
+    return quantize_weight(t, qtype=qtype, axis=axis, scale=scale, shift=shift, group_size=group_size)
 
 
 def random_qbits_tensor(shape, qtype, dtype, group_size, device):
