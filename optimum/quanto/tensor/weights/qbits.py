@@ -18,12 +18,12 @@ import torch
 from packaging import version
 from torch.autograd import Function
 
-from ...function import QuantizedLinearFunction
-from ...grouped import grouped_shape
-from ...packed import PackedTensor
-from ...qbits import QBitsTensor
-from ...qtensor import qfallback
-from ...qtype import qint2, qint4, qtype, qtypes
+from ..function import QuantizedLinearFunction
+from ..grouped import grouped_shape
+from ..packed import PackedTensor
+from ..qbits import QBitsTensor
+from ..qtensor import qfallback
+from ..qtype import qint2, qint4, qtype, qtypes
 
 
 __all__ = ["WeightQBitsTensor"]

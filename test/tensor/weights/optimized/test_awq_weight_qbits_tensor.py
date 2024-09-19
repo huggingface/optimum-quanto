@@ -17,7 +17,8 @@ import torch
 from helpers import device_eq, random_weight_qbits_tensor
 
 from optimum.quanto import qint4
-from optimum.quanto.tensor.weights import AWQWeightQBitsTensor, WeightQBitsTensor
+from optimum.quanto.tensor.weights import WeightQBitsTensor
+from optimum.quanto.tensor.weights.awq import AWQWeightQBitsTensor
 
 
 @pytest.mark.skipif(
