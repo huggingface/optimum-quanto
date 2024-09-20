@@ -20,6 +20,8 @@ import numpy as np
 import torch
 from torch.utils import _pytree as pytree
 
+from ..packing import unpack_int32_to_uint8
+
 
 __all__ = ["AWQPackedTensor", "AWQPacking"]
 
@@ -89,20 +91,9 @@ def unpack(packed: torch.Tensor, reorder=False):
     Returns:
         An unpacked uint8 `torch.Tensor` expanded along the second dimension.
     """
-    bits = 4
-    shifts = torch.arange(0, 32, bits, device=packed.device)
-
-    # Unpack column-wise
-    unpacked = torch.bitwise_right_shift(packed[:, :, None], shifts[None, None, :]).to(
-        torch.int8  # smallest dtype available
-    )
-    unpacked = unpacked.view(unpacked.shape[0], -1)
+    unpacked = unpack_int32_to_uint8(packed, bits=4)
     if reorder:
         unpacked = reverse_awq_order(unpacked)
-
-    # Convert to unsigned
-    unpacked = torch.bitwise_and(unpacked, (2**bits) - 1)
-
     return unpacked
 
 
