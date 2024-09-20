@@ -250,8 +250,8 @@ class MarlinF8PackedTensor(torch.Tensor):
             return cls(data, t.size(), t.stride())
         elif op.overloadpacket in (torch.ops.aten._to_copy, torch.ops.aten.to):
             t = args[0]
-            dtype = kwargs.get("dtype", torch.uint8)
-            if dtype != torch.float8_e4m3fn:
+            dtype = kwargs.get("dtype", torch.int32)
+            if dtype != torch.int32:
                 raise ValueError(f"MarlinF8PackedTensor are torch.int32 only and cannot be moved to {dtype}.")
             device = kwargs.get("device", t.device)
             if device.type == "cuda":
@@ -259,6 +259,8 @@ class MarlinF8PackedTensor(torch.Tensor):
                 data_kwargs["dtype"] = t._data.dtype
                 data = op(t._data, **data_kwargs)
                 return cls(data, t.size(), t.stride())
+            else:
+                return t.unpack().to(device)
         else:
             args, kwargs = pytree.tree_map_only(cls, lambda x: x.unpack(), (args, kwargs or {}))
             return op(*args, **kwargs)
