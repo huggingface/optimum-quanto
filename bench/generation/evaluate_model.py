@@ -13,15 +13,21 @@
 # limitations under the License.
 
 import argparse
+import importlib
 
 import torch
 from datasets import load_dataset
 from metrics.latency import latency
 from metrics.perplexity import perplexity
 from metrics.prediction import prediction_accuracy
-from setup.awq import setup as awq_setup
-from setup.bnb import setup as bnb_setup
-from setup.hqq import setup as hqq_setup
+
+
+if importlib.util.find_spec("awq") is not None:
+    from setup.awq import setup as awq_setup
+if importlib.util.find_spec("bitsandbytes") is not None:
+    from setup.bnb import setup as bnb_setup
+if importlib.util.find_spec("hqq") is not None:
+    from setup.hqq import setup as hqq_setup
 from setup.quanto import setup as quanto_setup
 from transformers import AutoConfig
 
