@@ -16,10 +16,13 @@ import ast
 
 import torch
 
-from ...function import QuantizedLinearFunction
-from ...qtype import qfloat8_e4m3fn, qtypes
-from ..qbytes import WeightQBytesTensor
+from ....function import QuantizedLinearFunction
+from ....qtype import qfloat8_e4m3fn, qtypes
+from ...qbytes import WeightQBytesTensor
 from .packed import MarlinF8PackedTensor, get_scale_perms
+
+
+__all__ = ["MarlinF8QBytesTensor"]
 
 
 class MarlinF8QBytesLinearFunction(QuantizedLinearFunction):

@@ -18,7 +18,7 @@ import torch
 from helpers import assert_similar, random_tensor
 
 from optimum.quanto.tensor.weights.awq import AWQPackedTensor, AWQPacking
-from optimum.quanto.tensor.weights.marlin.packed import get_scale_perms, pack_fp8_as_int32
+from optimum.quanto.tensor.weights.marlin.fp8.packed import get_scale_perms, pack_fp8_as_int32
 
 
 @pytest.mark.parametrize("batch_size", [1, 10, None], ids=["single", "batched", "static"])
