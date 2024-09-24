@@ -44,21 +44,10 @@ def get_max_cuda_arch():
     return f"{max_capability[0]}{max_capability[1]}0"
 
 
-extra_cflags = ["-g", "-O3", "-fopenmp", "-lgomp", "-std=c++17", "-DENABLE_BF16"]
+extra_cflags = ["-g", "-O3"]
 extra_cuda_cflags = [
-    "-O3",
-    "-std=c++17",
-    "-DENABLE_BF16",  # TODO
-    "-U__CUDA_NO_HALF_OPERATORS__",
-    "-U__CUDA_NO_HALF_CONVERSIONS__",
-    "-U__CUDA_NO_BFLOAT16_OPERATORS__",
-    "-U__CUDA_NO_BFLOAT16_CONVERSIONS__",
-    "-U__CUDA_NO_BFLOAT162_OPERATORS__",
-    "-U__CUDA_NO_BFLOAT162_CONVERSIONS__",
-    "--expt-relaxed-constexpr",
     "--expt-extended-lambda",
     "--use_fast_math",
-    "--threads=8",
 ]
 # We need to know the minimum CUDA Arch to select only the relevant kernels
 # but we cannot rely on __CUDA_ARCH__ as it is not set in host code (only on device code)
