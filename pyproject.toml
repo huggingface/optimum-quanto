@@ -8,14 +8,13 @@ classifiers = [
     'Intended Audience :: Education',
     'Intended Audience :: Science/Research',
     'Operating System :: OS Independent',
-    'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Topic :: Scientific/Engineering :: Artificial Intelligence'
 ]
 keywords = ['torch', 'quantization']
-requires-python = '>=3.8.0'
+requires-python = '>=3.9.0'
 authors = [{ name = 'David Corvoysier' }]
 maintainers = [
     {name = "HuggingFace Inc. Special Ops Team", email="hardware@huggingface.co"},
