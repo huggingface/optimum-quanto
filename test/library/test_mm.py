@@ -74,7 +74,7 @@ def test_gemm_fp16_int4(batch_size, tokens, in_features, out_features):
     # Negate and scale
     other_scaled_shifts = -other_shifts * other_scales
     # Evaluate mm outputs using the GEMM kernel
-    lib_outputs = torch.ops.quanto.gemm(
+    lib_outputs = torch.ops.quanto.gemm_f16i4_awq(
         inputs,
         packed_other_data,
         other_scales,

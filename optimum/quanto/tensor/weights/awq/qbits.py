@@ -54,7 +54,7 @@ class AWQWeightQBitsLinearFunction(QuantizedLinearFunction):
             input = input.dequantize()
         out_features, in_features = other.shape
         rows = input.numel() // in_features
-        output = torch.ops.quanto.gemm(
+        output = torch.ops.quanto.gemm_f16i4_awq(
             input,
             other._data._data,
             other._scale,

@@ -46,7 +46,9 @@ def benchmark_dense(A, B, m, n, k):
 
 
 def benchmark_awq(A, B, s, sz, m, n, k):
-    res = benchmark(lambda: torch.ops.quanto.gemm(A, B, s, sz, rows=m, out_cols=n, in_cols=k, bits=4, group_size=128))
+    res = benchmark(
+        lambda: torch.ops.quanto.gemm_f16i4_awq(A, B, s, sz, rows=m, out_cols=n, in_cols=k, bits=4, group_size=128)
+    )
     return {
         "s": res,
         "TFLOP/s": 2 * (m * k) * n / res / 10**12,
