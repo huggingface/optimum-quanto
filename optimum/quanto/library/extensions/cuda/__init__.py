@@ -77,7 +77,7 @@ def unpack_cuda(t: torch.Tensor, bits: int):
 
 
 torch.library.define(
-    "quanto::gemm",
+    "quanto::gemm_f16i4_awq",
     "(Tensor input,"
     " Tensor other,"
     " Tensor other_scale,"
@@ -91,8 +91,8 @@ torch.library.define(
 )
 
 
-@torch.library.impl("quanto::gemm", ["CUDA"])
-def gemm_cuda(
+@torch.library.impl("quanto::gemm_f16i4_awq", ["CUDA"])
+def gemm_f16i4_awq(
     input: torch.Tensor,
     other: torch.Tensor,
     scales: torch.Tensor,
