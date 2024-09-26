@@ -28,7 +28,6 @@ from optimum.quanto import (
     quantize_activation,
     quantize_weight,
 )
-from optimum.quanto.tensor.weights import WeightQBitsTensor
 
 
 def torch_min_version(v):
@@ -76,23 +75,7 @@ def random_qweight(shape, qtype, dtype=torch.float32, axis=0, group_size=None, d
         shift = None
     else:
         scale, shift = MaxOptimizer()(t, qtype=qtype, axis=axis, group_size=group_size)
-    return quantize_weight(t, qtype=qtype, axis=axis, scale=scale, shift=shift, group_size=group_size)
-
-
-def random_weight_qbits_tensor(shape, qtype, dtype, group_size, device):
-    bits = qtype.bits
-    qmax = 2**bits
-    out_features, in_features = shape
-    n_scales = out_features * in_features // group_size
-    data_shape = (n_scales, group_size)
-    data = torch.randint(0, qmax, data_shape, dtype=torch.uint8, device=device)
-    scale_shape = (n_scales, 1)
-    scale = torch.rand(scale_shape, dtype=dtype, device=device) / qmax
-    shift_shape = (n_scales, 1)
-    shift = torch.rand(shift_shape, dtype=dtype, device=device)
-    return WeightQBitsTensor(
-        qtype, axis=0, group_size=group_size, size=shape, stride=(in_features, 1), data=data, scale=scale, shift=shift
-    )
+    return quantize_weight(t, qtype=qtype, axis=axis, scale=scale, shift=shift, group_size=group_size, optimized=False)
 
 
 def assert_similar(a, b, atol=None, rtol=None):

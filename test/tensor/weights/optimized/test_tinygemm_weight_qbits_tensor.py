@@ -14,7 +14,7 @@
 
 import pytest
 import torch
-from helpers import assert_similar, device_eq, random_weight_qbits_tensor
+from helpers import assert_similar, device_eq, random_qweight
 from packaging import version
 
 from optimum.quanto import qint4
@@ -35,7 +35,7 @@ def test_tinygemm_weight_qbits_tensor_from_qbits_tensor(in_features, out_feature
     group_size = 128
     dtype = torch.bfloat16
     shape = (out_features, in_features)
-    qbt = random_weight_qbits_tensor(shape, qtype, dtype, group_size, device)
+    qbt = random_qweight(shape, qtype, dtype, group_size=group_size, device=device)
     # Create a TinyGemmWeightQBitsTensor from the WeightQBitsTensor members
     tgqbt = TinyGemmWeightQBitsTensor(
         qtype=qbt.qtype,
@@ -72,7 +72,7 @@ def test_tinygemm_weight_qbits_tensor_move(device):
     dtype = torch.bfloat16
     shape = (1024, 1024)
     # Create a TinyGemmWeightQBitsTensor from a QBitsTensor on CPU
-    qbt = random_weight_qbits_tensor(shape, qtype, dtype, group_size, device=torch.device("cpu"))
+    qbt = random_qweight(shape, qtype, dtype, group_size=group_size, device=torch.device("cpu"))
     tgqbt_cpu = TinyGemmWeightQBitsTensor(
         qtype=qbt.qtype,
         axis=qbt.axis,
