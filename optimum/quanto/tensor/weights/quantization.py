@@ -32,6 +32,7 @@ def quantize_weight(
     shift: Optional[torch.Tensor] = None,
     group_size: Optional[int] = None,
     activation_qtype: Optional[qtype] = None,
+    optimized: Optional[bool] = True,
 ):
     """Quantize a weight Tensor.
 
@@ -48,7 +49,11 @@ def quantize_weight(
             Which quantization type is being used for the activations. The function `quantize_weight`
             initializes `torch.Tensor` subclasses that may depend on the activation dtype.
             `None` corresponds to no quantization.
-
+        optimized (`Optional[bool]`, defaults to True):
+            If True, the quantization algorithm will select the most efficient kernel
+            for the weights and format the resulting Tensor accordingly.
+            If False, a kernel-agnostic Tensor will be returned (but it can be optimized later
+            explicitly by calling QTensor.optimize() or implicitly by moving it to a specific device).
     Returns:
         A quantized Tensor.
     """
@@ -62,7 +67,7 @@ def quantize_weight(
         if axis is not None and t.shape[axis] == 1:
             # Quantizing along an axis of dimension 1 means quantizing per-tensor
             axis = None
-        return WeightQBytesTensor.quantize(t, qtype, axis, scale, activation_qtype)
+        return WeightQBytesTensor.quantize(t, qtype, axis, scale, activation_qtype, optimized)
     if shift is None:
         raise ValueError("shift must be specified for qtypes lower than 8-bit")
-    return WeightQBitsTensor.quantize(t, qtype, axis, group_size, scale, shift)
+    return WeightQBitsTensor.quantize(t, qtype, axis, group_size, scale, shift, optimized)
