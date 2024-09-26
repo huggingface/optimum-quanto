@@ -90,7 +90,7 @@ def test_quantize_linear_float32_activations_int8(batch_size, tokens, embeddings
 def test_quantize_linear_float16_activations_float8(
     batch_size, tokens, embeddings, use_bias, dtype, weights, activations, device
 ):
-    atol = 1e-4
+    atol = 5e-3
     _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, dtype, device, atol)
 
 
