@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import ast
+from typing import Optional
 
 import torch
 from packaging import version
@@ -33,7 +34,14 @@ class WeightsQBitsQuantizer(Function):
 
     @staticmethod
     def forward(
-        ctx, base: torch.Tensor, qtype: qtype, axis: int, group_size: int, scale: torch.Tensor, shift: torch.Tensor
+        ctx,
+        base: torch.Tensor,
+        qtype: qtype,
+        axis: int,
+        group_size: int,
+        scale: torch.Tensor,
+        shift: torch.Tensor,
+        optimized: bool,
     ):
         if qtype not in (qint2, qint4):
             raise ValueError("WeightQBitsTensor can only be of qint2 or qint4 qtype")
@@ -44,13 +52,14 @@ class WeightsQBitsQuantizer(Function):
         data = torch.ops.quanto.quantize_affine(
             base, bits=qtype.bits, axis=axis, group_size=group_size, scale=scale, shift=shift
         )
-
-        return WeightQBitsTensor.create(qtype, axis, group_size, size, stride, data, scale, shift)
+        if optimized:
+            return WeightQBitsTensor.create(qtype, axis, group_size, size, stride, data, scale, shift)
+        return WeightQBitsTensor(qtype, axis, group_size, size, stride, data, scale, shift)
 
     @staticmethod
     def backward(ctx, gO):
         # For autograd, quantization is a no-op
-        return gO, None, None, None, None, None
+        return gO, None, None, None, None, None, None
 
 
 class WeightQBitsTensor(QBitsTensor):
@@ -127,9 +136,16 @@ class WeightQBitsTensor(QBitsTensor):
 
     @classmethod
     def quantize(
-        cls, base: torch.Tensor, qtype: qtype, axis: int, group_size: int, scale: torch.Tensor, shift: torch.Tensor
+        cls,
+        base: torch.Tensor,
+        qtype: qtype,
+        axis: int,
+        group_size: int,
+        scale: torch.Tensor,
+        shift: torch.Tensor,
+        optimized: Optional[bool] = True,
     ):
-        return WeightsQBitsQuantizer.apply(base, qtype, axis, group_size, scale, shift)
+        return WeightsQBitsQuantizer.apply(base, qtype, axis, group_size, scale, shift, optimized)
 
     @staticmethod
     def load_from_state_dict(state_dict, prefix, qtype, axis, group_size, size, stride, missing_keys):

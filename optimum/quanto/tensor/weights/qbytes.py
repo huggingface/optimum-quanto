@@ -31,7 +31,7 @@ class WeightQBytesQuantizer(Function):
 
     @staticmethod
     def forward(
-        ctx, base: torch.Tensor, qtype: qtype, axis: int, scale: torch.Tensor, activation_qtype: Optional[qtype]
+        ctx, base: torch.Tensor, qtype: qtype, axis: int, scale: torch.Tensor, activation_qtype: qtype, optimized: bool
     ) -> torch.Tensor:
         if qtype.bits != 8:
             raise ValueError("QBytesTensor can only be of 8-bit qtype")
@@ -39,7 +39,17 @@ class WeightQBytesQuantizer(Function):
         # The instantiation of the quantized tensor must happen within the context of the Function
         # for the autograd magic to work.
 
-        return WeightQBytesTensor.create(
+        if optimized:
+            return WeightQBytesTensor.create(
+                qtype,
+                axis,
+                size=base.size(),
+                stride=base.stride(),
+                data=data,
+                scale=scale,
+                activation_qtype=activation_qtype,
+            )
+        return WeightQBytesTensor(
             qtype,
             axis,
             size=base.size(),
@@ -52,7 +62,7 @@ class WeightQBytesQuantizer(Function):
     @staticmethod
     def backward(ctx, gO):
         # For autograd, quantization is a no-op
-        return gO, None, None, None, None, None
+        return gO, None, None, None, None, None, None
 
 
 class WeightQBytesLinearFunction(QuantizedLinearFunction):
@@ -132,9 +142,15 @@ class WeightQBytesTensor(QBytesTensor):
 
     @classmethod
     def quantize(
-        cls, base: torch.Tensor, qtype: qtype, axis: int, scale: torch.Tensor, activation_qtype: Optional[qtype] = None
+        cls,
+        base: torch.Tensor,
+        qtype: qtype,
+        axis: int,
+        scale: torch.Tensor,
+        activation_qtype: Optional[qtype] = None,
+        optimized: Optional[bool] = True,
     ) -> torch.Tensor:
-        return WeightQBytesQuantizer.apply(base, qtype, axis, scale, activation_qtype)
+        return WeightQBytesQuantizer.apply(base, qtype, axis, scale, activation_qtype, optimized)
 
     @staticmethod
     def load_from_state_dict(state_dict, prefix, qtype, axis, size, stride, activation_qtype, missing_keys):
