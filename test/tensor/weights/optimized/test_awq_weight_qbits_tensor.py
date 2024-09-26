@@ -92,8 +92,9 @@ def test_awq_weight_qbits_tensor_move(device):
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-@pytest.mark.parametrize("batch_size", [1, 10])
-@pytest.mark.parametrize("tokens, embeddings", [(256, 256)])
+@pytest.mark.parametrize("batch_size", [1, 2])
+@pytest.mark.parametrize("tokens", [256, 512])
+@pytest.mark.parametrize("embeddings", [256, 512, 1024, 4096])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 def test_awq_weight_qbits_tensor_linear(batch_size, tokens, embeddings, use_bias):
     device = torch.device("cuda")
@@ -102,9 +103,7 @@ def test_awq_weight_qbits_tensor_linear(batch_size, tokens, embeddings, use_bias
     group_size = 128
     inputs = torch.rand((batch_size,) + (tokens, embeddings), dtype=dtype, device=device)
     # Create an AWQWeightQBitsTensor from a QBitsTensor on CUDA
-    qbt = random_qweight(
-        (embeddings, embeddings), weight_qtype, dtype, group_size=group_size, device=torch.device("cuda")
-    )
+    qbt = random_qweight((tokens, embeddings), weight_qtype, dtype, group_size=group_size, device=torch.device("cuda"))
     awq_qweight = AWQWeightQBitsTensor(
         qtype=qbt.qtype,
         axis=qbt.axis,
@@ -115,7 +114,7 @@ def test_awq_weight_qbits_tensor_linear(batch_size, tokens, embeddings, use_bias
         scale=qbt._scale,
         shift=qbt._shift,
     )
-    bias = random_tensor((embeddings,), dtype=dtype).to(device) if use_bias else None
+    bias = random_tensor((tokens,), dtype=dtype).to(device) if use_bias else None
     qout = torch.nn.functional.linear(inputs, awq_qweight, bias)
     out = torch.nn.functional.linear(inputs, qbt.dequantize(), bias)
     assert_similar(out, qout)
