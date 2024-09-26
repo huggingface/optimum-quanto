@@ -69,7 +69,11 @@ def random_qactivation(shape, qtype=qint8, dtype=torch.float32, device="cpu"):
 
 
 def random_qweight(shape, qtype, dtype=torch.float32, axis=0, group_size=None, device="cpu"):
+    # Instantiate a random tensor in the range [-1, 1]
     t = random_tensor(shape, dtype, device=device)
+    # Divide by the square of the reduction dim k to avoid overflows and nans during accumulation
+    k = t.shape[-1 if axis == 0 else 0]
+    t = t / (k**2)
     if qtype.bits == 8:
         scale = AbsmaxOptimizer()(t, qtype=qtype, axis=axis)
         shift = None
