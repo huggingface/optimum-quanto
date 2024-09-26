@@ -14,7 +14,7 @@
 
 import pytest
 import torch
-from helpers import assert_similar, device_eq, random_tensor, random_weight_qbits_tensor
+from helpers import assert_similar, device_eq, random_qweight, random_tensor
 
 from optimum.quanto import qint4
 from optimum.quanto.tensor.weights import WeightQBitsTensor
@@ -32,7 +32,7 @@ def test_awq_weight_qbits_tensor_from_qbits_tensor(in_features, out_features):
     dtype = torch.float16
     shape = (out_features, in_features)
     device = torch.device("cuda")
-    qbt = random_weight_qbits_tensor(shape, qtype, dtype, group_size, device)
+    qbt = random_qweight(shape, qtype, dtype, group_size=group_size, device=device)
     # Create a AWQWeightQBitsTensor from the WeightQBitsTensor members
     awqbt = AWQWeightQBitsTensor(
         qtype=qbt.qtype,
@@ -69,7 +69,7 @@ def test_awq_weight_qbits_tensor_move(device):
     shape = (1024, 1024)
     device = torch.device("cuda")
     # Create an AWQWeightQBitsTensor from a QBitsTensor on CUDA
-    qbt = random_weight_qbits_tensor(shape, qtype, dtype, group_size, device=torch.device("cuda"))
+    qbt = random_qweight(shape, qtype, dtype, group_size=group_size, device=torch.device("cuda"))
     awqbt = AWQWeightQBitsTensor(
         qtype=qbt.qtype,
         axis=qbt.axis,
@@ -102,8 +102,8 @@ def test_awq_weight_qbits_tensor_linear(batch_size, tokens, embeddings, use_bias
     group_size = 128
     inputs = torch.rand((batch_size,) + (tokens, embeddings), dtype=dtype, device=device)
     # Create an AWQWeightQBitsTensor from a QBitsTensor on CUDA
-    qbt = random_weight_qbits_tensor(
-        (embeddings, embeddings), weight_qtype, dtype, group_size, device=torch.device("cuda")
+    qbt = random_qweight(
+        (embeddings, embeddings), weight_qtype, dtype, group_size=group_size, device=torch.device("cuda")
     )
     awq_qweight = AWQWeightQBitsTensor(
         qtype=qbt.qtype,
