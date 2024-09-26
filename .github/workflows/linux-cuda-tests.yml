@@ -22,7 +22,8 @@ jobs:
     uses: ./.github/workflows/python-quality.yml
   test-ubuntu-cuda:
     needs: [check-commits, python-quality]
-    runs-on: [self-hosted, single-gpu , nvidia-gpu, a10, ci]
+    runs-on: 
+      group: aws-g5-4xlarge-plus
     strategy:
       fail-fast: false
       matrix:
