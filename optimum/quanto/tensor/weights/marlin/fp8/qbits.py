@@ -34,7 +34,7 @@ class MarlinF8QBytesLinearFunction(QuantizedLinearFunction):
         if input.ndim > 2:
             input = input.view(-1, input_shape[-1])
 
-        output = torch.ops.quanto.fp8_marlin_gemm(
+        output = torch.ops.quanto.gemm_f16f8_marlin(
             input,
             b_q_weight=other._data._data,
             b_scales=other._scale,  # .to(input.dtype)

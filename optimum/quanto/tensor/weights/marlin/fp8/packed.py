@@ -180,7 +180,7 @@ class MarlinF8PackedTensor(torch.Tensor):
 
         perm = torch.empty(0, dtype=torch.int, device=tensor.device)
 
-        data_int32 = torch.ops.quanto.gptq_marlin_repack(
+        data_int32 = torch.ops.quanto.pack_fp8_marlin(
             b_q_weight=data_int32, perm=perm, size_k=in_features, size_n=out_features, num_bits=8
         )
 
