@@ -56,6 +56,9 @@ class QuantizedTransformersModel(ModelHubMixin):
     def forward(self, *args, **kwargs):
         return self._wrapped.forward(*args, **kwargs)
 
+    def __call__(self, *args, **kwargs):
+        return self._wrapped.forward(*args, **kwargs)
+
     @staticmethod
     def _qmap_name():
         return f"{QuantizedTransformersModel.BASE_NAME}_qmap.json"
