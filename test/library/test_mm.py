@@ -113,7 +113,7 @@ def test_fp8_marlin(tokens, in_features, out_features, dtype):
     other_data_int32 = pack_fp8_as_int32(other_data)
     perm = torch.empty(0, dtype=torch.int, device=device)
 
-    other_data_repack = torch.ops.quanto.gptq_marlin_repack(
+    other_data_repack = torch.ops.quanto.pack_fp8_marlin(
         b_q_weight=other_data_int32, perm=perm, size_k=in_features, size_n=out_features, num_bits=8
     )
     other_scale = torch.rand(1, out_features, dtype=dtype, device=device)
@@ -124,7 +124,7 @@ def test_fp8_marlin(tokens, in_features, out_features, dtype):
     other_scale = other_scale.reshape(-1, out_features).contiguous()
 
     workspace = torch.zeros(out_features // 64 * 16, dtype=torch.int, device=device)
-    lib_outputs = torch.ops.quanto.fp8_marlin_gemm(
+    lib_outputs = torch.ops.quanto.gemm_f16f8_marlin(
         a=inputs,
         b_q_weight=other_data_repack,
         b_scales=other_scale,

@@ -118,7 +118,21 @@ def gemm_f16i4_awq(
     return ext.lib.awq_v2_gemm_f16i4(input, other, scales, shift)
 
 
-@torch.library.custom_op("quanto::fp8_marlin_gemm", mutates_args=(), device_types=["cuda"])
+torch.library.define(
+    "quanto::gemm_f16f8_marlin",
+    "(Tensor a,"
+    "Tensor b_q_weight,"
+    "Tensor b_scales,"
+    "Tensor workspace,"
+    "int num_bits,"
+    "int size_m,"
+    "int size_n,"
+    "int size_k)"
+    " -> Tensor",
+)
+
+
+@torch.library.impl("quanto::gemm_f16f8_marlin", ["CUDA"])
 def fp8_marlin_gemm(
     a: torch.Tensor,
     b_q_weight: torch.Tensor,
@@ -135,7 +149,13 @@ def fp8_marlin_gemm(
     return ext.lib.fp8_marlin_gemm(a, b_q_weight, b_scales, workspace, num_bits, size_m, size_n, size_k)
 
 
-@torch.library.custom_op("quanto::gptq_marlin_repack", mutates_args=(), device_types=["cuda"])
+torch.library.define(
+    "quanto::pack_fp8_marlin",
+    "(Tensor b_q_weight, Tensor perm, int size_k, int size_n, int num_bits) -> Tensor",
+)
+
+
+@torch.library.impl("quanto::pack_fp8_marlin", ["CUDA"])
 def gptq_marlin_repack(
     b_q_weight: torch.Tensor, perm: torch.Tensor, size_k: int, size_n: int, num_bits: int
 ) -> torch.Tensor:
