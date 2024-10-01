@@ -72,7 +72,11 @@ class WeightQBytesLinearFunction(QuantizedLinearFunction):
         if isinstance(input, QBytesTensor):
             output = torch.ops.quanto.qbytes_mm(input._data, other._data, input._scale * other._scale)
         else:
-            output = torch.ops.quanto.qbytes_mm(input, other._data, other._scale)
+            in_features = input.shape[-1]
+            out_features = other.shape[0]
+            output_shape = input.shape[:-1] + (out_features,)
+            output = torch.ops.quanto.qbytes_mm(input.view(-1, in_features), other._data, other._scale)
+            output = output.view(output_shape)
         if bias is not None:
             output = output + bias
         return output
