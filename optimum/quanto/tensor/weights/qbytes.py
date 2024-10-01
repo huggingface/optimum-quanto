@@ -124,7 +124,15 @@ class WeightQBytesTensor(QBytesTensor):
             and axis == 0
             and torch.cuda.get_device_capability(data.device)[0] >= 8
         ):
-            if data.dtype == torch.int32 or (data.shape[0] % 64 == 0 and data.shape[1] % 16 == 0):
+            out_features, in_features = size
+            if (
+                in_features >= 64
+                and out_features >= 64
+                and (
+                    (in_features % 64 == 0 and out_features % 128 == 0)
+                    or (in_features % 128 == 0 and out_features % 64 == 0)
+                )
+            ):
                 return MarlinF8QBytesTensor(qtype, axis, size, stride, data, scale, requires_grad)
 
         return WeightQBytesTensor(qtype, axis, size, stride, data, scale, activation_qtype, requires_grad)
