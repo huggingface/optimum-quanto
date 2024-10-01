@@ -22,12 +22,12 @@ from ..quantize import Optimizer, freeze, qtype, quantization_map, quantize, req
 from . import is_diffusers_available
 
 
-__all__ = ["QuantizedDiffusersModel", "QuantizedPixArtTransformer2DModel"]
+__all__ = ["QuantizedDiffusersModel", "QuantizedFluxTransformer2DModel", "QuantizedPixArtTransformer2DModel"]
 
 if not is_diffusers_available():
     raise ImportError(f"{__all__} require the diffusers library")
 
-from diffusers import PixArtTransformer2DModel
+from diffusers import FluxTransformer2DModel, PixArtTransformer2DModel
 from diffusers.models.model_loading_utils import load_state_dict
 from diffusers.models.modeling_utils import ModelMixin
 from diffusers.utils import (
@@ -190,3 +190,8 @@ class QuantizedDiffusersModel(ModelHubMixin):
 class QuantizedPixArtTransformer2DModel(QuantizedDiffusersModel):
 
     base_class = PixArtTransformer2DModel
+
+
+class QuantizedFluxTransformer2DModel(QuantizedDiffusersModel):
+
+    base_class = FluxTransformer2DModel
