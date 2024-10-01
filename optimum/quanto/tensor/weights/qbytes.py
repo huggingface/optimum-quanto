@@ -115,6 +115,7 @@ class WeightQBytesTensor(QBytesTensor):
         """
         from .marlin import MarlinF8QBytesTensor
 
+        in_features, out_features = size
         if (
             qtype == qtypes["qfloat8_e4m3fn"]
             and activation_qtype is None
@@ -123,6 +124,12 @@ class WeightQBytesTensor(QBytesTensor):
             and data.device.type == "cuda"
             and axis == 0
             and torch.cuda.get_device_capability(data.device)[0] >= 8
+            and in_features >= 64
+            and out_features >= 64
+            and (
+                (in_features % 64 == 0 and out_features % 128 == 0)
+                or (in_features % 128 == 0 and out_features % 64 == 0)
+            )
         ):
             if data.dtype == torch.int32 or (data.shape[0] % 64 == 0 and data.shape[1] % 16 == 0):
                 return MarlinF8QBytesTensor(qtype, axis, size, stride, data, scale, requires_grad)
