@@ -71,7 +71,7 @@ ext = Extension(
 )
 
 
-@torch.library.impl("quanto_ext::unpack", ["CUDA"])
+@torch.library.impl("quanto::unpack", ["CUDA"])
 def unpack_cuda(t: torch.Tensor, bits: int):
     return ext.lib.unpack(t, bits)
 

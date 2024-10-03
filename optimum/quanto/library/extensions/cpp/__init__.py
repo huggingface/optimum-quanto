@@ -30,6 +30,6 @@ ext = Extension(
 )
 
 
-@torch.library.impl("quanto_ext::unpack", ["CPU"])
+@torch.library.impl("quanto::unpack", ["CPU"])
 def unpack_cpp(t: torch.Tensor, bits: int):
     return ext.lib.unpack(t, bits)
