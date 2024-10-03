@@ -19,7 +19,12 @@ import torch
 from ..tensor import dtype_info, group
 
 
-@torch.library.custom_op("quanto::quantize_symmetric", mutates_args=())
+torch.library.define(
+    "quanto::quantize_symmetric", "(Tensor base, ScalarType dtype, int? axis, Tensor scale) -> Tensor"
+)
+
+
+@torch.library.impl("quanto::quantize_symmetric", "default")
 def quantize_symmetric(
     base: torch.Tensor, dtype: torch.dtype, axis: Union[int, None], scale: torch.Tensor
 ) -> torch.Tensor:
@@ -50,12 +55,18 @@ def quantize_symmetric(
     return torch.clamp(data, min=info.min, max=info.max).to(dtype)
 
 
-@torch.library.custom_op("quanto::quantize_affine", mutates_args=())
+torch.library.define(
+    "quanto::quantize_affine",
+    "(Tensor base, int bits, int axis, int? group_size, Tensor scale, Tensor shift) -> Tensor",
+)
+
+
+@torch.library.impl("quanto::quantize_affine", "default")
 def quantize_affine(
     base: torch.Tensor, bits: int, axis: int, group_size: Union[int, None], scale: torch.Tensor, shift: torch.Tensor
 ) -> torch.Tensor:
     if axis not in (0, -1):
-        raise ValueError("QBitsTensor axis parameter must be 0 (first axis) or -1 (last axis)")
+        raise ValueError("axis parameter must be 0 (first axis) or -1 (last axis)")
     if group_size is not None:
         base = group(base, axis=axis, group_size=group_size)
     if shift.dtype.is_floating_point:
