@@ -15,7 +15,10 @@
 import torch
 
 
-@torch.library.impl("quanto_py::unpack", "default")
+torch.library.define("quanto::unpack", "(Tensor self, int bits) -> Tensor")
+
+
+@torch.library.impl("quanto::unpack", "default")
 def unpack(packed: torch.Tensor, bits: int) -> torch.Tensor:
     """
     Un-Pack int4 / int2 weights (packed in a uint8) into a torch.uint8 tensor

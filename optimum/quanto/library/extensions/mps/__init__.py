@@ -30,6 +30,6 @@ ext = Extension(
 )
 
 
-@torch.library.impl("quanto_ext::unpack", "MPS")
+@torch.library.impl("quanto::unpack", "MPS")
 def unpack_mps(t: torch.Tensor, bits: int):
     return ext.lib.unpack(t, bits)
