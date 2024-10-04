@@ -16,7 +16,7 @@ import os
 
 import torch
 
-from ..extension import Extension
+from ..extension import Extension, register_extension
 
 
 __all__ = []
@@ -28,6 +28,7 @@ ext = Extension(
     sources=["unpack.mm", "pybind_module.cpp"],
     extra_cflags=["-std=c++17"],
 )
+register_extension(ext)
 
 
 @torch.library.impl("quanto::unpack", "MPS")

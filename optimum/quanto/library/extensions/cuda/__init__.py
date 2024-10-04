@@ -16,7 +16,7 @@ import os
 
 import torch
 
-from ..extension import Extension
+from ..extension import Extension, register_extension
 
 
 __all__ = []
@@ -69,6 +69,7 @@ ext = Extension(
     extra_cflags=extra_cflags,
     extra_cuda_cflags=extra_cuda_cflags,
 )
+register_extension(ext)
 
 
 @torch.library.impl("quanto::unpack", ["CUDA"])
