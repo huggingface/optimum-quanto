@@ -42,12 +42,10 @@ def test_qactivation_qweight_linear(
     assert_similar(out, qout)
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 @pytest.mark.parametrize("batch_size", [1, 10])
 @pytest.mark.parametrize("tokens, embeddings", [(256, 256)])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
-def test_linear_gemm_fp16_int4(batch_size, tokens, embeddings, use_bias):
-    device = torch.device("cuda")
+def test_linear_fp16_int4(batch_size, tokens, embeddings, use_bias, device):
     dtype = torch.float16
     weight_qtype = qint4
     inputs = torch.rand((batch_size,) + (tokens, embeddings), dtype=dtype, device=device)

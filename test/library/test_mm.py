@@ -17,6 +17,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_tensor
 
+from optimum.quanto.library.extensions import is_extension_available
 from optimum.quanto.tensor.weights.awq import AWQPackedTensor, AWQPacking
 from optimum.quanto.tensor.weights.marlin.fp8.packed import get_scale_perms, pack_fp8_as_int32
 
@@ -47,7 +48,7 @@ def test_qbytes_mm(batch_size, input_features, input_dtype, weight_dtype, output
 
 
 @pytest.mark.skipif(
-    not torch.cuda.is_available() or torch.cuda.get_device_capability()[0] < 8,
+    not is_extension_available("quanto_cuda") or torch.cuda.get_device_capability()[0] < 8,
     reason="CUDA device >= sm80 not available",
 )
 @pytest.mark.parametrize("in_features, out_features", [(256, 256), (512, 256)])
@@ -98,7 +99,7 @@ def test_gemm_fp16_int4(batch_size, tokens, in_features, out_features):
 
 
 @pytest.mark.skipif(
-    not torch.cuda.is_available() or torch.cuda.get_device_capability()[0] < 8,
+    not is_extension_available("quanto_cuda") or torch.cuda.get_device_capability()[0] < 8,
     reason="CUDA device >= sm80 not available",
 )
 @pytest.mark.parametrize("tokens", [1, 10, 128])
