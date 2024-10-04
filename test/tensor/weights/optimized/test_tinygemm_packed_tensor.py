@@ -28,6 +28,8 @@ from optimum.quanto.tensor.weights.tinygemm import TinyGemmPackedTensor
 @pytest.mark.parametrize("random", [True, False])
 def test_pack_tinygemm_tensor(in_features, out_features, random, device):
     if device.type == "cuda":
+        if torch.version.hip:
+            pytest.skip(reason="TinyGemm is not supported on ROCm devices")
         if version.parse(torch.version.cuda).release < (12, 1):
             pytest.skip(reason="CUDA runtime must be at least 12.1")
         if torch.cuda.get_device_capability()[0] < 8:
@@ -50,6 +52,8 @@ def test_pack_tinygemm_tensor(in_features, out_features, random, device):
 @pytest.mark.skip_device("mps")  # Only available with pytorch 2.4
 def test_move_tinygemm_packed_tensor(device):
     if device.type == "cuda":
+        if torch.version.hip:
+            pytest.skip(reason="TinyGemm is not supported on ROCm devices")
         if version.parse(torch.version.cuda).release < (12, 1):
             pytest.skip(reason="CUDA runtime must be at least 12.1")
         if torch.cuda.get_device_capability()[0] < 8:

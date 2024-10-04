@@ -17,13 +17,12 @@ import torch
 from helpers import assert_similar, device_eq, random_qweight, random_tensor
 
 from optimum.quanto import qint4
+from optimum.quanto.library.extensions import is_extension_available
 from optimum.quanto.tensor.weights import WeightQBitsTensor
 from optimum.quanto.tensor.weights.awq import AWQWeightQBitsTensor
 
 
-@pytest.mark.skipif(
-    not torch.cuda.is_available() or torch.cuda.get_device_capability()[0] < 8, reason="CUDA >= sm80 not available"
-)
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 @pytest.mark.parametrize("in_features", [128, 256, 512, 1024])
 @pytest.mark.parametrize("out_features", [128, 256, 512, 1024])
 def test_awq_weight_qbits_tensor_from_qbits_tensor(in_features, out_features):
@@ -91,7 +90,10 @@ def test_awq_weight_qbits_tensor_move(device):
     assert torch.equal(awqbt.dequantize().to(device), moved_qbt.dequantize())
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@pytest.mark.skipif(
+    not is_extension_available("quanto_cuda") or torch.cuda.get_device_capability()[0] < 8,
+    reason="CUDA >= sm80 not available",
+)
 @pytest.mark.parametrize("batch_size", [1, 2])
 @pytest.mark.parametrize("tokens", [256, 512])
 @pytest.mark.parametrize("embeddings", [256, 512, 1024, 4096])

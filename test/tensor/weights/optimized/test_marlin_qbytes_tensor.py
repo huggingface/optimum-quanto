@@ -16,11 +16,13 @@ import pytest
 import torch
 
 from optimum.quanto import qfloat8_e4m3fn
+from optimum.quanto.library.extensions import is_extension_available
 from optimum.quanto.tensor.weights.marlin import MarlinF8QBytesTensor
 
 
 @pytest.mark.skipif(
-    not torch.cuda.is_available() or torch.cuda.get_device_capability()[0] < 8, reason="CUDA >= sm80 not available"
+    not is_extension_available("quanto_cuda") or torch.cuda.get_device_capability()[0] < 8,
+    reason="CUDA >= sm80 not available",
 )
 @pytest.mark.parametrize("in_features", [16, 32, 48, 64])
 @pytest.mark.parametrize("out_features", [64, 128, 192, 256])
