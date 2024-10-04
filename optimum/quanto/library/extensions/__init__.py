@@ -15,6 +15,7 @@
 import torch
 
 from .cpp import *
+from .extension import *
 
 
 if torch.cuda.is_available():

@@ -7,6 +7,9 @@ import torch
 from torch.utils.cpp_extension import load
 
 
+__all__ = ["is_extension_available", "get_extension"]
+
+
 class Extension(object):
 
     def __init__(
@@ -50,3 +53,35 @@ class Extension(object):
                 with open(version_file, "w") as f:
                     f.write(torch.__version__)
         return self._lib
+
+
+_extensions = {}
+
+
+def register_extension(extension: Extension):
+    assert extension.name not in _extensions
+    _extensions[extension.name] = extension
+
+
+def get_extension(extension_type: str):
+    """Get an extension
+
+    Args:
+        extension_type (`str`):
+            The extension type.
+    Returns:
+        The corresponding extension.
+    """
+    return _extensions[extension_type]
+
+
+def is_extension_available(extension_type: str):
+    """Check is an extension is available
+
+    Args:
+        extension_type (`str`):
+            The extension type.
+    Returns:
+        True if the extension is available.
+    """
+    return extension_type in _extensions
