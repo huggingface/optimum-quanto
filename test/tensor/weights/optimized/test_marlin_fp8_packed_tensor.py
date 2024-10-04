@@ -18,6 +18,7 @@ import pytest
 import torch
 from helpers import device_eq
 
+from optimum.quanto.library.extensions import is_extension_available
 from optimum.quanto.tensor.weights.marlin.fp8 import MarlinF8PackedTensor
 
 
@@ -36,7 +37,7 @@ def get_fp8_tensor(shape, device, random=False):
     return t.view(torch.float8_e4m3fn).to(device)
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@pytest.mark.skipif(not is_extension_available("quanto_cuda"), reason="CUDA extension is not available")
 @pytest.mark.parametrize("in_features", [128, 256, 512, 1024])
 @pytest.mark.parametrize("out_features", [128, 256, 512, 1024])
 @pytest.mark.parametrize("random", [True, False])
@@ -50,7 +51,7 @@ def test_pack_marlin_fp8_tensor(in_features, out_features, random):
     assert torch.equal(t, packed.unpack())
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@pytest.mark.skipif(not is_extension_available("quanto_cuda"), reason="CUDA extension is not available")
 def test_move_marlin_fp8_tensor():
     shape = (256, 256)
     device = torch.device("cuda")
