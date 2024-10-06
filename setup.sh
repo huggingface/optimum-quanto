@@ -12,6 +12,6 @@ else
     pip install --upgrade --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu118
 fi
 # Build tools
-pip install black ruff pytest build
+pip install ruff pytest build
 # For examples
 pip install accelerate transformers datasets

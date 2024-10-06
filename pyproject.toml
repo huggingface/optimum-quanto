@@ -28,7 +28,7 @@ dynamic = ['version']
 homepage = 'https://github.com/huggingface/optimum-quanto'
 
 [project.optional-dependencies]
-dev = ['pytest', 'ruff', 'black']
+dev = ['pytest', 'ruff']
 examples = [
     'torchvision',
     'transformers',
@@ -50,19 +50,20 @@ version = {attr = 'optimum.quanto.__version__'}
 requires = ['setuptools>65.5.1', 'setuptools_scm']
 build-backend = 'setuptools.build_meta'
 
-[tool.black]
-line-length = 119
-
 [tool.ruff]
-# Never enforce `E501` (line length violations).
+# Configuration for Ruff
+line-length = 119  # Same line-length as Black had
+
+# Linting rules:
+# Never enforce `E501` (line length violations) and other specific rules.
 lint.ignore = ['C901', 'E501', 'E741']
 lint.select = ['C', 'E', 'F', 'I', 'W']
-line-length = 119
 
 # Ignore import violations in all `__init__.py` files.
 [tool.ruff.lint.per-file-ignores]
 '__init__.py' = ['E402', 'F401', 'F403', 'F811']
 
+# isort configuration (to sort imports)
 [tool.ruff.lint.isort]
 lines-after-imports = 2
 known-first-party = ['optimum.quanto']
