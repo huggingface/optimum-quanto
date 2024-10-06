@@ -14,9 +14,9 @@
 import numpy as np
 import pytest
 import torch
-
 from pack_intweight import pack_intweight
 from packing_utils import pack_awq, reverse_awq_order, unpack_awq
+
 from optimum.quanto import AWQPackedTensor, AWQPacking
 
 

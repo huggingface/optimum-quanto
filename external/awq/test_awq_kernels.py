@@ -13,8 +13,8 @@
 # limitations under the License.
 import pytest
 import torch
-
 from pack import pack_awq
+
 from optimum.quanto import AffineQuantizer, MaxOptimizer, qint4, ungroup
 
 

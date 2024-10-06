@@ -8,9 +8,9 @@ from datasets import load_dataset
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers.models.bloom.modeling_bloom import BloomBlock
-from transformers.models.opt.modeling_opt import OPTDecoderLayer
 from transformers.models.llama.modeling_llama import LlamaDecoderLayer, LlamaRMSNorm
 from transformers.models.mistral.modeling_mistral import MistralDecoderLayer, MistralRMSNorm
+from transformers.models.opt.modeling_opt import OPTDecoderLayer
 
 
 def get_act_scales(model, tokenizer, dataset, num_samples=512, seq_len=512):
