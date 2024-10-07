@@ -14,7 +14,8 @@
 
 import pytest
 import torch
-from helpers import assert_similar, device_eq, random_qweight, random_tensor
+from helpers import device_eq, random_qweight
+from tensor.weights.weight_helpers import check_weight_qtensor_linear
 
 from optimum.quanto import qint4
 from optimum.quanto.library.extensions import is_extension_available
@@ -90,22 +91,13 @@ def test_awq_weight_qbits_tensor_move(device):
     assert torch.equal(awqbt.dequantize().to(device), moved_qbt.dequantize())
 
 
-@pytest.mark.skipif(
-    not is_extension_available("quanto_cuda") or torch.cuda.get_device_capability()[0] < 8,
-    reason="CUDA >= sm80 not available",
-)
-@pytest.mark.parametrize("batch_size", [1, 2])
-@pytest.mark.parametrize("tokens", [256, 512])
-@pytest.mark.parametrize("embeddings", [256, 512, 1024, 4096])
-@pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
-def test_awq_weight_qbits_tensor_linear(batch_size, tokens, embeddings, use_bias):
-    device = torch.device("cuda")
-    dtype = torch.float16
-    weight_qtype = qint4
-    group_size = 128
-    inputs = torch.rand((batch_size,) + (tokens, embeddings), dtype=dtype, device=device)
+def _test_awq_weight_qbits_tensor_linear(
+    dtype, weight_qtype, group_size, batch_size, tokens, in_features, out_features, use_bias
+):
     # Create an AWQWeightQBitsTensor from a QBitsTensor on CUDA
-    qbt = random_qweight((tokens, embeddings), weight_qtype, dtype, group_size=group_size, device=torch.device("cuda"))
+    qbt = random_qweight(
+        (out_features, in_features), weight_qtype, dtype, group_size=group_size, device=torch.device("cuda")
+    )
     awq_qweight = AWQWeightQBitsTensor(
         qtype=qbt.qtype,
         axis=qbt.axis,
@@ -116,7 +108,22 @@ def test_awq_weight_qbits_tensor_linear(batch_size, tokens, embeddings, use_bias
         scale=qbt._scale,
         shift=qbt._shift,
     )
-    bias = random_tensor((tokens,), dtype=dtype).to(device) if use_bias else None
-    qout = torch.nn.functional.linear(inputs, awq_qweight, bias)
-    out = torch.nn.functional.linear(inputs, qbt.dequantize(), bias)
-    assert_similar(out, qout)
+    check_weight_qtensor_linear(awq_qweight, batch_size, tokens, use_bias)
+
+
+@pytest.mark.skipif(
+    not is_extension_available("quanto_cuda") or torch.cuda.get_device_capability()[0] < 8,
+    reason="CUDA >= sm80 not available",
+)
+@pytest.mark.parametrize("batch_size", [1, 2])
+@pytest.mark.parametrize("tokens", [16, 32, 48, 64])
+@pytest.mark.parametrize("in_features", [256, 512, 1024, 4096, 16384])
+@pytest.mark.parametrize("out_features", [256, 512, 1024, 2048, 4096])
+@pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
+def test_awq_weight_qbits_tensor_linear(batch_size, tokens, in_features, out_features, use_bias):
+    dtype = torch.float16
+    weight_qtype = qint4
+    group_size = 128
+    _test_awq_weight_qbits_tensor_linear(
+        dtype, weight_qtype, group_size, batch_size, tokens, in_features, out_features, use_bias
+    )
