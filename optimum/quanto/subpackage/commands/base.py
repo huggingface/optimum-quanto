@@ -23,7 +23,6 @@ __all__ = ["QuantoCommand"]
 
 @optimum_cli_subcommand()
 class QuantoCommand(BaseOptimumCLICommand):
-
     COMMAND = CommandInfo(name="quanto", help="Hugging Face models quantization tools")
     SUBCOMMANDS = (
         CommandInfo(

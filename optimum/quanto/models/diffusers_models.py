@@ -42,7 +42,6 @@ from .shared_dict import ShardedStateDict
 
 
 class QuantizedDiffusersModel(ModelHubMixin):
-
     BASE_NAME = "quanto"
     base_class = None
 
@@ -188,5 +187,4 @@ class QuantizedDiffusersModel(ModelHubMixin):
 
 
 class QuantizedPixArtTransformer2DModel(QuantizedDiffusersModel):
-
     base_class = PixArtTransformer2DModel

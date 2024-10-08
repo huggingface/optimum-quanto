@@ -26,7 +26,6 @@ __all__ = ["ActivationQBytesTensor"]
 
 
 class ActivationQBytesQuantizer(Function):
-
     @staticmethod
     def forward(ctx, base: torch.Tensor, qtype: qtype, scale: torch.Tensor) -> torch.Tensor:
         if qtype.bits != 8:

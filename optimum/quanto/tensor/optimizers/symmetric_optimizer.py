@@ -24,7 +24,6 @@ __all__ = ["SymmetricOptimizer"]
 
 
 class SymmetricOptimizer(Optimizer):
-
     def __call__(self, base: torch.Tensor, qtype: qtype, axis: Optional[int] = None) -> torch.Tensor:
         if axis not in [None, 0, -1]:
             raise ValueError("axis parameter must be None, 0 (first axis) or -1 (last axis)")

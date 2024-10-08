@@ -25,7 +25,6 @@ __all__ = ["AffineOptimizer"]
 
 
 class AffineOptimizer(Optimizer):
-
     def __call__(
         self,
         base: torch.Tensor,

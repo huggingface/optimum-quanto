@@ -11,7 +11,6 @@ __all__ = ["is_extension_available", "get_extension"]
 
 
 class Extension(object):
-
     def __init__(
         self,
         name: str,

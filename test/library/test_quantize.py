@@ -96,9 +96,7 @@ def test_affine_quantize(input_shape, dtype, qtype, axis, group_size, shift_mode
             "zeropoint": 6e-2,
             "float": 5e-2,
         },
-    }[
-        qtype
-    ][shift_mode]
+    }[qtype][shift_mode]
     if group_size is not None:
         qa = ungroup(qa, axis=axis, orig_shape=a.shape)
     assert_similar(a, qa, atol=atol)

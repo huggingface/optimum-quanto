@@ -36,7 +36,6 @@ from transformers.utils import SAFE_WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_NAME, is_ac
 
 
 class QuantizedTransformersModel(ModelHubMixin):
-
     BASE_NAME = "quanto"
     auto_class = None
 
@@ -178,5 +177,4 @@ class QuantizedTransformersModel(ModelHubMixin):
 
 
 class QuantizedModelForCausalLM(QuantizedTransformersModel):
-
     auto_class = AutoModelForCausalLM
