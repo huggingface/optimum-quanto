@@ -31,7 +31,6 @@ __all__ = ["WeightQBitsTensor"]
 
 
 class WeightsQBitsQuantizer(Function):
-
     @staticmethod
     def forward(
         ctx,

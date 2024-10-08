@@ -37,7 +37,6 @@ class QBytesDequantizer(Function):
 
 
 class QBytesTensor(QTensor):
-
     def __init__(self, qtype, axis, size, stride, data, scale, requires_grad=False):
         super().__init__(qtype, axis)
         self._data = data

@@ -61,7 +61,6 @@ class MarlinF8QBytesTensor(WeightQBytesTensor):
         )
 
     def __init__(self, qtype, axis, size, stride, data, scale, requires_grad=False):
-
         assert axis == 0
         assert data.ndim == 2
 

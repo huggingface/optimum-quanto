@@ -28,7 +28,6 @@ __all__ = ["WeightQBytesTensor"]
 
 
 class WeightQBytesQuantizer(Function):
-
     @staticmethod
     def forward(
         ctx, base: torch.Tensor, qtype: qtype, axis: int, scale: torch.Tensor, activation_qtype: qtype, optimized: bool

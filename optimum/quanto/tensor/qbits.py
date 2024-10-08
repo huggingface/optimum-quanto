@@ -54,7 +54,6 @@ class QBitsDequantizer(Function):
 
 
 class QBitsTensor(QTensor):
-
     def __init__(self, qtype, axis, group_size, size, stride, data, scale, shift, requires_grad=False):
         super().__init__(qtype, axis)
         self._data = data

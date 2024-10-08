@@ -49,9 +49,7 @@ def test_weight_qbits_tensor_quantize(input_shape, dtype, qtype, axis, group_siz
             "zeropoint": 6e-2,
             "float": 5e-2,
         },
-    }[
-        qtype
-    ][shift_mode]
+    }[qtype][shift_mode]
     assert_similar(a, qa, atol=atol)
 
 

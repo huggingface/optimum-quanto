@@ -24,7 +24,6 @@ __all__ = ["AbsmaxOptimizer"]
 
 
 class AbsmaxOptimizer(SymmetricOptimizer):
-
     def optimize(
         self, base: torch.Tensor, qtype: qtype, axis: Optional[int] = None
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
