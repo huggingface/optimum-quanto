@@ -188,9 +188,9 @@ def gemm_f16i4_marlin(
         device=input.device,
     )
     ext.lib.marlin_gemm_f16i4(
-        input.view((-1, input.shape[-1])),
+        input.reshape((-1, input.shape[-1])),
         other,
-        output.view((-1, output.shape[-1])),
+        output.reshape((-1, output.shape[-1])),
         scales,
         zeropoint,
         workspace,

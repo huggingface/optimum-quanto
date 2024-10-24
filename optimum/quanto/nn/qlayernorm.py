@@ -36,12 +36,13 @@ class QLayerNorm(QModuleMixin, torch.nn.LayerNorm):
     ):
         if activations is None:
             return None
+        dtype = None if module.weight is None else module.weight.dtype
         return cls(
             module.normalized_shape,
             module.eps,
             module.elementwise_affine,
             module.bias is not None,
-            dtype=module.weight.dtype,
+            dtype=dtype,
             device=device,
             weights=None,  # We never quantize QLayerNorm weights
             activations=activations,

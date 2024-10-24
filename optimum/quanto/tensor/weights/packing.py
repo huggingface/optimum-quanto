@@ -34,7 +34,7 @@ def unpack_int32_to_uint8(packed: torch.Tensor, bits: int):
     unpacked = torch.bitwise_right_shift(packed[:, :, None], shifts[None, None, :]).to(
         torch.int8  # smallest dtype available
     )
-    unpacked = unpacked.view(unpacked.shape[0], -1)
+    unpacked = unpacked.reshape(unpacked.shape[0], -1)
 
     # Convert to unsigned
     unpacked = torch.bitwise_and(unpacked, (2**bits) - 1)

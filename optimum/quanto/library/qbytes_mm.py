@@ -42,8 +42,8 @@ def qbytes_int_mm(activations: torch.Tensor, weights: torch.Tensor, output_scale
         out_data = torch._int_mm(activations, weights)
     else:
         output_shape = activations.shape[:-1] + (out_features,)
-        out_data = torch._int_mm(activations.view(-1, in_features), weights)
-        out_data = out_data.view(output_shape)
+        out_data = torch._int_mm(activations.reshape(-1, in_features), weights)
+        out_data = out_data.reshape(output_shape)
     # We must evaluate the output as float32 because the multiplication
     # of the int32 data by the scales might overflow
     fp32_output = out_data.to(torch.float32) * output_scales.t()
@@ -59,8 +59,8 @@ def qbytes_int8pack_mm(activations: torch.Tensor, weights: torch.Tensor, output_
         in_features = activations.shape[-1]
         out_features = weights.shape[0]
         output_shape = activations.shape[:-1] + (out_features,)
-        out_data = torch._weight_int8pack_mm(activations.view(-1, in_features), weights, output_scales)
-        return out_data.view(output_shape)
+        out_data = torch._weight_int8pack_mm(activations.reshape(-1, in_features), weights, output_scales)
+        return out_data.reshape(output_shape)
 
 
 @torch.library.impl("quanto::qbytes_mm", "default")
