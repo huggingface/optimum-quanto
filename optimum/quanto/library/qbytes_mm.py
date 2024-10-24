@@ -92,7 +92,7 @@ def qbytes_mm_impl_cuda(activations: torch.Tensor, weights: torch.Tensor, output
 def qbytes_mm_impl_cpu(activations: torch.Tensor, weights: torch.Tensor, output_scales: torch.Tensor) -> torch.Tensor:
     if (
         # FIXME: accuracy issues with 2.4.x
-        version.parse(torch.__version__).release > version.parse("2.4.1").release
+        version.parse(torch.__version__).release > version.parse("2.5.0").release
         and activations.dtype == torch.int8
         and weights.dtype == torch.int8
     ):
