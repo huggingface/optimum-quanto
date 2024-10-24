@@ -136,8 +136,9 @@ class QModuleMixin(ABC):
         if optimizer is None and self.weight_qtype is not None:
             optimizer = AbsmaxOptimizer() if self.weight_qtype.bits == 8 else MaxOptimizer()
         self.optimizer = optimizer
-        self.register_buffer("input_scale", torch.ones((), dtype=self.weight.dtype, device=device))
-        self.register_buffer("output_scale", torch.ones((), dtype=self.weight.dtype, device=device))
+        scale_dtype = torch.float32 if self.weight is None else self.weight.dtype
+        self.register_buffer("input_scale", torch.ones((), dtype=scale_dtype, device=device))
+        self.register_buffer("output_scale", torch.ones((), dtype=scale_dtype, device=device))
 
     def disable_output_quantization(self):
         if "output" in self._quantize_hooks:

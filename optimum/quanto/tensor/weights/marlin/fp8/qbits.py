@@ -32,7 +32,7 @@ class MarlinF8QBytesLinearFunction(QuantizedLinearFunction):
         input_shape = input.shape
 
         if input.ndim > 2:
-            input = input.view(-1, input_shape[-1])
+            input = input.reshape(-1, input_shape[-1])
 
         output = torch.ops.quanto.gemm_f16f8_marlin(
             input,

@@ -68,9 +68,9 @@ def reverse_awq_order(t: torch.Tensor):
         dtype=torch.int32,
         device=t.device,
     )
-    reverse_order_tensor = reverse_order_tensor.view(-1, 32 // bits)
+    reverse_order_tensor = reverse_order_tensor.reshape(-1, 32 // bits)
     reverse_order_tensor = reverse_order_tensor[:, AWQ_REVERSE_ORDER]
-    reverse_order_tensor = reverse_order_tensor.view(-1)
+    reverse_order_tensor = reverse_order_tensor.reshape(-1)
 
     t = t[:, reverse_order_tensor]
 
