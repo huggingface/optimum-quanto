@@ -217,7 +217,8 @@ class QModuleMixin(ABC):
         if qmodule is None:
             return None
         # Move the quantized module to the target device, but with empty weights
-        qmodule = qmodule.to_empty(device=module.weight.device)
+        device = torch.device("cpu") if module.weight is None else module.weight.device
+        qmodule = qmodule.to_empty(device=device)
         # Set scales that were initialized to empty values
         qmodule.input_scale = torch.ones_like(qmodule.input_scale)
         qmodule.output_scale = torch.ones_like(qmodule.output_scale)
@@ -226,7 +227,7 @@ class QModuleMixin(ABC):
             if module.bias is not None:
                 qmodule.bias = module.bias
 
-        return qmodule.to(module.weight.device)
+        return qmodule.to(device)
 
     @classmethod
     def qcreate(
