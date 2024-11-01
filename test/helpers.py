@@ -103,6 +103,9 @@ def get_device_memory(device):
     elif device.type == "mps":
         torch.mps.empty_cache()
         return torch.mps.current_allocated_memory()
+    elif device.type == "xpu":
+        torch.xpu.empty_cache()
+        return torch.xpu.memory_allocated()
     return None
 
 
