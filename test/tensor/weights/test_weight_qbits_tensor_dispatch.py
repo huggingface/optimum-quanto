@@ -79,7 +79,7 @@ def test_weight_qbits_tensor_linear(dtype, batch_size, tokens, in_features, out_
 @pytest.mark.parametrize("in_features", [1024, 4096, 16384])
 @pytest.mark.parametrize("out_features", [1024, 2048, 4096])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
-def test_weight_qbits_tensor_linear_gpu(dtype, batch_size, tokens, in_features, out_features, use_bias, device):
+def test_weight_qbits_tensor_linear_gpu(dtype, batch_size, tokens, in_features, out_features, use_bias):
     if torch.cuda.is_available():
         device = torch.device("cuda")
     elif torch.xpu.is_available():
