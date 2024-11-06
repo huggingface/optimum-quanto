@@ -18,6 +18,7 @@ from .grouped import *
 from .optimizers import *
 from .qbits import *
 from .qbytes import *
+from .qdynamic import *
 from .qtensor import *
 from .qtype import *
 from .weights import *
