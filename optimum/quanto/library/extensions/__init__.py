@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import platform
+
 import torch
 
 from .cpp import *
 from .extension import *
 
 
-if torch.cuda.is_available():
+if torch.cuda.is_available() and platform.system() == "Linux":
     if torch.version.cuda:
         from .cuda import *
     elif torch.version.hip:
