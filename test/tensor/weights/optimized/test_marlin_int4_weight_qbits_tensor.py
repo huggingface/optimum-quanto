@@ -131,15 +131,14 @@ def test_marlin_int4_weight_qbits_tensor_linear(batch_size, tokens, in_features,
     )
 
 
-@pytest.mark.xfail(reason="Bug in Marlin kernel", strict=False)
+#Tests previous Marlin kernel bug: https://github.com/huggingface/optimum-quanto/issues/332
 @pytest.mark.skipif(
     not is_extension_available("quanto_cuda") or torch.cuda.get_device_capability()[0] < 8,
     reason="CUDA >= sm80 not available",
 )
 @pytest.mark.parametrize("batch_size", [1, 2])
 @pytest.mark.parametrize("tokens", [48, 64])
-# @pytest.mark.parametrize("in_features", [1024, 2048, 4096, 16384])
-@pytest.mark.parametrize("in_features", [4096, 16384])
+@pytest.mark.parametrize("in_features", [1024, 2048, 4096, 16384])
 @pytest.mark.parametrize("out_features", [2048, 4096])
 def test_marlin_int4_weight_qbits_tensor_linear_failing(batch_size, tokens, in_features, out_features):
     dtype = torch.float16
