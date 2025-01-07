@@ -131,7 +131,7 @@ def test_marlin_int4_weight_qbits_tensor_linear(batch_size, tokens, in_features,
     )
 
 
-#Tests previous Marlin kernel bug: https://github.com/huggingface/optimum-quanto/issues/332
+# Tests previous Marlin kernel bug: https://github.com/huggingface/optimum-quanto/issues/332
 @pytest.mark.skipif(
     not is_extension_available("quanto_cuda") or torch.cuda.get_device_capability()[0] < 8,
     reason="CUDA >= sm80 not available",
