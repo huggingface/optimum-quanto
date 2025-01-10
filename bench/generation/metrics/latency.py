@@ -68,7 +68,7 @@ def latency(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens
 
     memory = get_device_memory(device)
     if memory is not None:
-        print(f"Device memory: {memory / (2 ** 30):.4f} GB")
+        print(f"Device memory: {memory / (2**30):.4f} GB")
 
     latencies = []
     input_ids = torch.randint(1, model.config.vocab_size - 1, size=(batch_size, prompt_length)).to(device)
@@ -89,7 +89,7 @@ def latency(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens
 
     if device.type == "cuda":
         peak_memory = torch.cuda.max_memory_allocated()
-        print(f"Peak memory during benchmark: {peak_memory / (2 ** 30):.4f} GB")
+        print(f"Peak memory during benchmark: {peak_memory / (2**30):.4f} GB")
 
     mean_latency = np.mean(latencies) / generation_config.min_new_tokens
     print(f"Average latency per token: {mean_latency} ms")
