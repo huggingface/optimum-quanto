@@ -32,6 +32,6 @@ def check_weight_qtensor_linear(qweight, batch_size, tokens, use_bias, rel_max_e
     rel_max_err = max_err / mean_val
     # These values were evaluated empirically without any optimized kernels.
     rtol = {"cpu": 1e-2, "cuda": 2e-2, "mps": 1e-2, "xpu": 2e-2}[device.type]
-    assert (
-        rel_max_err < rtol
-    ), f"Maximum error {max_err:.2f} is too high for input of mean value {mean_val:.2f} ({rel_max_err*100:.2f} %)"
+    assert rel_max_err < rtol, (
+        f"Maximum error {max_err:.2f} is too high for input of mean value {mean_val:.2f} ({rel_max_err * 100:.2f} %)"
+    )

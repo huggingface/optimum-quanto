@@ -64,7 +64,7 @@ def setup(
                 calibrate(model, tokenizer, batch_size, batches=4)
         print("Freezing")
         freeze(model)
-        print(f"Finished: {time.time()-start:.2f}")
+        print(f"Finished: {time.time() - start:.2f}")
     return model, tokenizer
 
 
