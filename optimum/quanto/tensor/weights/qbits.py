@@ -19,6 +19,7 @@ import torch
 from packaging import version
 from torch.autograd import Function
 
+from ...library import is_extension_available
 from ..function import QuantizedLinearFunction
 from ..grouped import grouped_shape
 from ..packed import PackedTensor
@@ -102,6 +103,7 @@ class WeightQBitsTensor(QBitsTensor):
             and len(size) == 2
             and (data.device.type == "cuda" and torch.version.cuda)
             and torch.cuda.get_device_capability(data.device)[0] >= 8
+            and is_extension_available("quanto_cuda")
         ):
             if type(data) is PackedTensor:
                 data = data.unpack()
