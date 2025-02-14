@@ -147,7 +147,9 @@ class QModuleMixin(ABC):
     def _save_to_state_dict(self, destination, prefix, keep_vars):
         if self.weight_qtype is None or not self.frozen:
             # Save standard weight Tensor
-            destination[prefix + "weight"] = self.weight if keep_vars else self.weight.detach()
+            destination[prefix + "weight"] = (
+                self.weight if (self.weight is None or keep_vars) else self.weight.detach()
+            )
         else:
             # Save QTensor using dedicated method
             self.weight.save_to_state_dict(destination, prefix + "weight.", keep_vars)
