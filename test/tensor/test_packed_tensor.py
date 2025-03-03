@@ -44,7 +44,7 @@ def test_packed_tensor_serialization(bits, device):
     b = io.BytesIO()
     torch.save(packed, b)
     b.seek(0)
-    packed_reloaded = torch.load(b)
+    packed_reloaded = torch.load(b, weights_only=False)
     assert isinstance(packed_reloaded, PackedTensor)
     assert packed_reloaded.shape == packed.shape
     assert packed_reloaded.dtype == packed.dtype
