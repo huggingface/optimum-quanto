@@ -30,7 +30,7 @@ def test_weights_qbytes_tensor_serialization(input_shape, qtype, dtype, axis):
     b = io.BytesIO()
     torch.save(qinputs, b)
     b.seek(0)
-    qinputs_reloaded = torch.load(b)
+    qinputs_reloaded = torch.load(b, weights_only=False)
     assert qinputs_reloaded.qtype == qtype
     assert torch.equal(qinputs_reloaded._scale, qinputs._scale)
     if qtype.is_floating_point:
