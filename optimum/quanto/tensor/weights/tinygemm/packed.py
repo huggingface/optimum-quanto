@@ -16,7 +16,6 @@ import ast
 from copy import copy
 
 import torch
-from packaging import version
 from torch.utils import _pytree as pytree
 
 
@@ -27,7 +26,6 @@ class TinyGemmPackedTensor(torch.Tensor):
     @staticmethod
     def __new__(cls, data, size, stride, requires_grad=False):
         # TinyGemmPackedTensor represents uint8 data and can therefore NEVER require gradient
-        assert data.dtype == torch.int32
         assert requires_grad is False
         return torch.Tensor._make_wrapper_subclass(
             cls, size, strides=stride, dtype=torch.uint8, device=data.device, requires_grad=requires_grad
@@ -54,11 +52,11 @@ class TinyGemmPackedTensor(torch.Tensor):
         """
         inner_ktiles = 2
         t = t.to(torch.int32).contiguous()
-        if version.parse(torch.__version__).release >= version.parse("2.5.0").release:
+        if t.device.type == "cpu":
+            data = torch._convert_weight_to_int4pack_for_cpu(t, innerKTiles=inner_ktiles)
+        else:
             t_uint8 = (t[::, ::2] << 4 | t[::, 1::2]).to(torch.uint8)
             data = torch._convert_weight_to_int4pack(t_uint8, innerKTiles=inner_ktiles)
-        else:
-            data = torch._convert_weight_to_int4pack(t, innerKTiles=inner_ktiles)
         # We need to store size and stride to make sure the unpacked data has the correct shape
         return TinyGemmPackedTensor(data, t.size(), t.stride())
 
@@ -86,7 +84,10 @@ class TinyGemmPackedTensor(torch.Tensor):
         id_scale_and_shift[:, :, 1] = 8
 
         identity = torch.eye(in_features, dtype=torch.bfloat16, device=self.device)
-        unpacked_data = torch._weight_int4pack_mm(identity, self._data, group_size, id_scale_and_shift)
+        if self._data.device.type == "cpu":
+            unpacked_data = torch._weight_int4pack_mm_for_cpu(identity, self._data, group_size, id_scale_and_shift)
+        else:
+            unpacked_data = torch._weight_int4pack_mm(identity, self._data, group_size, id_scale_and_shift)
 
         return unpacked_data.t().to(torch.uint8)
 
