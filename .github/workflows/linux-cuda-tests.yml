@@ -22,14 +22,14 @@ jobs:
     uses: ./.github/workflows/python-quality.yml
   test-ubuntu-cuda:
     needs: [check-commits, python-quality]
-    runs-on: 
+    runs-on:
       group: aws-g5-4xlarge-plus
     strategy:
       fail-fast: false
       matrix:
-        cuda-version: ["11.8", "12.1", "12.4"]
+        cuda-version: ["11.8", "12.4", "12.6"]
     container:
-      image: pytorch/pytorch:2.4.0-cuda${{ matrix.cuda-version }}-cudnn9-devel
+      image: pytorch/pytorch:2.6.0-cuda${{ matrix.cuda-version }}-cudnn9-devel
       options: --gpus 0
 
     steps:
