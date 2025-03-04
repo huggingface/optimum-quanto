@@ -48,9 +48,14 @@ class TinyGemmQBitsLinearFunction(QuantizedLinearFunction):
         in_features = input.shape[-1]
         out_features = other.shape[0]
         output_shape = input.shape[:-1] + (out_features,)
-        output = torch._weight_int4pack_mm(
-            input.reshape(-1, in_features), other._data._data, other._group_size, other._scale_shift
-        )
+        if input.device.type == "cpu":
+            output = torch._weight_int4pack_mm_for_cpu(
+                input.reshape(-1, in_features), other._data._data, other._group_size, other._scale_shift
+            )
+        else:
+            output = torch._weight_int4pack_mm(
+                input.reshape(-1, in_features), other._data._data, other._group_size, other._scale_shift
+            )
         output = output.reshape(output_shape)
         if bias is not None:
             output = output + bias

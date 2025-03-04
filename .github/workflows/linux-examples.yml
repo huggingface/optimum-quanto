@@ -22,14 +22,14 @@ jobs:
     uses: ./.github/workflows/python-quality.yml
   run-examples:
     needs: [check-commits, python-quality]
-    runs-on: 
+    runs-on:
       group: aws-g5-4xlarge-plus
     strategy:
       fail-fast: false
       matrix:
         device: ["cpu", "cuda"]
     container:
-      image: pytorch/pytorch:2.4.0-cuda12.1-cudnn9-devel
+      image: pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel
       options: --gpus 0
 
     steps:

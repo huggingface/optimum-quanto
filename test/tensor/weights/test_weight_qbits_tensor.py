@@ -28,7 +28,7 @@ def test_weight_qbits_tensor_serialization(qtype, axis):
     b = io.BytesIO()
     torch.save(qa, b)
     b.seek(0)
-    qa_reloaded = torch.load(b)
+    qa_reloaded = torch.load(b, weights_only=False)
     assert isinstance(qa_reloaded, WeightQBitsTensor)
     assert qa_reloaded.qtype == qa.qtype
     assert qa_reloaded.dtype == qa.dtype
