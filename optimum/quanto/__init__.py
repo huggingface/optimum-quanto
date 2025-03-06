@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.2.7dev"
+__version__ = "0.2.7"
 
 from .calibrate import *
 from .library import *
