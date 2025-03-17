@@ -73,7 +73,7 @@ class AWQWeightQBitsLinearFunction(QuantizedLinearFunction):
 class AWQWeightQBitsTensor(WeightQBitsTensor):
     @staticmethod
     def __new__(cls, qtype, axis, group_size, size, stride, data, scale, shift, requires_grad=False):
-        assert data.device.type == "cuda"
+        assert data.device.type in ["cuda", "xpu"]
         assert data.device == scale.device
         assert data.device == shift.device
         return torch.Tensor._make_wrapper_subclass(
