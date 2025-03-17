@@ -116,7 +116,7 @@ def pack_v2(unpacked: torch.Tensor) -> torch.Tensor:
     Returns:
         A int16 `torch.Tensor`.
     """
-    assert unpacked.device.type == "cuda"
+    assert unpacked.device.type in ["cuda", "xpu"]
     assert unpacked.ndim == 2
     N, K = unpacked.shape
     # These two values are hard-coded in the optimized kernels:
@@ -166,7 +166,7 @@ def unpack_v2(packed):
     Returns:
         An unpacked uint8 `torch.Tensor` expanded along the first dimension.
     """
-    assert packed.device.type == "cuda"
+    assert packed.device.type in ["cuda", "xpu"]
     assert packed.ndim == 2
     I = 4
     S = 64
@@ -210,7 +210,7 @@ class AWQPackedTensor(torch.Tensor):
     @staticmethod
     def __new__(cls, data, packing, reorder, size, stride, requires_grad=False):
         # AWQPackedTensor represents uint8 data and can therefore NEVER require gradient
-        assert data.device.type == "cuda"
+        assert data.device.type in ["cuda", "xpu"]
         assert data.dtype == torch.int32 if packing == AWQPacking.V1 else torch.int16
         assert requires_grad is False
         return torch.Tensor._make_wrapper_subclass(
