@@ -122,10 +122,10 @@ def _test_awq_weight_qbits_tensor_linear(
 @pytest.mark.parametrize("in_features", [256, 512, 1024, 4096, 16384])
 @pytest.mark.parametrize("out_features", [256, 512, 1024, 2048, 4096])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
-def test_awq_weight_qbits_tensor_linear(batch_size, tokens, in_features, out_features, use_bias):
+def test_awq_weight_qbits_tensor_linear(batch_size, tokens, in_features, out_features, use_bias, device):
     dtype = torch.float16
     weight_qtype = qint4
     group_size = 128
     _test_awq_weight_qbits_tensor_linear(
-        dtype, weight_qtype, group_size, batch_size, tokens, in_features, out_features, use_bias
+        dtype, weight_qtype, group_size, batch_size, tokens, in_features, out_features, use_bias, device
     )
