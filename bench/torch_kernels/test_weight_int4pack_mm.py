@@ -16,7 +16,6 @@ import argparse
 import timeit
 
 import torch
-from packaging import version
 
 
 def _group_quantize_tensor(w, n_bit=4, q_group_size=16):
@@ -93,14 +92,17 @@ def main():
     B = torch.rand([3200, 4800], dtype=dtype, device=device)
     group_size = 128
     B_int32, B_scale_and_zeros = _group_quantize_tensor(B, n_bit=4, q_group_size=group_size)
-    if version.parse(torch.__version__).release >= version.parse("2.5.0").release:
+    if device.type == "cpu":
+        B_packed = torch._convert_weight_to_int4pack_for_cpu(B_int32, innerKTiles=2)
+    else:
         B_uint8 = (B_int32[::, ::2] << 4 | B_int32[::, 1::2]).to(torch.uint8)
         B_packed = torch._convert_weight_to_int4pack(B_uint8, innerKTiles=2)
-    else:
-        B_packed = torch._convert_weight_to_int4pack(B_int32, innerKTiles=2)
 
     # Check quantized mm is close to float mm
-    qout = torch._weight_int4pack_mm(A, B_packed, group_size, B_scale_and_zeros)
+    if device.type == "cpu":
+        qout = torch._weight_int4pack_mm_for_cpu(A, B_packed, group_size, B_scale_and_zeros)
+    else:
+        qout = torch._weight_int4pack_mm(A, B_packed, group_size, B_scale_and_zeros)
     out = torch.mm(A, B)
 
     mean_err = ((qout - out).abs() / out.abs()).mean()
@@ -108,9 +110,18 @@ def main():
 
     print(f"Evaluating quantized int4 matmul on {device.type}:")
     # Warmup (slow)
-    torch._weight_int4pack_mm(A, B_packed, group_size, B_scale_and_zeros)
+    if device.type == "cpu":
+        torch._weight_int4pack_mm_for_cpu(A, B_packed, group_size, B_scale_and_zeros)
+    else:
+        torch._weight_int4pack_mm(A, B_packed, group_size, B_scale_and_zeros)
     # Average on several calls
-    t = avg_time(lambda: torch._weight_int4pack_mm(A, B_packed, group_size, B_scale_and_zeros), args.it) * 1000
+    if device.type == "cpu":
+        t = (
+            avg_time(lambda: torch._weight_int4pack_mm_for_cpu(A, B_packed, group_size, B_scale_and_zeros), args.it)
+            * 1000
+        )
+    else:
+        t = avg_time(lambda: torch._weight_int4pack_mm(A, B_packed, group_size, B_scale_and_zeros), args.it) * 1000
     print(f"Average inference on {args.it} iterations: {t:.4f} ms")
 
     print(f"Evaluating {A.dtype} matmul on {device.type}:")
