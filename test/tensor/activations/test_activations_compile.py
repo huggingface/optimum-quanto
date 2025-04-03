@@ -23,7 +23,7 @@ def compile_for_device(f, device):
     # Remove any side-effects form previous compilation
     torch.compiler.reset()
     # Inductor relies on Triton for inference which does not support MPS
-    backend = "aot_eager" if device == torch.device("mps") else "aot_eager"
+    backend = "aot_eager" if device == torch.device("mps") else "inductor"
     return torch.compile(f, backend=backend)
 
 
