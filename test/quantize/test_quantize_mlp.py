@@ -87,6 +87,7 @@ def test_quantize_mlp_weights_only(weights, frozen, device):
 
 
 @pytest.mark.skip_device("mps")
+@pytest.mark.skip_device("xpu")
 @pytest.mark.parametrize("weights", [qfloat8_e4m3fn], ids=["w-float8_e4m3fn"])
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
 def test_quantize_mlp_weights_only_float8(weights, frozen, device):
@@ -96,6 +97,7 @@ def test_quantize_mlp_weights_only_float8(weights, frozen, device):
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
 @pytest.mark.skip_device("mps")
+@pytest.mark.skip_device("xpu")
 def test_quantize_mlp_int8_activations(weights, frozen, device):
     _test_quantize_mlp(weights, qint8, None, frozen, device, atol=1e-3)
 
@@ -108,6 +110,7 @@ def test_quantize_mlp_int8_activations(weights, frozen, device):
 )
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
 @pytest.mark.skip_device("mps")
+@pytest.mark.skip_device("xpu")
 def test_quantize_mlp_float8_activations(weights, activations, frozen, device):
     atol = {qfloat8_e4m3fn: 1e-3, qfloat8_e4m3fnuz: 1e-3, qfloat8_e5m2: 1e-2}[activations]
     _test_quantize_mlp(weights, activations, None, frozen, device, atol=atol)

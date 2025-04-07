@@ -39,6 +39,9 @@ def get_device_memory(device):
     elif device.type == "mps":
         torch.mps.empty_cache()
         return torch.mps.current_allocated_memory()
+    elif device.type == "xpu":
+        torch.xpu.empty_cache()
+        return torch.xpu.memory_allocated()
     return None
 
 
@@ -56,6 +59,8 @@ if __name__ == "__main__":
             device = torch.device("cuda")
         elif torch.backends.mps.is_available():
             device = torch.device("mps")
+        elif torch.xpu.is_available():
+            device = torch.device("xpu")
         else:
             device = torch.device("cpu")
     else:
