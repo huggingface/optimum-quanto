@@ -54,7 +54,6 @@ def test_move_awq_tensor(packing, reorder, device):
     bits = 4
     qmax = 2**bits
     numel = np.prod(shape)
-    device = torch.device(device)
     t = torch.tensor(range(numel), dtype=torch.int32)
     t = (t % qmax).reshape(shape).to(torch.uint8).to(device)
     packed = AWQPackedTensor.pack(t, packing=packing, reorder=reorder)
