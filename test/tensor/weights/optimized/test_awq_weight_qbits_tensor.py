@@ -85,7 +85,7 @@ def test_awq_weight_qbits_tensor_move(device):
     # Move to device, dequantize and compare
     moved_qbt = awqbt.to(device)
     assert isinstance(moved_qbt, WeightQBitsTensor)
-    if device.type != device:
+    if device.type not in ["cuda", "xpu"]:
         assert type(moved_qbt) is not AWQWeightQBitsTensor
     assert awqbt.dtype == moved_qbt.dtype
     assert awqbt.qtype == moved_qbt.qtype
