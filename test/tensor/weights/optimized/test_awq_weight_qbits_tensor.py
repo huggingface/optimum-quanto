@@ -32,7 +32,6 @@ def test_awq_weight_qbits_tensor_from_qbits_tensor(in_features, out_features, de
     group_size = 128
     dtype = torch.float16
     shape = (out_features, in_features)
-    device = torch.device(device)
     qbt = random_qweight(shape, qtype, dtype, group_size=group_size, device=device)
     # Create a AWQWeightQBitsTensor from the WeightQBitsTensor members
     awqbt = AWQWeightQBitsTensor(
@@ -69,9 +68,8 @@ def test_awq_weight_qbits_tensor_move(device):
     group_size = 128
     dtype = torch.float16
     shape = (1024, 1024)
-    device = torch.device(device)
     # Create an AWQWeightQBitsTensor from a QBitsTensor on CUDA or XPU
-    qbt = random_qweight(shape, qtype, dtype, group_size=group_size, device=torch.device(device))
+    qbt = random_qweight(shape, qtype, dtype, group_size=group_size, device=device)
     awqbt = AWQWeightQBitsTensor(
         qtype=qbt.qtype,
         axis=qbt.axis,
