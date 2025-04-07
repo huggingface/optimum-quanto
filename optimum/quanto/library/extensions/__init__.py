@@ -15,6 +15,7 @@
 import platform
 
 import torch
+from packaging import version
 
 from .cpp import *
 from .extension import *
@@ -28,3 +29,16 @@ if torch.cuda.is_available() and platform.system() == "Linux":
 
 if torch.backends.mps.is_available():
     from .mps import *
+
+
+def _is_xpu_available():
+    # SYCL extension support is added in torch>=2.7 on Linux
+    if platform.system() != "Linux":
+        return False
+    if version.parse(torch.__version__).release < version.parse("2.7").release:
+        return False
+    return torch.xpu.is_available()
+
+
+if _is_xpu_available():
+    from .xpu import *

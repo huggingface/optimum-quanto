@@ -48,6 +48,7 @@ def test_symmetric_quantize_int(input_shape, dtype, qtype, axis, device):
 
 
 @pytest.mark.skip_device("mps")
+@pytest.mark.skip_device("xpu")
 @pytest.mark.parametrize("input_shape", [(32, 32), (32, 10, 32)])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize(

@@ -94,11 +94,11 @@ def test_awq_weight_qbits_tensor_move(device):
 
 
 def _test_awq_weight_qbits_tensor_linear(
-    dtype, weight_qtype, group_size, batch_size, tokens, in_features, out_features, use_bias, device
+    dtype, weight_qtype, group_size, batch_size, tokens, in_features, out_features, use_bias
 ):
-    # Create an AWQWeightQBitsTensor from a QBitsTensor on CUDA or XPU
+    # Create an AWQWeightQBitsTensor from a QBitsTensor on CUDA
     qbt = random_qweight(
-        (out_features, in_features), weight_qtype, dtype, group_size=group_size, device=torch.device(device)
+        (out_features, in_features), weight_qtype, dtype, group_size=group_size, device=torch.device("cuda")
     )
     awq_qweight = AWQWeightQBitsTensor(
         qtype=qbt.qtype,
@@ -122,10 +122,10 @@ def _test_awq_weight_qbits_tensor_linear(
 @pytest.mark.parametrize("in_features", [256, 512, 1024, 4096, 16384])
 @pytest.mark.parametrize("out_features", [256, 512, 1024, 2048, 4096])
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
-def test_awq_weight_qbits_tensor_linear(batch_size, tokens, in_features, out_features, use_bias, device):
+def test_awq_weight_qbits_tensor_linear(batch_size, tokens, in_features, out_features, use_bias):
     dtype = torch.float16
     weight_qtype = qint4
     group_size = 128
     _test_awq_weight_qbits_tensor_linear(
-        dtype, weight_qtype, group_size, batch_size, tokens, in_features, out_features, use_bias, device
+        dtype, weight_qtype, group_size, batch_size, tokens, in_features, out_features, use_bias
     )

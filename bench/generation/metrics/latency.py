@@ -27,6 +27,8 @@ def latency(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens
             torch.cuda.synchronize()
         elif device.type == "mps":
             torch.mps.synchronize()
+        elif device.type == "xpu":
+            torch.xpu.synchronize()
         else:
             torch.cpu.synchronize()
 
@@ -35,6 +37,8 @@ def latency(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens
             return torch.cuda.Event(enable_timing=True)
         elif device.type == "mps":
             return torch.mps.Event(enable_timing=True)
+        elif device.type == "xpu":
+            return torch.xpu.Event(enable_timing=True)
 
         class CPUEvent:
             def __init__(self):
@@ -65,6 +69,8 @@ def latency(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens
     synchronize(device)
     if device.type == "cuda":
         torch.cuda.reset_peak_memory_stats()
+    elif device.type == "xpu":
+        torch.xpu.reset_peak_memory_stats()
 
     memory = get_device_memory(device)
     if memory is not None:
@@ -90,6 +96,9 @@ def latency(model, tokenizer, device, batch_size=1, prompt_length=512, nb_tokens
     if device.type == "cuda":
         peak_memory = torch.cuda.max_memory_allocated()
         print(f"Peak memory during benchmark: {peak_memory / (2**30):.4f} GB")
+    elif device.type == "xpu":
+        peak_memory = torch.xpu.max_memory_allocated()
+        print(f"Peak memory during benchmark: {peak_memory / (2**30):.4f} GB")
 
     mean_latency = np.mean(latencies) / generation_config.min_new_tokens
     print(f"Average latency per token: {mean_latency} ms")
@@ -104,4 +113,7 @@ def get_device_memory(device):
     elif device.type == "mps":
         torch.mps.empty_cache()
         return torch.mps.current_allocated_memory()
+    elif device.type == "xpu":
+        torch.xpu.empty_cache()
+        return torch.xpu.memory_allocated()
     return None
