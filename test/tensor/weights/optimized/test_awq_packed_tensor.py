@@ -31,7 +31,6 @@ def test_pack_awq_tensor(in_features, out_features, random, packing, reorder, de
     bits = 4
     qmax = 2**bits
     shape = (out_features, in_features)
-    device = torch.device(device)
     if random:
         t = torch.randint(0, qmax, shape, dtype=torch.uint8).to(device)
     else:
