@@ -23,15 +23,15 @@ from optimum.quanto.tensor.weights import WeightQBitsTensor
 from optimum.quanto.tensor.weights.awq import AWQWeightQBitsTensor
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@pytest.mark.skip_device("cpu")
+@pytest.mark.skip_device("mps")
 @pytest.mark.parametrize("in_features", [128, 256, 512, 1024])
 @pytest.mark.parametrize("out_features", [128, 256, 512, 1024])
-def test_awq_weight_qbits_tensor_from_qbits_tensor(in_features, out_features):
+def test_awq_weight_qbits_tensor_from_qbits_tensor(in_features, out_features, device):
     qtype = qint4
     group_size = 128
     dtype = torch.float16
     shape = (out_features, in_features)
-    device = torch.device("cuda")
     qbt = random_qweight(shape, qtype, dtype, group_size=group_size, device=device)
     # Create a AWQWeightQBitsTensor from the WeightQBitsTensor members
     awqbt = AWQWeightQBitsTensor(
@@ -61,15 +61,15 @@ def test_awq_weight_qbits_tensor_from_qbits_tensor(in_features, out_features):
     assert torch.equal(new_qbt._shift, qbt._shift)
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@pytest.mark.skip_device("cpu")
+@pytest.mark.skip_device("mps")
 def test_awq_weight_qbits_tensor_move(device):
     qtype = qint4
     group_size = 128
     dtype = torch.float16
     shape = (1024, 1024)
-    device = torch.device("cuda")
-    # Create an AWQWeightQBitsTensor from a QBitsTensor on CUDA
-    qbt = random_qweight(shape, qtype, dtype, group_size=group_size, device=torch.device("cuda"))
+    # Create an AWQWeightQBitsTensor from a QBitsTensor on CUDA or XPU
+    qbt = random_qweight(shape, qtype, dtype, group_size=group_size, device=device)
     awqbt = AWQWeightQBitsTensor(
         qtype=qbt.qtype,
         axis=qbt.axis,
@@ -83,7 +83,7 @@ def test_awq_weight_qbits_tensor_move(device):
     # Move to device, dequantize and compare
     moved_qbt = awqbt.to(device)
     assert isinstance(moved_qbt, WeightQBitsTensor)
-    if device.type != "cuda":
+    if device.type not in ["cuda", "xpu"]:
         assert type(moved_qbt) is not AWQWeightQBitsTensor
     assert awqbt.dtype == moved_qbt.dtype
     assert awqbt.qtype == moved_qbt.qtype

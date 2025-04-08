@@ -21,16 +21,16 @@ from helpers import device_eq
 from optimum.quanto.tensor.weights.awq import AWQPackedTensor, AWQPacking
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@pytest.mark.skip_device("cpu")
+@pytest.mark.skip_device("mps")
 @pytest.mark.parametrize("in_features", [128, 256, 512, 1024])
 @pytest.mark.parametrize("out_features", [128, 256, 512, 1024])
 @pytest.mark.parametrize("random", [True, False])
 @pytest.mark.parametrize("packing, reorder", [(AWQPacking.V1, True), (AWQPacking.V1, False), (AWQPacking.V2, False)])
-def test_pack_awq_tensor(in_features, out_features, random, packing, reorder):
+def test_pack_awq_tensor(in_features, out_features, random, packing, reorder, device):
     bits = 4
     qmax = 2**bits
     shape = (out_features, in_features)
-    device = torch.device("cuda")
     if random:
         t = torch.randint(0, qmax, shape, dtype=torch.uint8).to(device)
     else:
@@ -45,23 +45,23 @@ def test_pack_awq_tensor(in_features, out_features, random, packing, reorder):
     assert torch.equal(t, packed.unpack())
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@pytest.mark.skip_device("cpu")
+@pytest.mark.skip_device("mps")
 @pytest.mark.parametrize("packing, reorder", [(AWQPacking.V1, True), (AWQPacking.V2, False)])
-def test_move_awq_tensor(packing, reorder):
+def test_move_awq_tensor(packing, reorder, device):
     shape = (256, 256)
     bits = 4
     qmax = 2**bits
     numel = np.prod(shape)
-    device = torch.device("cuda")
     t = torch.tensor(range(numel), dtype=torch.int32)
     t = (t % qmax).reshape(shape).to(torch.uint8).to(device)
     packed = AWQPackedTensor.pack(t, packing=packing, reorder=reorder)
     assert packed._packing == packing
     assert packed._reorder == reorder
-    moved = packed.to("cuda")
+    moved = packed.to(device)
     assert isinstance(moved, AWQPackedTensor)
     assert moved._packing == packing
     assert moved._reorder == reorder
-    # TensorRT tensors are unpacked when moved out of CUDA device
+    # TensorRT tensors are unpacked when moved out of CUDA or XPU device
     moved = packed.to("cpu")
     assert type(moved) is torch.Tensor
