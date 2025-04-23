@@ -133,7 +133,7 @@ You'll need **Python 3.8** or above to contribute. Follow the steps below to sta
    passes. Run the tests impacted by your changes like this:
 
    ```bash
-   pytest test/<TEST_TO_RUN>.py
+   pytest tests/<TEST_TO_RUN>.py
    ```
 
    `optimum-quanto` relies on `black` and `ruff` to format its source code
@@ -201,12 +201,12 @@ useful to avoid duplicated work, and to differentiate it from PRs ready to be me
 
 ### Tests
 
-An extensive test suite is included to test the library behavior in the [test](https://github.com/huggingface/optimum-quanto/tree/main/test) folder.
+An extensive test suite is included to test the library behavior in the [tests](https://github.com/huggingface/optimum-quanto/tree/main/tests) folder.
 
 From the root of the repository, specify a *path to a subfolder or a test file* to run the test.
 
 ```bash
-python -m pytest -sv ./test/<subfolder>/<test>.py
+python -m pytest -sv ./tests/<subfolder>/<test>.py
 ```
 
 You can run all tests by typing:
