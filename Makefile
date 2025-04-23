@@ -1,6 +1,6 @@
 .PHONY: check test style
 
-check_dirs := optimum test bench examples
+check_dirs := optimum tests bench examples
 
 check:
 	ruff check --show-fixes ${check_dirs}
@@ -11,4 +11,4 @@ style:
 	ruff format ${check_dirs}
 
 test:
-	python -m pytest -sv test
+	python -m pytest -sv tests

@@ -16,5 +16,5 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install .[dev]
-      - run: ruff format bench examples optimum test --diff
-      - run: ruff check --show-fixes bench examples optimum test
+      - run: ruff format bench examples optimum tests --diff
+      - run: ruff check --show-fixes bench examples optimum tests

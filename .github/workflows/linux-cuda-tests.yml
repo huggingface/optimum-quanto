@@ -6,13 +6,13 @@ on:
       - main
     paths:
       - "optimum/quanto/**"
-      - "test/**"
+      - "tests/**"
       - "pyproject.toml"
   pull_request:
     types: [assigned, opened, synchronize, reopened]
     paths:
       - "optimum/quanto/**"
-      - "test/**"
+      - "tests/**"
       - "pyproject.toml"
 
 jobs:
@@ -45,14 +45,14 @@ jobs:
 
       - name: Run base tests
         run: |
-          python -m pytest test --ignore=test/models --ignore=test/cli
+          python -m pytest tests --ignore=tests/models --ignore=tests/cli
 
       - name: Run models tests
         run: |
           pip install accelerate transformers diffusers
-          python -m pytest test/models
+          python -m pytest tests/models
 
       - name: Run CLI tests
         run: |
           pip install optimum
-          python -m pytest test/cli
+          python -m pytest tests/cli
