@@ -14,7 +14,7 @@
 
 import pytest
 import torch
-from helpers import random_tensor, torch_min_version
+from helpers import random_tensor
 
 from optimum.quanto import ActivationQBytesTensor, absmax_scale, qint8, quantize_activation
 
