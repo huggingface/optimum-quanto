@@ -54,7 +54,7 @@ class TinyGemmPackedTensor(torch.Tensor):
         t = t.to(torch.int32).contiguous()
         if t.device.type == "cpu":
             data = torch._convert_weight_to_int4pack_for_cpu(t, innerKTiles=inner_ktiles)
-        if t.device.type == "xpu":
+        elif t.device.type == "xpu":
             t_uint8 = (t[::, 1::2] << 4 | t[::, ::2]).to(torch.uint8)
             data = torch._convert_weight_to_int4pack(t_uint8, innerKTiles=inner_ktiles)
         else:
