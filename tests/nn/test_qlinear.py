@@ -87,7 +87,6 @@ def test_quantize_linear_float32_activations_int8(batch_size, tokens, embeddings
     ids=["a-qfloat8-e4m3", "a-float8-e4m3-uz"],
 )
 @pytest.mark.skip_device("mps")
-@pytest.mark.skip_device("xpu")
 def test_quantize_linear_float16_activations_float8(
     batch_size, tokens, embeddings, use_bias, dtype, weights, activations, device
 ):
@@ -105,7 +104,6 @@ def test_quantize_linear_float16_activations_float8(
     ids=["a-qfloat8-e5m2", "a-qfloat8-e4m3", "a-float8-e4m3-uz"],
 )
 @pytest.mark.skip_device("mps")
-@pytest.mark.skip_device("xpu")
 def test_quantize_linear_float32_activations_float8(
     batch_size, tokens, embeddings, use_bias, weights, activations, device
 ):
@@ -120,7 +118,7 @@ def test_quantize_linear_float32_activations_float8(
 @pytest.mark.parametrize("use_bias", [True, False], ids=["bias", "no-bias"])
 @pytest.mark.parametrize("weights", [qint4, qint8, qfloat8], ids=["w-qint4", "w-qint8", "float8"])
 def test_quantize_linear_float16_weight_only(batch_size, tokens, embeddings, use_bias, weights, device):
-    if device.type in ["mps", "xpu"] and weights == qfloat8:
+    if device.type in ["mps"] and weights == qfloat8:
         pytest.skip(f"Float8 are not supported on {device.type} device")
     atol = None
     if device.type == "cuda" and weights == qfloat8 and embeddings % 64 == 0:
@@ -141,7 +139,7 @@ def test_quantize_linear_float32_weight_only(batch_size, tokens, embeddings, use
 @pytest.mark.parametrize("activations", [None, qint8, qfloat8], ids=["a-float", "a-qint8", "a-float8"])
 @pytest.mark.parametrize("weights", [qint4, qint8, qfloat8], ids=["w-qint4", "w-qint8", "w-float8"])
 def test_qlinear_gradient(tokens, embeddings, activations, weights, device):
-    if device.type in ["mps", "xpu"] and (activations == qfloat8 or weights == qfloat8):
+    if device.type in ["mps"] and (activations == qfloat8 or weights == qfloat8):
         pytest.skip(f"Float8 is not supported on {device.type} device")
     batch_size = 10
     linear = torch.nn.Linear(embeddings, embeddings).to(device)
@@ -200,7 +198,7 @@ def test_move_qlinear(dtype, use_bias, weights, device):
 @pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16], ids=["fp16", "bf16"])
 @pytest.mark.parametrize("weights_only", [True, False], ids=["weights-only", "pickle"])
 def test_qlinear_serialization(features, use_bias, activations, weights, dtype, weights_only, device):
-    if device.type in ["mps", "xpu"] and (activations == qfloat8 or weights == qfloat8):
+    if device.type in ["mps"] and (activations == qfloat8 or weights == qfloat8):
         pytest.skip(f"Float8 is not supported on {device.type} device")
     linear = torch.nn.Linear(features, features, bias=use_bias).to(dtype).to(device)
     qlinear = QLinear.from_module(linear, weights=weights, activations=activations)

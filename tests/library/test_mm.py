@@ -33,7 +33,7 @@ from optimum.quanto.tensor.weights.marlin.int4.packed import MarlinInt4PackedTen
 )
 @pytest.mark.parametrize("output_dtype", [torch.float16, torch.bfloat16], ids=["o-fp16", "o-bf16"])
 def test_qbytes_mm(batch_size, input_features, input_dtype, weight_dtype, output_features, output_dtype, device):
-    if device.type in ["mps", "xpu"] and weight_dtype.is_floating_point:
+    if device.type in ["mps"] and weight_dtype.is_floating_point:
         pytest.skip(f"Float8 types are not supported on {device.type} device")
     input_shape = (32, input_features)
     if batch_size is not None:
