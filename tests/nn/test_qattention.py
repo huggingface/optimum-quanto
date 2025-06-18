@@ -195,7 +195,6 @@ def test_quantize_attention_weights_only(weights, device):
 
 
 @pytest.mark.skip_device("mps")
-@pytest.mark.skip_device("xpu")
 def test_quantize_attention_weights_only_float8(device):
     _test_quantize_attention(device, weights=qfloat8_e4m3fn, atol=1e-3)
 
@@ -212,6 +211,5 @@ def test_quantize_attention_activations_int8(weights, device):
     ids=["a-float8-e5m2", "a-float8-e4m3", "a-float8-e4m3-uz"],
 )
 @pytest.mark.skip_device("mps")
-@pytest.mark.skip_device("xpu")
 def test_quantize_attention_activations_float8(weights, activations, device):
     _test_quantize_attention(device, weights=weights, activations=activations, atol=1e-2)
