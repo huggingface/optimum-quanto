@@ -29,7 +29,7 @@ __all__ = ["AWQWeightQBitsTensor"]
 
 class AWQWeightQBitsDequantizer(Function):
     @staticmethod
-    def forward(ctx, t): 
+    def forward(ctx, t):
         unpacked = t._data.unpack()
         scale = t._scale
         shift = t._shift
@@ -98,7 +98,7 @@ class AWQWeightQBitsTensor(WeightQBitsTensor):
                 # Integer shift must be scaled
                 shift = scale * shift
             # Shift must be negated
-            shift = shift if data.device.type == "xpu" else -shift.contiguous() 
+            shift = shift.contiguous() if data.device.type == "xpu" else -shift.contiguous()
         super().__init__(qtype, axis, group_size, size, stride, data, scale, shift)
 
     def dequantize(self):
@@ -112,7 +112,8 @@ class AWQWeightQBitsTensor(WeightQBitsTensor):
         data = group(self._data.unpack(), axis=self.axis, group_size=self._group_size)
         n_scales = self._scale.numel()
         scale = self._scale.t().reshape((n_scales, 1))
-        shift = -self._shift.t().reshape((n_scales, 1))
+        shift = self._shift if self._shift.device.type == "xpu" else -self._shift
+        shift = shift.t().reshape((n_scales, 1))
         return WeightQBitsTensor(
             self._qtype, self._axis, self._group_size, self.size(), self.stride(), data, scale, shift
         )

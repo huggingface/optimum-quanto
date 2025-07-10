@@ -56,7 +56,8 @@ class AffineOptimizer(Optimizer):
         assert shift.dtype == base.dtype
         if zeropoint:
             # Round shift to make sure zero can be represented exactly using 'shift' as quantized value
-            shift = torch.clamp(torch.round(shift / scale), 0, 2**qtype.bits - 1).to(torch.uint8)
+            shift = torch.clamp(torch.round(shift / scale), 0, 2**qtype.bits - 1)
+            shift = shift.to(torch.int8) if base.device.type == "xpu" else shift.to(torch.uint8)
         return scale, shift
 
     def optimize(self, base: torch.Tensor, qtype: qtype, axis: int) -> Tuple[torch.Tensor, torch.Tensor]:

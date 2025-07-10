@@ -74,7 +74,10 @@ def random_qweight(shape, qtype, dtype=torch.float32, axis=0, group_size=None, d
         scale = AbsmaxOptimizer()(t, qtype=qtype, axis=axis)
         shift = None
     else:
-        scale, shift = MaxOptimizer()(t, qtype=qtype, axis=axis, group_size=group_size)
+        optimizer_kwargs = {"qtype": qtype, "axis": axis, "group_size": group_size}
+        if device.type == "xpu":
+            optimizer_kwargs.update({"zeropoint": True})
+        scale, shift = MaxOptimizer()(t, **optimizer_kwargs)
     return quantize_weight(t, qtype=qtype, axis=axis, scale=scale, shift=shift, group_size=group_size, optimized=False)
 
 
