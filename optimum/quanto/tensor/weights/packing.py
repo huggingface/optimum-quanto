@@ -39,4 +39,6 @@ def unpack_int32_to_uint8(packed: torch.Tensor, bits: int):
     # Convert to unsigned
     unpacked = torch.bitwise_and(unpacked, (2**bits) - 1)
 
-    return unpacked.to(torch.uint8)
+    unpacked = unpacked if packed.device.type == "xpu" else unpacked.to(torch.uint8)
+
+    return unpacked
