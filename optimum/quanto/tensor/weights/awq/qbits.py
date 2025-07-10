@@ -29,7 +29,7 @@ __all__ = ["AWQWeightQBitsTensor"]
 
 class AWQWeightQBitsDequantizer(Function):
     @staticmethod
-    def forward(ctx, t):
+    def forward(ctx, t): 
         unpacked = t._data.unpack()
         scale = t._scale
         shift = t._shift
@@ -38,7 +38,10 @@ class AWQWeightQBitsDequantizer(Function):
         scale = scale.t().reshape((n_scales, 1))
         shift = shift.t().reshape((n_scales, 1))
         # Shift is already scaled and negated
-        dqt = scale * unpacked + shift
+        if shift.dtype.is_floating_point:
+            dqt = scale * unpacked + shift
+        else:
+            dqt = (unpacked - shift) * scale
         return ungroup(dqt, axis=t.axis, orig_shape=t.shape)
 
     @staticmethod
@@ -81,20 +84,21 @@ class AWQWeightQBitsTensor(WeightQBitsTensor):
         )
 
     def __init__(self, qtype, axis, group_size, size, stride, data, scale, shift, requires_grad=False):
+        self.packing_type = AWQPacking.V1 if data.device.type == "xpu" else AWQPacking.V2
         assert axis == 0
         if not isinstance(data, AWQPackedTensor):
             assert type(data) is torch.Tensor
-            # Format data, scale and shift for optimized CUDA gemm
+            # Format data, scale and shift for optimized CUDA/XPU gemm
             ungrouped = ungroup(data, axis=0, orig_shape=size)
-            data = AWQPackedTensor.pack(ungrouped, packing=AWQPacking.V2)
+            data = AWQPackedTensor.pack(ungrouped, packing=self.packing_type)
             out_features, in_features = size
             scale = scale.reshape(out_features, in_features // group_size).t().contiguous()
             shift = shift.reshape(out_features, in_features // group_size).t()
-            if not shift.dtype.is_floating_point:
+            if not shift.dtype.is_floating_point and data.device.type != "xpu":
                 # Integer shift must be scaled
                 shift = scale * shift
             # Shift must be negated
-            shift = -shift.contiguous()
+            shift = shift if data.device.type == "xpu" else -shift.contiguous() 
         super().__init__(qtype, axis, group_size, size, stride, data, scale, shift)
 
     def dequantize(self):

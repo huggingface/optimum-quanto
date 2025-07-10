@@ -263,9 +263,11 @@ class QModuleMixin(ABC):
             scale = self.optimizer(self.weight, qtype=self.weight_qtype, axis=0)
             shift = None
         else:
-            scale, shift = self.optimizer(
-                self.weight, qtype=self.weight_qtype, axis=0, group_size=self.weight_group_size
-            )
+            optimizer_kwargs = {"qtype": self.weight_qtype, "axis": 0, "group_size": self.weight_group_size}
+            if self.weight.device.type == "xpu":
+                optimizer_kwargs.update({"zeropoint": True})
+            scale, shift = self.optimizer(self.weight, **optimizer_kwargs)
+
         return quantize_weight(
             self.weight,
             qtype=self.weight_qtype,

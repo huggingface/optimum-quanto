@@ -39,3 +39,29 @@ register_extension(ext)
 @torch.library.impl("quanto::unpack", "XPU")
 def unpack_xpu(t: torch.Tensor, bits: int):
     return ext.lib.unpack(t, bits)
+
+@torch.library.impl("quanto::gemm_f16i4_awq", "XPU")
+def gemm_f16i4_awq(
+    input: torch.Tensor,
+    other: torch.Tensor,
+    scales: torch.Tensor,
+    shift: torch.Tensor,
+    rows: int,
+    out_cols: int,
+    in_cols: int,
+    bits: int,
+    group_size: int,
+):
+    orig_act_size = input.size()
+    orig_dtype = input.dtype
+
+    input = input.reshape(-1, input.shape[-1])
+
+    y = torch.ops.aten._weight_int4pack_mm_with_scales_and_zeros(
+        input, other, group_size, scales, shift
+    )
+    # remove out_feature padding
+    y = y[:, :out_cols]
+    y = y.reshape(*orig_act_size[:-1], out_cols)
+
+    return y.to(orig_dtype)
