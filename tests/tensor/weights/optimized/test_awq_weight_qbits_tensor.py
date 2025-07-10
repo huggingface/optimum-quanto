@@ -96,7 +96,7 @@ def _test_awq_weight_qbits_tensor_linear(
 ):
     # Create an AWQWeightQBitsTensor from a QBitsTensor on CUDA
     qbt = random_qweight(
-        (out_features, in_features), weight_qtype, dtype, group_size=group_size, device=torch.device("cuda")
+        (out_features, in_features), weight_qtype, dtype, group_size=group_size, device=torch.device(0)
     )
     awq_qweight = AWQWeightQBitsTensor(
         qtype=qbt.qtype,
@@ -112,8 +112,9 @@ def _test_awq_weight_qbits_tensor_linear(
 
 
 @pytest.mark.skipif(
-    not is_extension_available("quanto_cuda") or torch.cuda.get_device_capability()[0] < 8,
-    reason="CUDA >= sm80 not available",
+    (not is_extension_available("quanto_cuda") or torch.cuda.get_device_capability()[0] < 8)
+    and not torch.xpu.is_available(),
+    reason="CUDA device >= sm80 not available",
 )
 @pytest.mark.parametrize("batch_size", [1, 2])
 @pytest.mark.parametrize("tokens", [16, 32, 48, 64])

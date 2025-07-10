@@ -92,7 +92,8 @@ class PackedTensor(torch.Tensor):
     @classmethod
     def pack(cls, t, bits=4):
         assert bits in (2, 4)
-        assert t.dtype == torch.uint8
+        # XPU use int8 dtype
+        assert t.dtype in (torch.uint8, torch.int8)
         data = pack_weights(t, bits)
         # We need to store size and stride to make sure the unpacked data has the correct shape
         return PackedTensor(data, bits, t.size(), t.stride())

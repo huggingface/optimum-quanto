@@ -16,6 +16,7 @@
 import os
 
 import torch
+from packaging import version
 
 from ..extension import Extension, register_extension
 
@@ -40,28 +41,48 @@ register_extension(ext)
 def unpack_xpu(t: torch.Tensor, bits: int):
     return ext.lib.unpack(t, bits)
 
-@torch.library.impl("quanto::gemm_f16i4_awq", "XPU")
-def gemm_f16i4_awq(
-    input: torch.Tensor,
-    other: torch.Tensor,
-    scales: torch.Tensor,
-    shift: torch.Tensor,
-    rows: int,
-    out_cols: int,
-    in_cols: int,
-    bits: int,
-    group_size: int,
-):
-    orig_act_size = input.size()
-    orig_dtype = input.dtype
 
-    input = input.reshape(-1, input.shape[-1])
-
-    y = torch.ops.aten._weight_int4pack_mm_with_scales_and_zeros(
-        input, other, group_size, scales, shift
+if version.parse(torch.__version__).release >= version.parse("2.8.0").release:
+    torch.library.define(
+        "quanto::gemm_f16i4_awq",
+        "(Tensor input,"
+        " Tensor other,"
+        " Tensor other_scale,"
+        " Tensor other_shift,"
+        " int rows,"
+        " int out_cols,"
+        " int in_cols,"
+        " int bits,"
+        " int group_size)"
+        " -> Tensor",
     )
-    # remove out_feature padding
-    y = y[:, :out_cols]
-    y = y.reshape(*orig_act_size[:-1], out_cols)
 
-    return y.to(orig_dtype)
+    @torch.library.impl("quanto::gemm_f16i4_awq", "XPU")
+    def gemm_f16i4_awq(
+        input: torch.Tensor,
+        other: torch.Tensor,
+        scales: torch.Tensor,
+        shift: torch.Tensor,
+        rows: int,
+        out_cols: int,
+        in_cols: int,
+        bits: int,
+        group_size: int,
+    ):
+        orig_act_size = input.size()
+        orig_dtype = input.dtype
+
+        input = input.reshape(-1, input.shape[-1])
+
+        # XPU does not support float32 for now.
+        if input.dtype == torch.float32:
+            input = input.to(torch.bfloat16)
+        if scales.dtype != input.dtype:
+            scales = scales.to(input.dtype)
+
+        y = torch.ops.aten._weight_int4pack_mm_with_scales_and_zeros(input, other, group_size, scales, shift)
+        # remove out_feature padding
+        y = y[:, :out_cols]
+        y = y.reshape(*orig_act_size[:-1], out_cols)
+
+        return y.to(orig_dtype)

@@ -50,7 +50,8 @@ def test_qbytes_mm(batch_size, input_features, input_dtype, weight_dtype, output
 
 
 @pytest.mark.skipif(
-    not is_extension_available("quanto_cuda") or torch.cuda.get_device_capability()[0] < 8,
+    (not is_extension_available("quanto_cuda") or torch.cuda.get_device_capability()[0] < 8)
+    and not torch.xpu.is_available(),
     reason="CUDA device >= sm80 not available",
 )
 @pytest.mark.parametrize("in_features, out_features", [(256, 256), (512, 256)])
@@ -59,14 +60,15 @@ def test_gemm_fp16_int4(batch_size, tokens, in_features, out_features):
     """This test verifies that the GEMM operation is equivalent to torch.mm."""
     bits = 4
     group_size = 128  # Hard-coded in kernels
-    device = torch.device("cuda")
+    device = torch.device(0)  # XPU can also share this setting.
     input_shape = (batch_size, tokens, in_features)
     # FIXME: does not work if inputs are negative !!??
     inputs = torch.rand(input_shape, dtype=torch.float16, device=device)
     qmax = 2**bits
     other_shape = (out_features, in_features)
     other_data = torch.randint(0, qmax, other_shape, dtype=torch.uint8, device=device)
-    packed_other_data = AWQPackedTensor.pack(other_data, packing=AWQPacking.V2)._data
+    pack_type = AWQPacking.V1 if device.type == "xpu" else AWQPacking.V2
+    packed_other_data = AWQPackedTensor.pack(other_data, packing=pack_type)._data
     # The GEMM kernel works on transposed scales
     scales_shape = (in_features // group_size, out_features)
     other_scales = torch.rand(scales_shape, dtype=torch.float16, device=device) / qmax
@@ -74,8 +76,8 @@ def test_gemm_fp16_int4(batch_size, tokens, in_features, out_features):
     qmin = -(2 ** (bits - 1))
     qmax = 2 ** (bits - 1)
     other_shifts = torch.randint(qmin, qmax, scales_shape, dtype=torch.int8, device=device)
-    # Negate and scale
-    other_scaled_shifts = -other_shifts * other_scales
+    # Negate and scale, xpu should keep the original int8 shifts
+    other_scaled_shifts = other_shifts if device.type == "xpu" else -other_shifts * other_scales
     # Evaluate mm outputs using the GEMM kernel
     lib_outputs = torch.ops.quanto.gemm_f16i4_awq(
         inputs,
