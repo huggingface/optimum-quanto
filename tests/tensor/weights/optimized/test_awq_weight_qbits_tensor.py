@@ -114,7 +114,7 @@ def _test_awq_weight_qbits_tensor_linear(
 @pytest.mark.skipif(
     (not is_extension_available("quanto_cuda") or torch.cuda.get_device_capability()[0] < 8)
     and not torch.xpu.is_available(),
-    reason="CUDA device >= sm80 not available",
+    reason="The test requires CUDA device >= sm80 or Intel XPU",
 )
 @pytest.mark.parametrize("batch_size", [1, 2])
 @pytest.mark.parametrize("tokens", [16, 32, 48, 64])
