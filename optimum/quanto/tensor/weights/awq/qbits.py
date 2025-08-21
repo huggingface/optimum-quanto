@@ -37,10 +37,11 @@ class AWQWeightQBitsDequantizer(Function):
         n_scales = scale.numel()
         scale = scale.t().reshape((n_scales, 1))
         shift = shift.t().reshape((n_scales, 1))
-        # Shift is already scaled and negated
         if shift.dtype.is_floating_point:
+            # Shift is already scaled and negated on CUDA
             dqt = scale * unpacked + shift
         else:
+            # Shift is int type on XPU to support pytorch fused op
             dqt = (unpacked - shift) * scale
         return ungroup(dqt, axis=t.axis, orig_shape=t.shape)
 
@@ -84,6 +85,7 @@ class AWQWeightQBitsTensor(WeightQBitsTensor):
         )
 
     def __init__(self, qtype, axis, group_size, size, stride, data, scale, shift, requires_grad=False):
+        # XPU requires awq v1 to support pytorch fused op
         self.packing_type = AWQPacking.V1 if data.device.type == "xpu" else AWQPacking.V2
         assert axis == 0
         if not isinstance(data, AWQPackedTensor):

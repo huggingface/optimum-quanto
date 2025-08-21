@@ -69,13 +69,14 @@ def random_qactivation(shape, qtype=qint8, dtype=torch.float32, device="cpu"):
 
 
 def random_qweight(shape, qtype, dtype=torch.float32, axis=0, group_size=None, device="cpu"):
+    device = device.type if isinstance(device, torch.device) else device
     t = random_tensor(shape, dtype, device=device)
     if qtype.bits == 8:
         scale = AbsmaxOptimizer()(t, qtype=qtype, axis=axis)
         shift = None
     else:
         optimizer_kwargs = {"qtype": qtype, "axis": axis, "group_size": group_size}
-        if device.type == "xpu":
+        if device == "xpu":
             optimizer_kwargs.update({"zeropoint": True})
         scale, shift = MaxOptimizer()(t, **optimizer_kwargs)
     return quantize_weight(t, qtype=qtype, axis=axis, scale=scale, shift=shift, group_size=group_size, optimized=False)

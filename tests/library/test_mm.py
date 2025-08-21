@@ -52,7 +52,7 @@ def test_qbytes_mm(batch_size, input_features, input_dtype, weight_dtype, output
 @pytest.mark.skipif(
     (not is_extension_available("quanto_cuda") or torch.cuda.get_device_capability()[0] < 8)
     and not torch.xpu.is_available(),
-    reason="CUDA device >= sm80 not available",
+    reason="The test requires CUDA device >= sm80 or Intel XPU",
 )
 @pytest.mark.parametrize("in_features, out_features", [(256, 256), (512, 256)])
 @pytest.mark.parametrize("batch_size, tokens", [(4, 1), (10, 128)], ids=["gemv", "gemm"])
