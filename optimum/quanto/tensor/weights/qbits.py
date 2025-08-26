@@ -110,6 +110,7 @@ class WeightQBitsTensor(QBitsTensor):
             and group_size == 128
             and len(size) == 2
             and data.device.type == "xpu"
+            and shift.dtype == torch.int8
             and version.parse(torch.__version__).release >= version.parse("2.8.0").release
         ):
             if type(data) is PackedTensor:
