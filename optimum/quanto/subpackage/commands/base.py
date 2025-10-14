@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from optimum.commands import BaseOptimumCLICommand, CommandInfo
+from optimum.commands.base import BaseOptimumCLICommand, CommandInfo
 from optimum.commands.optimum_cli import optimum_cli_subcommand
 
 from .quantize import QuantizeCommand
