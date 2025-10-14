@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 import torch
 from optimum.commands.base import BaseOptimumCLICommand
-from optimum.exporters.task import TasksManager
+from optimum.exporters.tasks import TasksManager
 
 from ...models import QuantizedTransformersModel
 
