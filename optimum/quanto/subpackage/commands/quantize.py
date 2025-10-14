@@ -16,7 +16,6 @@
 from typing import TYPE_CHECKING
 
 import torch
-
 from optimum.commands.base import BaseOptimumCLICommand
 from optimum.exporters import TasksManager
 
