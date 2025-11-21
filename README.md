@@ -1,3 +1,11 @@
+## ⚠️ Maintenance Mode
+
+> **Note**: This project is currently in maintenance mode. We will continue to accept pull requests for minor bug fixes, documentation improvements, and other maintenance tasks, but active development has ceased.
+>
+> For production-ready quantization solutions, we recommend exploring these actively developed alternatives:
+> - [bitsandbytes](https://github.com/facebookresearch/bitsandbytes) - A lightweight wrapper around CUDA custom functions for 8-bit optimizers, matrix multiplication, and quantization
+> - [torchao](https://github.com/pytorch/torchao) - PyTorch's official quantization and sparsity library
+
 # Optimum Quanto
 
 🤗 Optimum Quanto is a pytorch quantization backend for [optimum](https://huggingface.co/docs/optimum/en/index).
