@@ -1,5 +1,7 @@
 # Optimum Quanto
 
+> This project is currently in maintenance mode. We accept pull requests only for minor bug fixes, documentation improvements, and other maintenance tasks. Major new features or breaking changes are unlikely to be merged. For production-ready quantization features or active development, consider alternative projects such as [bitsandbytes](https://github.com/bitsandbytes-foundation/bitsandbytes) or [torchAO](https://github.com/pytorch/ao).
+
 🤗 Optimum Quanto is a pytorch quantization backend for [optimum](https://huggingface.co/docs/optimum/en/index).
 
 It has been designed with versatility and simplicity in mind:
