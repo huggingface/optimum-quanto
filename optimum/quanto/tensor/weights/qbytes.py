@@ -126,7 +126,7 @@ class WeightQBytesTensor(QBytesTensor):
             and len(size) == 2
             and (data.device.type == "cuda" and torch.version.cuda)
             and axis == 0
-            and torch.cuda.get_device_capability(data.device)[0] >= 8
+            and torch.cuda.get_device_capability(data.device)[0] >= 20
             and is_extension_available("quanto_cuda")
         ):
             out_features, in_features = size
