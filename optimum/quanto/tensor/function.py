@@ -55,7 +55,7 @@ class QuantizedLinearFunction(torch.autograd.Function):
             input_gO = torch.matmul(gO, other)
         if ctx.needs_input_grad[1]:
             # grad(B@A.t()) = gO.t() => grad(B) = gO.t()@(A.t().t()) = gO.t()@A
-            other_gO = torch.matmul(gO.view(-1, out_features).t(), input.view(-1, in_features))
+            other_gO = torch.matmul(gO.reshape(-1, out_features).t(), input.reshape(-1, in_features))
         if ctx.needs_input_grad[2]:
             # Bias gradient is the sum on all dimensions but the last one
             dim = tuple(range(gO.ndim - 1))
