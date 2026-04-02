@@ -11,14 +11,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - shell: bash
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           if [ "${{ github.event_name }}" == "push" ]; then
             echo "depth=$(($(jq length <<< '${{ toJson(github.event.commits) }}') + 2))" >> $GITHUB_ENV
-            echo "branch=${{ github.ref_name }}" >> $GITHUB_ENV
+            echo "branch=$REF_NAME" >> $GITHUB_ENV
           fi
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             echo "depth=$((${{ github.event.pull_request.commits }}+2))" >> $GITHUB_ENV
-            echo "branch=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+            echo "branch=$HEAD_REF" >> $GITHUB_ENV
           fi
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
