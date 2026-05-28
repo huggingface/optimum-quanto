@@ -14,13 +14,16 @@ jobs:
         env:
           REF_NAME: ${{ github.ref_name }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          EVENT_NAME: ${{ github.event_name }}
+          COMMITS_JSON: ${{ toJson(github.event.commits) }}
+          PR_COMMITS: ${{ github.event.pull_request.commits }}
         run: |
-          if [ "${{ github.event_name }}" == "push" ]; then
-            echo "depth=$(($(jq length <<< '${{ toJson(github.event.commits) }}') + 2))" >> $GITHUB_ENV
+          if [ "$EVENT_NAME" == "push" ]; then
+            echo "depth=$(($(jq length <<< "$COMMITS_JSON") + 2))" >> $GITHUB_ENV
             echo "branch=$REF_NAME" >> $GITHUB_ENV
           fi
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "depth=$((${{ github.event.pull_request.commits }}+2))" >> $GITHUB_ENV
+          if [ "$EVENT_NAME" == "pull_request" ]; then
+            echo "depth=$(($PR_COMMITS+2))" >> $GITHUB_ENV
             echo "branch=$HEAD_REF" >> $GITHUB_ENV
           fi
       - name: Checkout code
