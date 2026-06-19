@@ -28,6 +28,33 @@ from ..qtype import qtype, qtypes
 __all__ = ["WeightQBytesTensor"]
 
 
+def _is_dtensor(t: torch.Tensor) -> bool:
+    try:
+        from torch.distributed.tensor import DTensor
+    except ImportError:
+        return False
+    return isinstance(t, DTensor)
+
+
+def _replicate_as_dtensor(t: torch.Tensor, reference: torch.Tensor) -> torch.Tensor:
+    if _is_dtensor(t) or not _is_dtensor(reference):
+        return t
+    from torch.distributed.tensor import Replicate, distribute_tensor
+
+    return distribute_tensor(t, reference.device_mesh, [Replicate() for _ in reference.placements])
+
+
+def _distribute_bias_as_weight(bias: Optional[torch.Tensor], weight: torch.Tensor) -> Optional[torch.Tensor]:
+    if bias is None or _is_dtensor(bias) or not _is_dtensor(weight):
+        return bias
+    from torch.distributed.tensor import Shard, distribute_tensor
+
+    placements = [
+        Shard(0) if placement.is_shard() and placement.dim == 0 else placement for placement in weight.placements
+    ]
+    return distribute_tensor(bias, weight.device_mesh, placements)
+
+
 class WeightQBytesQuantizer(Function):
     @staticmethod
     def forward(
@@ -69,6 +96,8 @@ class WeightQBytesLinearFunction(QuantizedLinearFunction):
     @staticmethod
     def forward(ctx, input, other, bias=None):
         ctx.save_for_backward(input, other)
+        input = _replicate_as_dtensor(input, other._data)
+        bias = _distribute_bias_as_weight(bias, other._data)
         if isinstance(input, QBytesTensor):
             output = torch.ops.quanto.qbytes_mm(input._data, other._data, input._scale * other._scale)
         else:
@@ -80,6 +109,30 @@ class WeightQBytesLinearFunction(QuantizedLinearFunction):
         if bias is not None:
             output = output + bias
         return output
+
+    @staticmethod
+    def backward(ctx, gO):
+        input_gO = other_gO = bias_gO = None
+        input, other = ctx.saved_tensors
+        out_features, in_features = other.shape
+        dequantized_other = other.dequantize()
+        if ctx.needs_input_grad[0]:
+            input_gO = torch.matmul(_replicate_as_dtensor(gO, other._data), dequantized_other)
+            if _is_dtensor(input_gO) and not _is_dtensor(input):
+                input_gO = input_gO.full_tensor()
+        if ctx.needs_input_grad[1]:
+            other_gO = torch.matmul(
+                _replicate_as_dtensor(gO, other._data).view(-1, out_features).t(),
+                _replicate_as_dtensor(input, other._data).view(-1, in_features),
+            )
+            if _is_dtensor(other_gO) and not _is_dtensor(other):
+                other_gO = other_gO.full_tensor()
+        if ctx.needs_input_grad[2]:
+            dim = tuple(range(gO.ndim - 1))
+            bias_gO = gO.sum(dim)
+            if _is_dtensor(bias_gO):
+                bias_gO = bias_gO.full_tensor()
+        return input_gO, other_gO, bias_gO
 
 
 class WeightQBytesTensor(QBytesTensor):

@@ -14,9 +14,10 @@
 
 import pytest
 import torch
-from helpers import assert_similar, device_eq, random_tensor
+from helpers import assert_similar, device_eq, random_tensor, torch_min_version
 
 from optimum.quanto import (
+    AbsmaxOptimizer,
     MaxOptimizer,
     absmax_scale,
     qfloat8,
@@ -26,6 +27,7 @@ from optimum.quanto import (
     qint2,
     qint4,
     qint8,
+    quantize_weight,
 )
 from optimum.quanto.tensor.grouped import ungroup
 
@@ -45,6 +47,86 @@ def test_symmetric_quantize_int(input_shape, dtype, qtype, axis, device):
     assert data.dtype == qtype.dtype
     assert device_eq(data.device, device)
     assert_similar(a, data * scale)
+
+
+@torch_min_version("2.6.0")
+def test_symmetric_quantize_dtensor_sharding():
+    dist = pytest.importorskip("torch.distributed")
+    dtensor = pytest.importorskip("torch.distributed.tensor")
+    if not dist.is_available():
+        pytest.skip("torch.distributed is not available")
+
+    import os
+    import tempfile
+
+    init_file = tempfile.NamedTemporaryFile(delete=False)
+    init_file.close()
+    try:
+        dist.init_process_group("gloo", rank=0, world_size=1, init_method=f"file://{init_file.name}")
+        mesh = dtensor.DeviceMesh("cpu", [0])
+        base = random_tensor((4, 4), dtype=torch.float32)
+        scale = absmax_scale(base, qtype=qint8, axis=0)
+        local_expected = torch.ops.quanto.quantize_symmetric(base, dtype=qint8.dtype, axis=0, scale=scale)
+
+        sharded_base = dtensor.distribute_tensor(base, mesh, [dtensor.Shard(0)])
+        sharded_scale = dtensor.distribute_tensor(scale, mesh, [dtensor.Shard(0)])
+
+        data = torch.ops.quanto.quantize_symmetric(sharded_base, dtype=qint8.dtype, axis=0, scale=sharded_scale)
+
+        assert data.placements == (dtensor.Shard(0),)
+        assert data.to_local().dtype == qint8.dtype
+        assert torch.equal(data.to_local(), local_expected)
+    finally:
+        if dist.is_initialized():
+            dist.destroy_process_group()
+        if os.path.exists(init_file.name):
+            os.unlink(init_file.name)
+
+
+@torch_min_version("2.6.0")
+def test_qbytes_linear_dtensor_weight_sharding():
+    dist = pytest.importorskip("torch.distributed")
+    dtensor = pytest.importorskip("torch.distributed.tensor")
+    if not dist.is_available():
+        pytest.skip("torch.distributed is not available")
+
+    import os
+    import tempfile
+
+    init_file = tempfile.NamedTemporaryFile(delete=False)
+    init_file.close()
+    try:
+        dist.init_process_group("gloo", rank=0, world_size=1, init_method=f"file://{init_file.name}")
+        mesh = dtensor.DeviceMesh("cpu", [0])
+        weight = random_tensor((4, 4), dtype=torch.float32)
+        scale = AbsmaxOptimizer()(weight, qtype=qint8, axis=0)
+        input = random_tensor((2, 4), dtype=torch.float32)
+        bias = random_tensor((4,), dtype=torch.float32)
+        local_qweight = quantize_weight(weight, qtype=qint8, axis=0, scale=scale, optimized=False)
+        local_input = input.clone().requires_grad_()
+        local_expected = torch.nn.functional.linear(local_input, local_qweight, bias=bias)
+
+        sharded_qweight = quantize_weight(
+            dtensor.distribute_tensor(weight, mesh, [dtensor.Shard(0)]),
+            qtype=qint8,
+            axis=0,
+            scale=dtensor.distribute_tensor(scale, mesh, [dtensor.Shard(0)]),
+            optimized=False,
+        )
+
+        sharded_input = input.clone().requires_grad_()
+        output = torch.nn.functional.linear(sharded_input, sharded_qweight, bias=bias)
+
+        assert output.placements == (dtensor.Shard(1),)
+        assert torch.equal(output.to_local(), local_expected)
+        local_expected.sum().backward()
+        output.full_tensor().sum().backward()
+        assert torch.equal(sharded_input.grad, local_input.grad)
+    finally:
+        if dist.is_initialized():
+            dist.destroy_process_group()
+        if os.path.exists(init_file.name):
+            os.unlink(init_file.name)
 
 
 @pytest.mark.skip_device("mps")

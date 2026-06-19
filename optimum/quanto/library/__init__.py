@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .dtensor import *
 from .extensions import *
 from .qbytes_mm import *
 from .quantize import *
