@@ -33,7 +33,7 @@ jobs:
       options: --gpus 0
 
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - name: Check CUDA installation
         run: |
           nvcc -V
