@@ -16,21 +16,21 @@ The paragraphs below display results for some popular models on a NVIDIA A10 GPU
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3.1-8B_bf16_Accuracy.png" alt="meta-llama/Meta-llama-3.1-8B Lambada prediction accuracy">
+    <img src="https://github.com/huggingface/optimum-quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3.1-8B_bf16_Accuracy.png" alt="meta-llama/Meta-llama-3.1-8B Lambada prediction accuracy">
   </div>
  </center>
 </div>
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3.1-8B_bf16_Perplexity.png" alt="meta-llama/Meta-Llama-3.1-8B WikiText perplexity">
+    <img src="https://github.com/huggingface/optimum-quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3.1-8B_bf16_Perplexity.png" alt="meta-llama/Meta-Llama-3.1-8B WikiText perplexity">
   </div>
  </center>
 </div>
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3.1-8B_bf16_Latency__ms_.png" alt="meta-llama/Meta-Llama-3.1-8B Latency">
+    <img src="https://github.com/huggingface/optimum-quanto/blob/main/bench/generation/charts/meta-llama-Meta-Llama-3.1-8B_bf16_Latency__ms_.png" alt="meta-llama/Meta-Llama-3.1-8B Latency">
   </div>
  </center>
 </div>
@@ -39,21 +39,21 @@ The paragraphs below display results for some popular models on a NVIDIA A10 GPU
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/mistralai-Mistral-7B-Instruct-v0.3_bf16_Accuracy.png" alt="mistralai/Mistral-7B-Instruct-v0.3 Lambada prediction accuracy">
+    <img src="https://github.com/huggingface/optimum-quanto/blob/main/bench/generation/charts/mistralai-Mistral-7B-Instruct-v0.3_bf16_Accuracy.png" alt="mistralai/Mistral-7B-Instruct-v0.3 Lambada prediction accuracy">
   </div>
  </center>
 </div>
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/mistralai-Mistral-7B-Instruct-v0.3_bf16_Perplexity.png" alt="mistralai/Mistral-7B-Instruct-v0.3 WikiText perplexity">
+    <img src="https://github.com/huggingface/optimum-quanto/blob/main/bench/generation/charts/mistralai-Mistral-7B-Instruct-v0.3_bf16_Perplexity.png" alt="mistralai/Mistral-7B-Instruct-v0.3 WikiText perplexity">
   </div>
  </center>
 </div>
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/mistralai-Mistral-7B-Instruct-v0.3_bf16_Latency__ms_.png" alt="mistralai/Mistral-7B-Instruct-v0.3 Latency">
+    <img src="https://github.com/huggingface/optimum-quanto/blob/main/bench/generation/charts/mistralai-Mistral-7B-Instruct-v0.3_bf16_Latency__ms_.png" alt="mistralai/Mistral-7B-Instruct-v0.3 Latency">
   </div>
  </center>
 </div>
@@ -62,21 +62,21 @@ The paragraphs below display results for some popular models on a NVIDIA A10 GPU
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/google-gemma-2b_bf16_Accuracy.png" alt="google-gemma-2b Lambada prediction accuracy">
+    <img src="https://github.com/huggingface/optimum-quanto/blob/main/bench/generation/charts/google-gemma-2b_bf16_Accuracy.png" alt="google-gemma-2b Lambada prediction accuracy">
   </div>
  </center>
 </div>
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/google-gemma-2b_bf16_Perplexity.png" alt="google-gemma-2b WikiText perplexity">
+    <img src="https://github.com/huggingface/optimum-quanto/blob/main/bench/generation/charts/google-gemma-2b_bf16_Perplexity.png" alt="google-gemma-2b WikiText perplexity">
   </div>
  </center>
 </div>
 
 <div class="row"><center>
   <div class="column">
-    <img src="https://github.com/huggingface/quanto/blob/main/bench/generation/charts/google-gemma-2b_bf16_Latency__ms_.png" alt="google-gemma-2b Latency">
+    <img src="https://github.com/huggingface/optimum-quanto/blob/main/bench/generation/charts/google-gemma-2b_bf16_Latency__ms_.png" alt="google-gemma-2b Latency">
   </div>
  </center>
 </div>

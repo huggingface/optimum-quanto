@@ -224,7 +224,7 @@ with torch.device('meta'):
 requantize(new_model, state_dict, quantization_map, device=torch.device('cuda'))
 ```
 
-Please refer to the [examples](https://github.com/huggingface/quanto/tree/main/examples) for instantiations of that workflow.
+Please refer to the [examples](https://github.com/huggingface/optimum-quanto/tree/main/examples) for instantiations of that workflow.
 
 
 ## Design overview
