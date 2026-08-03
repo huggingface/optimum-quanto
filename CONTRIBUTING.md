@@ -95,7 +95,7 @@ unsure, it is always a good idea to open an issue to get some feedback.
 
 You will need basic `git` proficiency to contribute. While `git` is not the easiest tool to use, it has the greatest manual. Type `git --help` in a shell and enjoy! If you prefer books, [Pro Git](https://git-scm.com/book/en/v2) is a very good reference.
 
-You'll need **Python 3.8** or above to contribute. Follow the steps below to start contributing:
+You'll need **Python 3.9** or above to contribute. Follow the steps below to start contributing:
 
 1. Fork the [repository](https://github.com/huggingface/optimum-quanto) by
    clicking on the **[Fork](https://github.com/huggingface/optimum-quanto/fork)** button on the repository's page. This creates a copy of the code
@@ -136,7 +136,7 @@ You'll need **Python 3.8** or above to contribute. Follow the steps below to sta
    pytest tests/<TEST_TO_RUN>.py
    ```
 
-   `optimum-quanto` relies on `black` and `ruff` to format its source code
+   `optimum-quanto` relies on `ruff` to format its source code
    consistently. After you make changes, apply automatic style corrections and code verifications
    that can't be automated in one go with:
 
