@@ -27,9 +27,9 @@ jobs:
             echo "branch=$HEAD_REF" >> $GITHUB_ENV
           fi
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ env.branch }}
           fetch-depth: ${{ env.depth }}
       - name: Scan for secrets
-        uses: trufflesecurity/trufflehog@27b0417c16317ca9a472a9a8092acce143b49c55  # main
+        uses: trufflesecurity/trufflehog@bcfcf73aaf4759d4dadc2783177c245a02792318  # main
