@@ -72,6 +72,18 @@ def test_qactivation_cat(input_shape, device):
     assert_similar(torch.cat([qinputs.dequantize(), qother.dequantize()]), qcat)
 
 
+def test_qactivation_split(device):
+    qinputs = random_qactivation((10, 3), dtype=torch.float32).to(device)
+    parts = torch.split(qinputs, 4)
+    expected_parts = torch.split(qinputs.dequantize(), 4)
+    for part, expected in zip(parts, expected_parts):
+        assert isinstance(part, ActivationQBytesTensor)
+        assert part.shape == part._data.shape == expected.shape
+        assert part.stride() == part._data.stride()
+        assert torch.equal(part._scale, qinputs._scale)
+        assert torch.equal(part.dequantize(), expected)
+
+
 def test_qactivation_transpose_2d(device):
     input_shape = (4, 6)
     qinputs = random_qactivation(input_shape).to(device)
