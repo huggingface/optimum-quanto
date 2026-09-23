@@ -7,9 +7,9 @@ jobs:
     name: Check commits
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - uses: huggingface/action-check-commits@v1.0.0
+      - uses: huggingface/action-check-commits@7546dfa9ac8bd8270ea7ca5f137319aaa62e1599 # v1.0.0
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           max-commits: "10"
