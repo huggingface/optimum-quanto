@@ -21,6 +21,8 @@ jobs:
   python-quality:
     uses: ./.github/workflows/python-quality.yml
   test-ubuntu-cuda:
+    permissions:
+      contents: read
     needs: [check-commits, python-quality]
     runs-on:
       group: aws-g5-4xlarge-plus

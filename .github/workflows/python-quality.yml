@@ -2,8 +2,12 @@ name: Python code quality
 
 on: [workflow_call]
 
+permissions: {}
+
 jobs:
   check_code_quality:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
 
     steps:
