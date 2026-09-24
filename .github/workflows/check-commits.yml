@@ -2,8 +2,13 @@ name: Check Commits
 
 on: [workflow_call]
 
+permissions: {}
+
 jobs:
   build:
+    permissions:
+      contents: read
+      pull-requests: read
     name: Check commits
     runs-on: ubuntu-latest
     steps:
