@@ -117,7 +117,7 @@ class Calibration(TorchFunctionMode):
             for handle in self.streamline_hooks.values():
                 handle.remove()
 
-    def calibrate_input(self, module: torch.nn.Module, input, momentum: float = 0.9):
+    def calibrate_input(self, module: torch.nn.Module, input):
         """Calibrate a module input scale
 
         This is registered as a global hook that is called before any module forward pre hook.
@@ -130,7 +130,7 @@ class Calibration(TorchFunctionMode):
             else:
                 # Evaluate the best scale
                 input_scale = absmax_scale(input, module.activation_qtype)
-                module.input_scale = _updated_scale(module.input_scale, input_scale, momentum)
+                module.input_scale = _updated_scale(module.input_scale, input_scale, self.momentum)
             if self.streamline and module not in self.streamline_hooks:
                 # Add a hook to tag the module outputs (after the module quantization hook in QModuleMixin)
                 self.streamline_hooks[module] = module.register_forward_hook(self.tag_outputs)
