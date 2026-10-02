@@ -16,7 +16,7 @@ import pytest
 import torch
 from helpers import random_qactivation
 
-from optimum.quanto import Calibration, qfloat8_e4m3fn, qfloat8_e4m3fnuz, qfloat8_e5m2, qint8
+from optimum.quanto import Calibration, absmax_scale, qfloat8_e4m3fn, qfloat8_e4m3fnuz, qfloat8_e5m2, qint8
 from optimum.quanto.nn import QLinear
 
 
@@ -57,6 +57,29 @@ def test_calibrate_qlinear_activations_int8(batch_size, tokens, embeddings, use_
 @pytest.mark.skip_device("mps")
 def test_calibrate_qlinear_activations_float8(batch_size, tokens, embeddings, use_bias, activations, device):
     _test_calibrate_qlinear(batch_size, tokens, embeddings, use_bias, activations, device)
+
+
+@pytest.mark.parametrize("momentum", [0.0, 0.5, 0.9, 1.0])
+@pytest.mark.parametrize("streamline", [True, False])
+@pytest.mark.parametrize("activations", [qint8, pytest.param(qfloat8_e4m3fn, marks=pytest.mark.skip_device("mps"))])
+def test_calibrate_qlinear_input_momentum(momentum, streamline, activations, device):
+    linear = torch.nn.Linear(4, 4, bias=False).to(device)
+    with torch.no_grad():
+        linear.weight.copy_(torch.eye(4, device=device))
+    qlinear = QLinear.from_module(linear, weights=qint8, activations=activations)
+    first_input = torch.tensor([[1.0, -1.0, 0.5, -0.5]], device=device)
+    second_input = first_input * 4
+    first_scale = absmax_scale(first_input, activations)
+    second_scale = absmax_scale(second_input, activations)
+
+    with torch.no_grad(), Calibration(momentum=momentum, streamline=streamline):
+        qlinear(first_input)
+        torch.testing.assert_close(qlinear.input_scale, first_scale)
+        output = qlinear(second_input)
+        expected_scale = momentum * first_scale + (1.0 - momentum) * second_scale
+        torch.testing.assert_close(qlinear.input_scale, expected_scale)
+        if momentum == 0.0:
+            torch.testing.assert_close(output.dequantize(), second_input, atol=0.02, rtol=0)
 
 
 def _test_calibrate_custom_module(activations, device):
