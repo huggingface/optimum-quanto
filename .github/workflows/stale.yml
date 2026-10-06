@@ -4,15 +4,17 @@ on:
     - cron: '30 1 * * *'
   workflow_dispatch:
 
-permissions:
-  issues: write
-  pull-requests: write
+
+permissions: {}
 
 jobs:
   stale:
+    permissions:
+      issues: write
+      pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/stale@v10.4.0
+      - uses: actions/stale@1e223db275d687790206a7acac4d1a11bd6fe629 # v10.4.0
         with:
           stale-issue-message: 'This issue is stale because it has been open 30 days with no activity. Remove stale label or comment or this will be closed in 5 days.'
           stale-pr-message: 'This PR is stale because it has been open 15 days with no activity. Remove stale label or comment or this will be closed in 5 days.'

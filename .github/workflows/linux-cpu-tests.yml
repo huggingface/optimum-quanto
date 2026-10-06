@@ -21,6 +21,8 @@ jobs:
   python-quality:
     uses: ./.github/workflows/python-quality.yml
   test-ubuntu-cpu:
+    permissions:
+      contents: read
     needs: [check-commits, python-quality]
     runs-on: ubuntu-latest
     strategy:
@@ -56,6 +58,8 @@ jobs:
           python -m pytest tests/cli
 
   run_staging_tests:
+    permissions:
+      contents: read
     needs: [check-commits, python-quality]
     runs-on: ubuntu-latest
     strategy:

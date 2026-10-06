@@ -3,11 +3,13 @@ name: Security Checks
 on:
   push:
 
-permissions:
-  contents: read
+
+permissions: {}
 
 jobs:
   secrets:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - shell: bash

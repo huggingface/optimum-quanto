@@ -21,6 +21,8 @@ jobs:
   python-quality:
     uses: ./.github/workflows/python-quality.yml
   test-ubuntu-cuda:
+    permissions:
+      contents: read
     needs: [check-commits, python-quality]
     runs-on:
       group: aws-g5-4xlarge-plus
@@ -33,7 +35,7 @@ jobs:
       options: --gpus 0
 
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Check CUDA installation
         run: |
           nvcc -V
