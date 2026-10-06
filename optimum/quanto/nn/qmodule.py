@@ -254,7 +254,7 @@ class QModuleMixin(ABC):
         """
         if self.weight_qtype is None:
             # QModule that does not quantize its weights
-            return None
+            return self.weight
         if isinstance(self.weight, QTensor):
             # Frozen QModule
             return self.weight
@@ -303,7 +303,7 @@ class QModuleMixin(ABC):
 
     def freeze(self):
         qweight = self.qweight
-        if qweight is not None:
+        if qweight is not self.weight:
             # Replace float weights by quantized weights
             self.weight = torch.nn.Parameter(qweight)
 

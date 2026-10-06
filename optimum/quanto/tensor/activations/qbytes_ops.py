@@ -239,7 +239,7 @@ def split(op, input, *args, **kwargs):
         return qfallback(op, input, *args, **kwargs)
     out_datas = op(input._data, *args, **kwargs)
     return [
-        ActivationQBytesTensor(input.qtype, input.size(), input.stride(), out_data, input._scale)
+        ActivationQBytesTensor(input.qtype, out_data.size(), out_data.stride(), out_data, input._scale)
         for out_data in out_datas
     ]
 
