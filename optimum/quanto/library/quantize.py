@@ -48,7 +48,8 @@ def quantize_symmetric(
             raise ValueError(
                 "When quantizing per-axis, the scale must be broadcastable to the base (Tip: try to add missing dims of length zero)."
             )
-    data = base / scale
+    # An all-zero range has a zero scale: quantize it to zero instead of NaN
+    data = torch.where(scale == 0, 0, base / scale)
     if not dtype.is_floating_point:
         data = torch.round(data)
     info = dtype_info(dtype)
