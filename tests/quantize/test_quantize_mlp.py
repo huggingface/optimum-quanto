@@ -93,6 +93,26 @@ def test_quantize_mlp_weights_only_float8(weights, frozen, device):
     _test_quantize_mlp(weights, None, None, frozen, device)
 
 
+@pytest.mark.skip_device("mps")
+def test_quantize_mlp_activations_only(device):
+    _test_quantize_mlp(None, qint8, None, False, device, atol=1e-3)
+
+
+@pytest.mark.skip_device("mps")
+def test_quantize_activations_only_preserves_tied_weights(device):
+    model = torch.nn.Module()
+    model.embedding = torch.nn.Embedding(10, 4, device=device)
+    model.lm_head = torch.nn.Linear(4, 10, bias=False, device=device)
+    model.lm_head.weight = model.embedding.weight
+
+    quantize(model, weights=None, activations=qint8)
+    freeze(model)
+
+    assert model.embedding.weight is model.lm_head.weight
+    output = model.lm_head(model.embedding(torch.tensor([0], device=device)))
+    assert isinstance(output, ActivationQBytesTensor)
+
+
 @pytest.mark.parametrize("weights", [qint8], ids=["w-qint8"])
 @pytest.mark.parametrize("frozen", [True, False], ids=["frozen", "non-frozen"])
 @pytest.mark.skip_device("mps")
