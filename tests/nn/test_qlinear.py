@@ -32,6 +32,7 @@ from optimum.quanto import (
     quantize_activation,
 )
 from optimum.quanto.nn import QLinear
+from optimum.quanto.tensor.weights.tinygemm import TinyGemmWeightQBitsTensor
 
 
 def _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, activations, dtype, device, atol=None):
@@ -125,6 +126,22 @@ def test_quantize_linear_float16_weight_only(batch_size, tokens, embeddings, use
         # FIXME: accuracy is slightly worse using MARLIN FP8 kernels
         atol = 1e-2
     _test_quantize_linear(batch_size, tokens, embeddings, use_bias, weights, None, torch.float16, device, atol)
+
+
+@pytest.mark.parametrize("out_features", [1, 2, 3, 8, 10, 15, 16, 17, 32])
+def test_quantize_linear_bfloat16_int4_cpu(out_features):
+    linear = torch.nn.Linear(256, out_features, bias=False, dtype=torch.bfloat16)
+    weight = (torch.arange(256) % 16 - 8).to(torch.bfloat16).repeat(out_features, 1)
+    with torch.no_grad():
+        linear.weight.copy_(weight)
+    qlinear = QLinear.from_module(linear, weights=qint4)
+    inputs = torch.ones((1, 256), dtype=torch.bfloat16)
+    expected = torch.full((1, out_features), -128, dtype=torch.bfloat16)
+    assert torch.equal(qlinear(inputs), expected)
+    qlinear.freeze()
+    assert isinstance(qlinear.weight, TinyGemmWeightQBitsTensor) == (out_features % 16 == 0)
+    assert torch.equal(qlinear.weight.dequantize(), weight)
+    assert torch.equal(qlinear(inputs), expected)
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
