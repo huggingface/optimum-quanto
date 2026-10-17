@@ -124,7 +124,7 @@ class WeightQBitsTensor(QBitsTensor):
             and group_size == 128
             and len(size) == 2
         ):
-            if data.device.type == "cpu" or (
+            if (data.device.type == "cpu" and size[0] % 16 == 0) or (
                 (data.device.type == "cuda" and torch.version.cuda)
                 and version.parse(torch.version.cuda).release >= (12, 1)
                 and torch.cuda.get_device_capability(data.device)[0] >= 8
