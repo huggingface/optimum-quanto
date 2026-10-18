@@ -193,14 +193,18 @@ class QModuleMixin(ABC):
 
             assign_to_params_buffers = local_metadata.get("assign_to_params_buffers", False)
             if assign_to_params_buffers and (deserialized_weight is not None):
-                self.weight = torch.nn.Parameter(deserialized_weight)
+                self.weight = torch.nn.Parameter(deserialized_weight, requires_grad=self.weight.requires_grad)
             elif deserialized_weight is not None:
                 if type(self.weight.data) is not type(deserialized_weight):
                     # Reloading frozen weights into unfrozen module: move to the correct device and force assignment
-                    self.weight = torch.nn.Parameter(deserialized_weight.to(self.weight.device))
+                    self.weight = torch.nn.Parameter(
+                        deserialized_weight.to(self.weight.device), requires_grad=self.weight.requires_grad
+                    )
                 else:
                     # FIXME: here we should copy frozen weights into frozen module, but this leads to grad error
-                    self.weight = torch.nn.Parameter(deserialized_weight.to(self.weight.device))
+                    self.weight = torch.nn.Parameter(
+                        deserialized_weight.to(self.weight.device), requires_grad=self.weight.requires_grad
+                    )
 
         super()._load_from_state_dict(
             state_dict, prefix, local_metadata, False, missing_keys, unexpected_keys, error_msgs
