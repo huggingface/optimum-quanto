@@ -51,3 +51,22 @@ def test_qmodule_qtype_as_string(weights, activations):
     qlinear = QLinear(16, 64, weights=weights, activations=activations)
     assert qlinear.weight_qtype == qtypes[weights]
     assert qlinear.activation_qtype is None if activations is None else qtypes[activations]
+
+
+@pytest.mark.parametrize("requires_grad", [False, True])
+@pytest.mark.parametrize("frozen", [False, True])
+@pytest.mark.parametrize("assign", [False, True])
+def test_qmodule_load_preserves_requires_grad(requires_grad, frozen, assign):
+    source = QLinear(8, 8, weights=qint8)
+    source.freeze()
+    target = QLinear(8, 8, weights=qint8)
+    if frozen:
+        target.freeze()
+    target.requires_grad_(requires_grad)
+
+    target.load_state_dict(source.state_dict(), assign=assign)
+
+    assert target.weight.requires_grad == requires_grad
+    assert target.bias.requires_grad == requires_grad
+    assert torch.equal(target.weight, source.weight)
+    assert torch.equal(target.bias, source.bias)

@@ -38,6 +38,28 @@ def save_and_reload_state_dict(state_dict, serialization):
         return torch.load(b, weights_only=weights_only)
 
 
+@pytest.mark.parametrize("weights", [qint4, qint8])
+@pytest.mark.parametrize("initial_device", ["cpu", "meta"])
+@pytest.mark.parametrize("gradient_flags", [(False, False), (False, True), (True, True)])
+def test_requantize_preserves_requires_grad(weights, initial_device, gradient_flags):
+    source = torch.nn.Sequential(torch.nn.Linear(8, 8), torch.nn.LayerNorm(8))
+    quantize(source, weights=weights, include="0")
+    freeze(source)
+    target = torch.nn.Sequential(
+        torch.nn.Linear(8, 8, device=initial_device), torch.nn.LayerNorm(8, device=initial_device)
+    )
+    for module, requires_grad in zip(target, gradient_flags):
+        module.requires_grad_(requires_grad)
+    expected = {name: param.requires_grad for name, param in target.named_parameters()}
+
+    requantize(target, source.state_dict(), quantization_map(source))
+
+    assert {name: param.requires_grad for name, param in target.named_parameters()} == expected
+    for name, param in target.named_parameters():
+        assert param.device.type == "cpu"
+        assert torch.equal(param, source.get_parameter(name))
+
+
 @pytest.mark.parametrize(
     "input_features, hidden_features, output_features",
     [(32, 10, 128), (1024, 1024, 1024)],

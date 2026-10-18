@@ -130,7 +130,7 @@ def requantize(
             return t.to(device)
 
         for name, param in m.named_parameters(recurse=False):
-            setattr(m, name, torch.nn.Parameter(move_tensor(param, "cpu")))
+            setattr(m, name, torch.nn.Parameter(move_tensor(param, "cpu"), requires_grad=param.requires_grad))
         for name, param in m.named_buffers(recurse=False):
             setattr(m, name, move_tensor(param, "cpu"))
 
