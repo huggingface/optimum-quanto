@@ -72,6 +72,24 @@ def test_qactivation_cat(input_shape, device):
     assert_similar(torch.cat([qinputs.dequantize(), qother.dequantize()]), qcat)
 
 
+@pytest.mark.parametrize("input_shape", [(10,), (10, 32)])
+def test_qactivation_stack(input_shape, device):
+    qinputs = random_qactivation(input_shape, dtype=torch.float32).to(device)
+    other = random_tensor(input_shape, dtype=torch.float32).to(device)
+    # Quantized tensors with the same scale are stacked without dequantization
+    qother = quantize_activation(other, qtype=qinputs.qtype, scale=qinputs._scale)
+    qstack = torch.stack([qinputs, qother])
+    assert isinstance(qstack, ActivationQBytesTensor)
+    assert_similar(torch.stack([qinputs.dequantize(), qother.dequantize()]), qstack)
+    # Other combinations fall back to stacking the dequantized tensors
+    qother = quantize_activation(other, qtype=qinputs.qtype, scale=qinputs._scale * 2)
+    for inputs in [[qinputs, qother], [qinputs, other], [qinputs, qinputs, qinputs]]:
+        stacked = torch.stack(inputs)
+        assert not isinstance(stacked, ActivationQBytesTensor)
+        expected = torch.stack([t.dequantize() if isinstance(t, ActivationQBytesTensor) else t for t in inputs])
+        assert torch.equal(stacked, expected)
+
+
 def test_qactivation_split(device):
     qinputs = random_qactivation((10, 3), dtype=torch.float32).to(device)
     parts = torch.split(qinputs, 4)

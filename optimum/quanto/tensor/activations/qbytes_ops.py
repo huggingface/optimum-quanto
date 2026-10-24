@@ -230,7 +230,7 @@ def stack(op, inputs, dim=0):
         ):
             out_data = op([t1._data, t2._data], dim)
             return ActivationQBytesTensor(t1.qtype, out_data.size(), out_data.stride(), out_data, t1._scale)
-    return qfallback(inputs, dim)
+    return qfallback(op, inputs, dim)
 
 
 @register_qbytestensor_op([torch.ops.aten.split])
