@@ -69,6 +69,33 @@ def test_symmetric_quantize_float8(input_shape, dtype, qtype, axis, device):
     assert_similar(a, data.to(dtype) * scale, atol=5e-3)
 
 
+@pytest.mark.parametrize(
+    "qtype",
+    [qint8, qfloat8_e4m3fn, qfloat8_e4m3fnuz, qfloat8_e5m2],
+    ids=["qint8", "qfloat8_e4m3fn", "qfloat8_e4m3fnuz", "qfloat8_e5m2"],
+)
+@pytest.mark.parametrize(
+    "axis",
+    [None, 0, -1],
+    ids=["per-tensor", "first-axis", "last-axis"],
+)
+def test_symmetric_quantize_zero_range(qtype, axis, device):
+    """This test verifies that an all-zero range is quantized to zero and not to NaN."""
+    if device.type == "mps" and qtype.is_floating_point:
+        pytest.skip("Float8 are not supported on MPS device")
+    a = random_tensor((32, 32), dtype=torch.float32).to(device)
+    if axis is None:
+        a = torch.zeros_like(a)
+    else:
+        # Only the first slice along the quantization axis is all-zero
+        a.select(axis, 0).zero_()
+    scale = absmax_scale(a, qtype=qtype, axis=axis)
+    data = torch.ops.quanto.quantize_symmetric(a, dtype=qtype.dtype, axis=axis, scale=scale)
+    qa = data.to(torch.float32) * scale
+    assert not torch.any(torch.isnan(qa))
+    assert torch.equal(qa[a == 0], a[a == 0])
+
+
 @pytest.mark.parametrize("input_shape", [(32, 32), (32, 10, 32)])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32], ids=["fp16", "fp32"])
 @pytest.mark.parametrize("qtype", [qint2, qint4], ids=["qint2", "qint4"])
