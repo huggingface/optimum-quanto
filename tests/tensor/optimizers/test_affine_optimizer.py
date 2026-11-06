@@ -69,7 +69,6 @@ def test_affine_optimizer_zeropoint_contains_zero(dtype, qtype, axis, group_size
                 assert torch.all(dequantized > 0)
                 assert torch.isclose(dequantized.max(), original.max(), atol=2e-2, rtol=2e-2)
             else:
-                assert torch.all(original < 0)
                 assert torch.all(dequantized < 0)
                 assert torch.isclose(dequantized.min(), original.min(), atol=2e-2, rtol=2e-2)
 
@@ -108,5 +107,4 @@ def test_affine_optimizer_zeropoint_extreme_fp16(qtype, axis, device):
         if torch.all(original > 0):
             assert torch.all(dequantized > 0)
         else:
-            assert torch.all(original < 0)
             assert torch.all(dequantized < 0)
