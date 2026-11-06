@@ -16,7 +16,7 @@ import pytest
 import torch
 from helpers import assert_similar, random_qactivation, random_qweight, random_tensor
 
-from optimum.quanto import qint2, qint4, qint8
+from optimum.quanto import qint2, qint4, qint8, qtypes
 
 
 @pytest.mark.parametrize("batch_size", [1, 10])
@@ -71,3 +71,29 @@ def test_linear_bf16_int4(batch_size, tokens, embeddings, use_bias, device):
     qout = torch.nn.functional.linear(inputs, qweight, bias)
     out = torch.nn.functional.linear(inputs, qweight.dequantize(), bias)
     assert_similar(out, qout)
+
+
+@pytest.mark.parametrize("activation_qtype", [qint8, qtypes["qfloat8_e4m3fn"]])
+def test_linear_fp16_scale_underflow(activation_qtype, device):
+    if device.type == "mps" and activation_qtype.is_floating_point:
+        pytest.skip("Float8 is not supported on MPS")
+    g = torch.Generator(device=device).manual_seed(0)
+    rows = torch.tensor([0.01, 0.02, 0.03, 0.05, 0.1, 0.2, 0.5, 1.0], device=device)
+    w = torch.randn(8, 1024, generator=g, device=device)
+    w = w / w.abs().amax(1, keepdim=True) * rows.view(8, 1)
+    x = (torch.randn(32, 1024, generator=g, device=device) / 30.0).half()
+
+    from optimum.quanto import Calibration, freeze, quantize
+
+    m = torch.nn.Sequential(torch.nn.Linear(1024, 8, bias=False)).half().to(device)
+    m[0].weight.data.copy_(w)
+    quantize(m, weights=qint8, activations=activation_qtype)
+    with Calibration():
+        m(x)
+    freeze(m)
+    with torch.no_grad():
+        y = m(x)
+
+    # Ensure no output column underflows to all zeros
+    assert not (y == 0).all(dim=0).any(), f"Zero columns detected for activation {activation_qtype.name}"
+    assert y.dtype == torch.float16

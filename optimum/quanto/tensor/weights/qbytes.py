@@ -70,7 +70,10 @@ class WeightQBytesLinearFunction(QuantizedLinearFunction):
     def forward(ctx, input, other, bias=None):
         ctx.save_for_backward(input, other)
         if isinstance(input, QBytesTensor):
-            output = torch.ops.quanto.qbytes_mm(input._data, other._data, input._scale * other._scale)
+            output = torch.ops.quanto.qbytes_mm(
+                input._data, other._data, input._scale.float() * other._scale.float()
+            )
+            output = output.to(input._scale.dtype)
         else:
             in_features = input.shape[-1]
             out_features = other.shape[0]
