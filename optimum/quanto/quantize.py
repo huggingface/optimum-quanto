@@ -101,7 +101,7 @@ def quantize(
 def requantize(
     model: torch.nn.Module,
     state_dict: Dict[str, Any],
-    quantization_map: Dict[str, Dict[str, str]],
+    quantization_map: Dict[str, Dict[str, Union[str, bool]]],
     device: torch.device = None,
 ):
     if device is None:
@@ -120,6 +120,9 @@ def requantize(
             if activations == "none":
                 activations = None
             _quantize_submodule(model, name, m, weights=weights, activations=activations)
+            if not qconfig.get("quantize_output", True):
+                # Output quantization was disabled during calibration (streamline)
+                model.get_submodule(name).disable_output_quantization()
 
     # Move model parameters and buffers to CPU before materializing quantized weights
     for name, m in model.named_modules():
@@ -146,13 +149,16 @@ def freeze(model):
             m.freeze()
 
 
-def quantization_map(model: torch.nn.Module) -> Dict[str, Dict[str, str]]:
+def quantization_map(model: torch.nn.Module) -> Dict[str, Dict[str, Union[str, bool]]]:
     """Returns the quantization map of a module
 
     The quantization map is a dictionary of quantization parameters indexed
     by the module submodule names (including prefix).
 
     This is mainly used for serialization.
+
+    When calibration disabled the output quantization of a module, its entry also
+    contains `"quantize_output": False`.
 
     Args:
         model (`torch.nn.Module`): the root module to map.
@@ -167,4 +173,6 @@ def quantization_map(model: torch.nn.Module) -> Dict[str, Dict[str, str]]:
                 "weights": "none" if m.weight_qtype is None else m.weight_qtype.name,
                 "activations": "none" if m.activation_qtype is None else m.activation_qtype.name,
             }
+            if m.activation_qtype is not None and "output" not in m._quantize_hooks:
+                config[name]["quantize_output"] = False
     return config

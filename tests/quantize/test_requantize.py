@@ -58,7 +58,7 @@ def test_requantize_serialized_model(
             model(inputs)
     freeze(model)
     qmap = quantization_map(model)
-    model_reloaded = MLP(input_features, hidden_features, output_features).to(device)
+    model_reloaded = MLP(input_features, hidden_features, output_features).to(dtype).to(device)
     state_dict = save_and_reload_state_dict(model.state_dict(), serialization)
     requantize(model_reloaded, state_dict, qmap)
     for name, module in model.named_modules():
@@ -69,6 +69,8 @@ def test_requantize_serialized_model(
             assert module_reloaded.activation_qtype == module.activation_qtype
             assert torch.equal(module_reloaded.input_scale, module.input_scale)
             assert torch.equal(module_reloaded.output_scale, module.output_scale)
+    # The reloaded model must produce the same outputs as the serialized one
+    assert torch.equal(model_reloaded(inputs), model(inputs))
 
 
 @pytest.mark.skip_device("cpu")

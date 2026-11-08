@@ -142,7 +142,7 @@ class QModuleMixin(ABC):
 
     def disable_output_quantization(self):
         if "output" in self._quantize_hooks:
-            self._quantize_hooks["output"].remove()
+            self._quantize_hooks.pop("output").remove()
 
     def _save_to_state_dict(self, destination, prefix, keep_vars):
         if self.weight_qtype is None or not self.frozen:
