@@ -18,6 +18,7 @@ from helpers import assert_similar, device_eq, random_qweight, random_tensor
 from packaging import version
 
 from optimum.quanto import qint4
+from optimum.quanto.nn import QLinear
 from optimum.quanto.tensor.weights import WeightQBitsTensor
 from optimum.quanto.tensor.weights.tinygemm import TinyGemmWeightQBitsTensor
 
@@ -124,4 +125,48 @@ def test_tinygemm_weight_qbits_tensor_linear(batch_size, tokens, embeddings, use
     bias = random_tensor((tokens,), dtype=dtype).to(device) if use_bias else None
     qout = torch.nn.functional.linear(inputs, tinygemm_qweight, bias)
     out = torch.nn.functional.linear(inputs, qbt.dequantize(), bias)
+    assert_similar(out, qout)
+
+
+def _skip_if_tinygemm_unavailable(device):
+    if device.type == "cuda":
+        if torch.version.hip:
+            pytest.skip(reason="TinyGemm not available for ROCm devices")
+        if version.parse(torch.version.cuda).release < (12, 1):
+            pytest.skip(reason="CUDA runtime must be at least 12.1")
+        if torch.cuda.get_device_capability()[0] < 8:
+            pytest.skip(reason="CUDA device >= sm80 not available")
+
+
+@pytest.mark.skip_device("mps")
+def test_tinygemm_weight_qbits_tensor_linear_strided_input(device):
+    _skip_if_tinygemm_unavailable(device)
+    qbt = random_qweight((256, 256), qint4, torch.bfloat16, group_size=128, device=device)
+    tinygemm_qweight = TinyGemmWeightQBitsTensor(
+        qtype=qbt.qtype,
+        axis=qbt.axis,
+        group_size=qbt._group_size,
+        size=qbt.size(),
+        stride=qbt.stride(),
+        data=qbt._data.unpack(),
+        scale_shift=(qbt._scale, qbt._shift),
+    )
+    # First-token pooling (hidden_states[:, 0]) passes a strided view to the layer.
+    inputs = torch.rand((8, 3, 256), dtype=torch.bfloat16, device=device)[:, 0]
+    assert not inputs.is_contiguous()
+    qout = torch.nn.functional.linear(inputs, tinygemm_qweight)
+    torch.testing.assert_close(qout, torch.nn.functional.linear(inputs.contiguous(), tinygemm_qweight))
+
+
+@pytest.mark.skip_device("mps")
+@pytest.mark.parametrize("out_features", [2, 12])
+def test_tinygemm_not_used_for_unsupported_out_features(out_features, device):
+    _skip_if_tinygemm_unavailable(device)
+    linear = torch.nn.Linear(256, out_features).to(device, torch.bfloat16)
+    qlinear = QLinear.from_module(linear, weights=qint4)
+    qlinear.freeze()
+    assert not isinstance(qlinear.weight, TinyGemmWeightQBitsTensor)
+    inputs = torch.rand((4, 256), dtype=torch.bfloat16, device=device)
+    qout = qlinear(inputs)
+    out = torch.nn.functional.linear(inputs, qlinear.weight.dequantize(), qlinear.bias)
     assert_similar(out, qout)

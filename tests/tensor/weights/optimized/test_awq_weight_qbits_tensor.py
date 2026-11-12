@@ -128,3 +128,26 @@ def test_awq_weight_qbits_tensor_linear(batch_size, tokens, in_features, out_fea
     _test_awq_weight_qbits_tensor_linear(
         dtype, weight_qtype, group_size, batch_size, tokens, in_features, out_features, use_bias
     )
+
+
+@pytest.mark.skipif(
+    not is_extension_available("quanto_cuda") or torch.cuda.get_device_capability()[0] < 8,
+    reason="The test requires CUDA device >= sm80",
+)
+def test_awq_weight_qbits_tensor_linear_strided_input():
+    qbt = random_qweight((256, 256), qint4, torch.float16, group_size=128, device=torch.device(0))
+    awq_qweight = AWQWeightQBitsTensor(
+        qtype=qbt.qtype,
+        axis=qbt.axis,
+        group_size=qbt._group_size,
+        size=qbt.size(),
+        stride=qbt.stride(),
+        data=qbt._data.unpack(),
+        scale=qbt._scale,
+        shift=qbt._shift,
+    )
+    # First-token pooling (hidden_states[:, 0]) passes a strided view to the layer.
+    inputs = torch.rand((8, 3, 256), dtype=torch.float16, device=torch.device(0))[:, 0]
+    assert not inputs.is_contiguous()
+    qout = torch.nn.functional.linear(inputs, awq_qweight)
+    torch.testing.assert_close(qout, torch.nn.functional.linear(inputs.contiguous(), awq_qweight))

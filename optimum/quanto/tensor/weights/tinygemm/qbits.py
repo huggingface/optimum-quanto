@@ -45,6 +45,8 @@ class TinyGemmQBitsLinearFunction(QuantizedLinearFunction):
         ctx.save_for_backward(input, other)
         if type(input) is not torch.Tensor:
             input = input.dequantize()
+        # The kernel reads the activations through a raw pointer and assumes a dense layout.
+        input = input.contiguous()
         in_features = input.shape[-1]
         out_features = other.shape[0]
         output_shape = input.shape[:-1] + (out_features,)

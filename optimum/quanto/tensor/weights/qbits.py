@@ -123,6 +123,8 @@ class WeightQBitsTensor(QBitsTensor):
             and axis == 0
             and group_size == 128
             and len(size) == 2
+            # torch._weight_int4pack_mm only supports a number of output features that is a multiple of 8
+            and size[0] % 8 == 0
         ):
             if data.device.type == "cpu" or (
                 (data.device.type == "cuda" and torch.version.cuda)

@@ -148,3 +148,26 @@ def test_marlin_int4_weight_qbits_tensor_linear_failing(batch_size, tokens, in_f
     _test_marlin_int4_weight_qbits_tensor_linear(
         dtype, weight_qtype, group_size, batch_size, tokens, in_features, out_features, use_bias=False
     )
+
+
+@pytest.mark.skipif(
+    not is_extension_available("quanto_cuda") or torch.cuda.get_device_capability()[0] < 8,
+    reason="CUDA >= sm80 not available",
+)
+def test_marlin_int4_weight_qbits_tensor_linear_strided_input():
+    qbt = random_qweight((1024, 1024), qint4, torch.float16, group_size=128, device=torch.device("cuda"))
+    marlin_qweight = MarlinInt4WeightQBitsTensor(
+        qtype=qbt.qtype,
+        axis=qbt.axis,
+        group_size=qbt._group_size,
+        size=qbt.size(),
+        stride=qbt.stride(),
+        data=qbt._data.unpack(),
+        scale=qbt._scale,
+        shift=qbt._shift,
+    )
+    # First-token pooling (hidden_states[:, 0]) passes a strided view to the layer.
+    inputs = torch.rand((8, 3, 1024), dtype=torch.float16, device=torch.device("cuda"))[:, 0]
+    assert not inputs.is_contiguous()
+    qout = torch.nn.functional.linear(inputs, marlin_qweight)
+    torch.testing.assert_close(qout, torch.nn.functional.linear(inputs.contiguous(), marlin_qweight))

@@ -56,6 +56,8 @@ class MarlinQBitsLinearFunction(QuantizedLinearFunction):
         ctx.save_for_backward(input, other)
         if type(input) is not torch.Tensor:
             input = input.dequantize()
+        # The kernel reads the activations through a raw pointer and assumes a dense layout.
+        input = input.contiguous()
         out_features, in_features = other.shape
         output = torch.ops.quanto.gemm_f16i4_marlin(
             input,
