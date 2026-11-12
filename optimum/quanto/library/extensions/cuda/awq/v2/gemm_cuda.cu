@@ -944,7 +944,9 @@ torch::Tensor awq_v2_gemm_f16i4(
   int num_out_channels = _out_feats.size(-1);
   auto out_feats = reinterpret_cast<half *>(_out_feats.data_ptr<at::Half>());
 
-  if (num_out_feats <= 32)
+  // SPLITK = 2 splits the K dimension into two halves made of whole CTA_K = 128 tiles,
+  // so it is only valid when the number of input channels is a multiple of 256.
+  if (num_out_feats <= 32 && num_in_channels % 256 == 0)
   {
     constexpr int G = 128;
     constexpr int CTA_M = 16;

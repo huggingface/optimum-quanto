@@ -99,8 +99,9 @@ __global__ void gemv_kernel(
     for (int i = 0; i < Num; ++i)
         psum[i] = __float2half(0.f);
 
-    extern __shared__ uint8_t shmem[];
-    float(*out_smem)[Num * kInterleave] = reinterpret_cast<float(*)[Num * kInterleave]>(shmem);
+    // The kernels are launched without dynamic shared memory, so this buffer must be static
+    // (same fix as upstream llm-awq); it is larger than 1 KB for batch sizes above 4.
+    __shared__ float out_smem[BlockSize / WARP_SIZE * 2][Num * kInterleave];
 
     const int blk_row_offset = blockIdx.x * NPerBlock * kInterleave;
     const int thd_row_offset = (threadIdx.x / kThreadsNumPerTile) % kInterleave;

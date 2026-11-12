@@ -54,8 +54,10 @@ def test_qbytes_mm(batch_size, input_features, input_dtype, weight_dtype, output
     and not torch.xpu.is_available(),
     reason="The test requires CUDA device >= sm80 or Intel XPU",
 )
-@pytest.mark.parametrize("in_features, out_features", [(256, 256), (512, 256)])
-@pytest.mark.parametrize("batch_size, tokens", [(4, 1), (10, 128)], ids=["gemv", "gemm"])
+@pytest.mark.parametrize("in_features, out_features", [(256, 256), (384, 256), (512, 256)])
+@pytest.mark.parametrize(
+    "batch_size, tokens", [(4, 1), (7, 1), (16, 1), (10, 128)], ids=["gemv", "gemv-7", "gemm-splitk", "gemm"]
+)
 def test_gemm_fp16_int4(batch_size, tokens, in_features, out_features):
     """This test verifies that the GEMM operation is equivalent to torch.mm."""
     bits = 4
