@@ -17,6 +17,7 @@ import torch
 
 from optimum.quanto import qfloat8_e4m3fn
 from optimum.quanto.library.extensions import is_extension_available
+from optimum.quanto.nn import QLinear
 from optimum.quanto.tensor.weights.marlin import MarlinF8QBytesTensor
 
 
@@ -45,3 +46,30 @@ def test_pack_unpack(in_features: int, out_features: int):
     data_dequantized = marlin_tensor.dequantize()
 
     assert torch.all((data.to(torch.float16) * scale - data_dequantized).abs() < 1e-4)
+
+
+@pytest.mark.skipif(
+    not is_extension_available("quanto_cuda") or torch.cuda.get_device_capability()[0] < 8,
+    reason="CUDA >= sm80 not available",
+)
+@pytest.mark.parametrize("batch_size", [1, 8])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16], ids=["fp16", "bf16"])
+def test_marlin_fp8_linear_bias_and_strided_input(batch_size, dtype):
+    in_features, out_features = 256, 128
+    linear = torch.nn.Linear(in_features, out_features, bias=True).to("cuda", dtype)
+    torch.nn.init.normal_(linear.bias)
+    qlinear = QLinear.from_module(linear, weights=qfloat8_e4m3fn)
+    qlinear.freeze()
+    assert isinstance(qlinear.weight, MarlinF8QBytesTensor)
+
+    x = torch.randn(batch_size, in_features, dtype=dtype, device="cuda")
+    with torch.no_grad():
+        out = qlinear(x)
+        ref = torch.nn.functional.linear(x, qlinear.weight.dequantize(), qlinear.bias)
+    torch.testing.assert_close(out, ref, rtol=2e-2, atol=2e-2)
+
+    # A non-contiguous view with the same values must give the same result.
+    x_strided = torch.stack([x, x], dim=-1)[..., 0]
+    assert not x_strided.is_contiguous()
+    with torch.no_grad():
+        torch.testing.assert_close(qlinear(x_strided), out)

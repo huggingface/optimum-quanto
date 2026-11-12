@@ -33,6 +33,7 @@ class MarlinF8QBytesLinearFunction(QuantizedLinearFunction):
 
         if input.ndim > 2:
             input = input.reshape(-1, input_shape[-1])
+        input = input.contiguous()
 
         output = torch.ops.quanto.gemm_f16f8_marlin(
             input,
@@ -44,6 +45,8 @@ class MarlinF8QBytesLinearFunction(QuantizedLinearFunction):
             size_n=other._scale.shape[1],
             size_k=input.shape[1],
         )
+        if bias is not None:
+            output = output + bias
 
         if len(input_shape) > 2:
             output = output.reshape(input_shape[:-1] + (other._scale.shape[1],))
