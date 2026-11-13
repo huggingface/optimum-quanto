@@ -1,0 +1,69 @@
+name: Check use case
+
+on:
+  # pull_request_target gives a token that can comment on and close pull requests from forks.
+  # The job never checks out or runs the pull request code: it only reads the description.
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions: {}
+
+jobs:
+  check-use-case:
+    permissions:
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            // The pull request author on "opened", whoever reopened it on "reopened".
+            const sender = context.payload.sender;
+
+            if (sender.type === 'Bot') {
+              core.info(`Skipping: ${sender.login} is a bot.`);
+              return;
+            }
+            const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+              ...context.repo,
+              username: sender.login,
+            });
+            if (['admin', 'write'].includes(data.permission)) {
+              core.info(`Skipping: ${sender.login} has ${data.permission} access.`);
+              return;
+            }
+
+            // Text under the "Use case" heading, without the template's HTML comments.
+            const lines = (pr.body ?? '').replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/);
+            const start = lines.findIndex((line) => /^#+\s*use[ -]?cases?\b/i.test(line.trim()));
+            const rest = start === -1 ? [] : lines.slice(start + 1);
+            const end = rest.findIndex((line) => /^#+\s/.test(line.trim()));
+            const useCase = rest.slice(0, end === -1 ? rest.length : end).join('\n').trim();
+            if (useCase) {
+              core.info('The description has a use case.');
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: pr.number,
+              body: [
+                'This pull request was closed because its description has no `## Use case` section.',
+                '',
+                '`optimum-quanto` is in maintenance mode. We only review pull requests from people who use the library and need the change. In the `## Use case` section, tell us:',
+                '',
+                '- what you build with `optimum-quanto` (models, hardware, framework),',
+                '- what fails or what is missing for you,',
+                '- a link to the project, model or code that uses `optimum-quanto`, if it is public.',
+                '',
+                'Add the section to the description, then leave a comment here. A maintainer will read it and decide whether to reopen this pull request.',
+                '',
+                'See [Maintenance mode](https://github.com/huggingface/optimum-quanto/blob/main/CONTRIBUTING.md#maintenance-mode) in the contributing guide.',
+              ].join('\n'),
+            });
+            await github.rest.pulls.update({
+              ...context.repo,
+              pull_number: pr.number,
+              state: 'closed',
+            });
