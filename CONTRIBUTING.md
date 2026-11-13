@@ -29,6 +29,18 @@ However you choose to contribute, please be mindful and respect our
 
 **This guide is directly inspired by [transformers guide to contributing](https://github.com/huggingface/transformers/blob/main/CONTRIBUTING.md).**
 
+## Maintenance mode
+
+`optimum-quanto` is in maintenance mode. We only review pull requests from people who use the library and need the change.
+
+Every pull request must have a `## Use case` section in its description (the pull request template has one). It explains:
+
+* what you build with `optimum-quanto` (models, hardware, framework),
+* what fails or what is missing for you,
+* a link to the project, model or code that uses `optimum-quanto`, if it is public.
+
+Pull requests without this section are closed automatically. A maintainer may still close a pull request if its use case does not show a real use of the library.
+
 ## Ways to contribute
 
 There are several ways you can contribute:
@@ -41,7 +53,7 @@ There are several ways you can contribute:
 
 ## Fixing outstanding issues
 
-If you notice an issue with the existing code and have a fix in mind, feel free to [start contributing](https://github.com/huggingface/optimum-quanto/blob/main/CONTRIBUTING.md/#create-a-pull-request) and open a Pull Request!
+If you hit an issue with the existing code while using `optimum-quanto` and have a fix in mind, [start contributing](https://github.com/huggingface/optimum-quanto/blob/main/CONTRIBUTING.md/#create-a-pull-request) and open a Pull Request that explains your use case (see [Maintenance mode](#maintenance-mode)).
 
 ## Submitting a bug-related issue or feature request
 
@@ -58,6 +70,7 @@ already reported** (use the search bar on GitHub under Issues). Your issue shoul
 
 Once you've confirmed the bug hasn't already been reported, please include the following information in your issue so we can quickly resolve it:
 
+* How you use `optimum-quanto`, and how the bug affects you.
 * Your **OS type and version** and **Python** and **PyTorch** versions.
 * A short, self-contained, code snippet that allows us to reproduce the bug in
   less than 30s.
@@ -189,6 +202,7 @@ You'll need **Python 3.9** or above to contribute. Follow the steps below to sta
 
 ### Pull request checklist
 
+☐ The pull request description has a `## Use case` section (see [Maintenance mode](#maintenance-mode)).<br>
 ☐ The pull request title should summarize your contribution.<br>
 ☐ If your pull request addresses an issue, please mention the issue number in the pull
 request description to make sure they are linked (and people viewing the issue know you
